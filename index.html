@@ -397,9 +397,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     for (const clef of clefs) {
       const b = L.staves[clef];
       for (let i = 0; i < 5; i++) out += `<line class="staffline" x1="16" x2="344" y1="${b - i * SP}" y2="${b - i * SP}"/>`;
-      // Schlüssel-Umrisse: Einheiten = 1/1000 Systemhöhe, Nullpunkt auf der untersten Linie
+      // Schlüssel-Umrisse: Einheiten = 1/1000 Systemhöhe, Nullpunkt auf der untersten Linie;
+      // der Bassschlüssel wird angehoben, damit seine Punkte die F-Linie einschließen
       const k = SP * 4 / 1000;
-      out += `<path class="clef" d="${clef === 'treble' ? TREBLE_PATH : BASS_PATH}" transform="translate(${clef === 'treble' ? 20 : 22} ${b}) scale(${k} ${-k})"/>`;
+      out += `<path class="clef" d="${clef === 'treble' ? TREBLE_PATH : BASS_PATH}" transform="translate(${clef === 'treble' ? 20 : 22} ${clef === 'treble' ? b : b - 106 * k}) scale(${k} ${-k})"/>`;
       out += `<line class="barline" x1="344" x2="344" y1="${b - 4 * SP}" y2="${b}"/>`;
     }
     if (clefs.length === 2) {
