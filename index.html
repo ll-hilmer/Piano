@@ -191,6 +191,7 @@ button:focus-visible, input:focus-visible + label { outline: 3px solid var(--acc
 .bk {
   position: absolute; top: 0; height: 62%;
   background: var(--key-black);
+  box-shadow: inset 0 0 0 1.5px var(--key-black);
   border: 0;
   border-radius: 0 0 4px 4px;
   z-index: 2;
@@ -243,6 +244,23 @@ legend { font-size: 0.85rem; font-weight: 600; padding: 0; margin-bottom: 6px; }
 .tips { margin: 0; padding-left: 1.1em; color: var(--muted); font-size: 0.9rem; display: grid; gap: 4px; max-width: 70ch; }
 kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--ink); }
 
+.answer { display: grid; gap: 10px; }
+.acc { fill: currentColor; }
+.is-good .acc { fill: var(--good); }
+.is-bad .acc { fill: var(--bad); }
+.mods { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mods button {
+  min-width: 52px; padding: 4px 14px; font-size: 1.35rem; line-height: 1.3;
+  background: var(--card); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 10px;
+}
+.mods button.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.mods .hint { font-size: 0.85rem; color: var(--muted); }
+.names button.sel { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.wk.sel, .bk.sel { background: var(--accent); }
+.wk.sel { color: #fff; }
+.selbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; font-size: 0.92rem; }
+.selbar span span { color: var(--muted); }
+
 @media (max-width: 480px) {
   .names { gap: 5px; }
   .names button { font-size: 1.15rem; padding-block: 12px; }
@@ -255,7 +273,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   <header>
     <div>
       <h1>Notenleser</h1>
-      <p class="tagline">Erkenne die Note, so schnell du kannst.</p>
+      <p class="tagline" id="tagline">Erkenne die Note, so schnell du kannst.</p>
     </div>
     <div class="stats" aria-live="polite">
       <div class="stat"><b id="s-correct">0 / 0</b><span>Richtig</span></div>
@@ -275,9 +293,14 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     <div class="overlay" id="overlay" hidden></div>
   </section>
 
-  <section aria-label="Antwort">
+  <section class="answer" aria-label="Antwort">
+    <div class="mods" id="mods" hidden></div>
     <div class="names" id="names"></div>
     <div class="piano-scroll" id="piano-wrap" hidden><div class="piano" id="piano"></div></div>
+    <div class="selbar" id="selbar" hidden>
+      <span id="seltext"></span>
+      <button class="link" id="selclear" type="button">Auswahl löschen</button>
+    </div>
   </section>
 
   <section class="panel" aria-labelledby="h-settings">
@@ -287,11 +310,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   <section class="panel" aria-labelledby="h-hard">
     <div class="row">
-      <h2 id="h-hard">Deine schwierigsten Noten</h2>
+      <h2 id="h-hard">Das fällt dir schwer</h2>
       <button class="link danger" id="reset" type="button">Statistik löschen</button>
     </div>
     <div class="hard" id="hard"></div>
-    <p class="muted">Noten, bei denen du oft danebenliegst, kommen automatisch häufiger dran.</p>
+    <p class="muted">Noten und Akkorde, bei denen du oft danebenliegst, kommen automatisch häufiger dran.</p>
   </section>
 
   <section class="panel" aria-labelledby="h-tips">
@@ -300,8 +323,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende.</li>
       <li>Beginne mit <b>Im System</b> und einem Schlüssel. Wechsle zu <b>Mit Hilfslinien</b>, wenn du fast immer richtig liegst.</li>
       <li>Merkhilfen: Linien im Violinschlüssel von unten <b>E G H D F</b>, im Bassschlüssel <b>G H D F A</b>.</li>
-      <li>Mit <b>Klaviertaste</b> übst du, die Note auch auf der Tastatur zu finden. Dann zählt die richtige Oktave.</li>
-      <li>Am Computer kannst du die Tasten <kbd>C</kbd> <kbd>D</kbd> <kbd>E</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>A</kbd> <kbd>H</kbd> tippen. Ein angeschlossenes MIDI-Keyboard funktioniert in Chrome und Edge.</li>
+      <li>Vorzeichen: ♯ erhöht und hängt <b>-is</b> an (Fis), ♭ erniedrigt und hängt <b>-es</b> an (Des). Ausnahmen: <b>Es</b>, <b>As</b> und <b>B</b> (das erniedrigte H).</li>
+      <li>Akkorde liest du am schnellsten von unten: Liegen die Noten alle auf Linien oder alle in Zwischenräumen, ist es ein Dreiklang in Grundstellung. Mit <b>Mit Hilfslinien</b> kommen auch Umkehrungen dazu.</li>
+      <li>Mit <b>Klaviertaste</b> übst du, die Noten auf der Tastatur zu finden. Dann zählt die richtige Oktave, und Cis und Des sind dieselbe Taste.</li>
+      <li>Am Computer kannst du <kbd>C</kbd> <kbd>D</kbd> <kbd>E</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>A</kbd> <kbd>H</kbd> tippen, vorher <kbd>#</kbd> für ♯ oder <kbd>-</kbd> für ♭. Ein angeschlossenes MIDI-Keyboard funktioniert in Chrome und Edge.</li>
     </ul>
   </section>
 </div>
@@ -309,7 +334,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 <script>
 (() => {
   // ---------- Musik-Grundlagen ----------
-  // Eine Note ist ein "Stufe"-Wert: Oktave * 7 + Buchstabe (C=0 … H=6). C4 (eingestrichenes c) = 28.
+  // Eine Notenposition ist eine "Stufe": Oktave * 7 + Stammton (C=0 … H=6). C4 (eingestrichenes c) = 28.
+  // Eine Note ist { step, acc } mit acc = -1 (♭), 0 oder 1 (♯).
   const LETTERS = { de: ['C','D','E','F','G','A','H'], en: ['C','D','E','F','G','A','B'] };
   const SOLFEGE = ['do','re','mi','fa','sol','la','si'];
   const SEMI = [0, 2, 4, 5, 7, 9, 11];
@@ -319,11 +345,35 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     bass:   { 1: [17, 27], 2: [13, 31] }             // F2–H3  |  H1–F4
   };
   const CLEF_NAME = { treble: 'Violinschlüssel', bass: 'Bassschlüssel' };
+  const SHARPABLE = [0, 1, 3, 4, 5];                 // Cis Dis Fis Gis Ais
+  const FLATTABLE = [1, 2, 4, 5, 6];                 // Des Es Ges As B
+  const RARE = ['2:1', '6:1', '0:-1', '3:-1'];       // Eis His Ces Fes kommen nicht vor
   const letterOf = s => ((s % 7) + 7) % 7;
   const octOf = s => Math.floor(s / 7);
-  const midiOf = s => (octOf(s) + 1) * 12 + SEMI[letterOf(s)];
-  const nameOf = s => LETTERS[settings.names][letterOf(s)];
-  const fullName = s => nameOf(s) + octOf(s);
+  const midiOf = (s, acc = 0) => (octOf(s) + 1) * 12 + SEMI[letterOf(s)] + acc;
+  const noteMidi = n => midiOf(n.step, n.acc);
+
+  function pitchName(letter, acc, lower) {
+    let n;
+    if (settings.names === 'de') {
+      const L = LETTERS.de[letter];
+      if (acc === 1) n = L + 'is';
+      else if (acc === -1) n = letter === 6 ? 'B' : letter === 2 ? 'Es' : letter === 5 ? 'As' : L + 'es';
+      else n = L;
+      if (lower) n = n.toLowerCase();
+    } else {
+      n = LETTERS.en[letter] + (acc === 1 ? '♯' : acc === -1 ? '♭' : '');
+    }
+    return n;
+  }
+  const noteName = n => pitchName(letterOf(n.step), n.acc);
+  const fullName = n => noteName(n) + octOf(n.step);
+  // Name einer gedrückten Taste (schwarze Tasten als Kreuz-Variante)
+  function midiName(m) {
+    const pc = ((m % 12) + 12) % 12, oct = Math.floor(m / 12) - 1;
+    const i = SEMI.indexOf(pc);
+    return i >= 0 ? pitchName(i, 0) + oct : pitchName(SEMI.indexOf(pc - 1), 1) + oct;
+  }
 
   // ---------- Speicher ----------
   const KEY = 'notenleser-v1';
@@ -332,13 +382,15 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { clef: 'treble', level: '1', answer: 'names', mode: 'free', names: 'de', sound: 'on' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on' },
     store.settings
   );
 
   const SETTINGS_UI = [
+    { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde']] },
     { key: 'clef',   label: 'Schlüssel', opts: [['treble','Violin'],['bass','Bass'],['both','Beide']] },
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
+    { key: 'acc',    label: 'Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ und ♭']] },
     { key: 'answer', label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
     { key: 'mode',   label: 'Modus', opts: [['free','Frei üben'],['timed','60 Sekunden']] },
     { key: 'names',  label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
@@ -347,30 +399,87 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   // ---------- Zustand ----------
   const state = {
-    current: null, prevId: null, locked: false, shownAt: 0,
+    current: null, prevId: null, locked: false, shownAt: 0, nextTimer: null,
+    mod: 0,          // gewähltes Vorzeichen für die nächste Namens-Antwort
+    sel: [],         // Auswahl bei Akkorden (Namen "l:acc" oder MIDI-Nummern)
     correct: 0, total: 0, streak: 0, times: [],
     timed: { running: false, end: 0, score: 0, tries: 0, tick: null }
   };
 
   const $ = id => document.getElementById(id);
   const svg = $('staff');
+  const isChord = () => settings.task === 'chords';
+  const activeClefs = () => settings.clef === 'both' ? ['treble', 'bass'] : [settings.clef];
 
-  // ---------- Auswahl der nächsten Note ----------
-  function candidates() {
-    const clefs = settings.clef === 'both' ? ['treble', 'bass'] : [settings.clef];
+  // ---------- Aufgaben erzeugen ----------
+  function noteCandidates() {
     const list = [];
-    for (const clef of clefs) {
+    for (const clef of activeClefs()) {
       const [lo, hi] = RANGES[clef][settings.level];
-      for (let s = lo; s <= hi; s++) list.push({ clef, step: s, id: clef + ':' + s });
+      for (let s = lo; s <= hi; s++) {
+        const accs = [0];
+        if (settings.acc === 'on') {
+          if (SHARPABLE.includes(letterOf(s))) accs.push(1);
+          if (FLATTABLE.includes(letterOf(s))) accs.push(-1);
+        }
+        for (const acc of accs) {
+          const n = { step: s, acc };
+          list.push({ clef, notes: [n], id: `${clef}:${s}:${acc}`, label: fullName(n), base: acc ? 0.6 : 1 });
+        }
+      }
     }
     return list;
   }
-  function pickNote() {
-    const list = candidates().filter(n => n.id !== state.prevId);
+
+  // Terz und Quinte richtig geschrieben: Buchstabe wird gezählt, Halbtöne ergeben das Vorzeichen
+  function spell(root, stepsUp, semis) {
+    const step = root.step + stepsUp;
+    const acc = noteMidi(root) + semis - midiOf(step);
+    return { step, acc };
+  }
+  const INVERSIONS = ['Grundstellung', '1. Umkehrung', '2. Umkehrung'];
+  function chordName(root, q) {
+    return `${pitchName(letterOf(root.step), root.acc, q === 'min')}-${q === 'maj' ? 'Dur' : 'Moll'}`;
+  }
+  function chordCandidates() {
+    const list = [];
+    const inversions = settings.level === '2' ? [0, 1, 2] : [0];
+    for (const clef of activeClefs()) {
+      const [lo, hi] = RANGES[clef][settings.level];
+      for (let s = lo - 9; s <= hi; s++) {
+        const rootAccs = settings.acc === 'on' ? [0, 1, -1] : [0];
+        for (const racc of rootAccs) {
+          if (racc === 1 && !SHARPABLE.includes(letterOf(s))) continue;
+          if (racc === -1 && !FLATTABLE.includes(letterOf(s))) continue;
+          const root = { step: s, acc: racc };
+          for (const q of ['maj', 'min']) {
+            const third = spell(root, 2, q === 'maj' ? 4 : 3);
+            const fifth = spell(root, 4, 7);
+            const base = [root, third, fifth];
+            if (base.some(n => Math.abs(n.acc) > 1 || RARE.includes(`${letterOf(n.step)}:${n.acc}`))) continue;
+            if (settings.acc !== 'on' && base.some(n => n.acc !== 0)) continue;
+            for (const inv of inversions) {
+              const notes = base.map((n, i) => (i < inv ? { step: n.step + 7, acc: n.acc } : { ...n }))
+                .sort((a, b) => a.step - b.step);
+              if (notes[0].step < lo || notes[2].step > hi) continue;
+              const label = chordName(root, q) + (inv ? ` (${INVERSIONS[inv]})` : '');
+              list.push({ clef, notes, root, q, inv, label, base: 1,
+                id: `${clef}:chord:${notes.map(n => n.step + '.' + n.acc).join('-')}` });
+            }
+          }
+        }
+      }
+    }
+    return list;
+  }
+
+  function pickItem() {
+    const all = isChord() ? chordCandidates() : noteCandidates();
+    const list = all.length > 1 ? all.filter(n => n.id !== state.prevId) : all;
     const weights = list.map(n => {
       const st = store.notes[n.id];
-      if (!st || st.seen < 2) return 1.4;
-      return 1 + 4 * (st.wrong / st.seen);
+      if (!st || st.seen < 2) return n.base * 1.4;
+      return n.base * (1 + 4 * (st.wrong / st.seen));
     });
     let r = Math.random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < list.length; i++) { r -= weights[i]; if (r <= 0) return list[i]; }
@@ -380,8 +489,13 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   // ---------- Notensystem zeichnen ----------
   const TREBLE_PATH = 'M314 801Q300 854 291.0 906.0Q282 958 282 1012Q282 1059 288.5 1100.5Q295 1142 307 1177Q320 1217 341.0 1252.5Q362 1288 385.5 1311.0Q409 1334 427 1334Q451 1334 493 1249Q514 1206 524.0 1156.0Q534 1106 534 1049Q534 978 515.0 907.5Q496 837 459.5 775.0Q423 713 372 666L407 498Q422 500 432.0 501.0Q442 502 447 502Q508 502 556.0 467.5Q604 433 632.5 377.0Q661 321 661 254Q661 177 621.5 115.5Q582 54 503 25Q508 8 532 -117Q538 -147 541.0 -164.5Q544 -182 545.0 -195.0Q546 -208 546 -225Q546 -275 521.5 -314.5Q497 -354 455.5 -376.0Q414 -398 363 -398Q311 -398 271.0 -378.5Q231 -359 208.0 -324.5Q185 -290 185 -245Q185 -197 211.5 -165.0Q238 -133 287 -133Q329 -133 355.5 -163.5Q382 -194 382 -236Q382 -272 357.0 -299.0Q332 -326 292 -326H282Q308 -365 364 -365Q433 -365 472.0 -320.0Q511 -275 511 -205Q511 -188 507.0 -159.5Q503 -131 493 -91Q483 -51 477.5 -25.0Q472 1 470 12Q436 2 390 2Q304 2 222 52Q142 102 96.0 184.0Q50 266 50 361Q50 451 91 530Q132 609 192.5 675.0Q253 741 314 801ZM341 826Q364 838 390.0 870.5Q416 903 440.0 945.0Q464 987 479.0 1029.5Q494 1072 494 1106Q494 1142 483.0 1163.0Q472 1184 445 1184Q421 1184 398.5 1162.0Q376 1140 358.5 1103.5Q341 1067 331.0 1022.0Q321 977 321 930Q321 898 327.5 872.0Q334 846 341 826ZM398 379Q371 373 347.0 353.5Q323 334 308.5 306.5Q294 279 294 248Q294 223 307.0 196.5Q320 170 339 154Q352 142 365 136Q380 129 380 123Q380 120 370 117Q332 126 301.5 151.0Q271 176 253.5 211.5Q236 247 236 287Q236 330 253.5 370.0Q271 410 302.5 442.0Q334 474 374 490L345 641Q229 547 174.5 456.5Q120 366 120 277Q120 212 154.0 156.0Q188 100 247.0 65.5Q306 31 380 31Q400 31 420.5 35.0Q441 39 464 45ZM495 55Q593 97 593 227Q593 270 571.0 305.5Q549 341 512.0 362.0Q475 383 429 383Z';
   const BASS_PATH = 'M50 123Q216 231 288 301Q336 348 373.0 408.5Q410 469 431.5 536.0Q453 603 453 669Q453 728 435.0 773.5Q417 819 383.0 845.0Q349 871 302 871Q284 871 264.5 867.0Q245 863 224 855Q181 839 158.0 813.5Q135 788 135 765Q135 756 143.0 752.0Q151 748 158 748Q168 748 183 752Q190 754 196.5 755.0Q203 756 210 756Q248 756 272.0 733.5Q296 711 296 674Q296 638 266.0 612.0Q236 586 195 586Q146 586 111.0 617.0Q76 648 76 697Q76 756 109.0 802.0Q142 848 198.5 874.0Q255 900 324 900Q400 900 460.0 867.0Q520 834 555.5 776.5Q591 719 591 646Q591 551 538 464Q511 419 476.5 379.0Q442 339 389.0 297.5Q336 256 256.0 208.0Q176 160 57 101ZM687 809Q710 809 726.0 793.0Q742 777 742 754Q742 731 726.0 715.5Q710 700 687 700Q664 700 648.0 715.5Q632 731 632 754Q632 777 648.0 793.0Q664 809 687 809ZM687 589Q710 589 726.0 573.0Q742 557 742 534Q742 511 726.0 495.5Q710 480 687 480Q664 480 648.0 495.5Q632 511 632 534Q632 557 648.0 573.0Q664 589 687 589Z';
+  // Vorzeichen: Umriss, rechter Rand und vertikale Mitte in Schrift-Einheiten
+  const ACC_GLYPH = {
+    '1':  { d: 'M97 46V189L50 177V277L97 290V486H128V298L195 314V509H226V322L275 333V234L226 220V77L275 89V-14L226 -26V-214H195V-34L128 -52V-247H97V-59L50 -71V32ZM195 70V214L128 197V54Z', right: 275, mid: 131 },
+    '-1': { d: 'M50 615H81V225Q118 262 165 262Q197 262 223.0 240.5Q249 219 249 178Q249 146 230.0 119.0Q211 92 179 65L110 6Q91 -10 76.0 -25.5Q61 -41 50 -55ZM81 12Q107 40 125.0 63.5Q143 87 153 105Q164 124 169.5 140.0Q175 156 175 170Q175 198 162.0 210.5Q149 223 134 223Q118 223 102.5 211.5Q87 200 81 180Z', right: 249, mid: 95 }
+  };
   const SP = 14;           // Linienabstand
-  const NX = 212;          // x-Position der Note
+  const NX = 212;          // x-Position der Noten
   function layout() {
     return settings.clef === 'both'
       ? { h: 290, staves: { treble: 116, bass: 230 } }
@@ -389,17 +503,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
   const yOf = (bottom, clef, step) => bottom - (step - BOTTOM[clef]) * SP / 2;
 
-  function drawStaff(note, cls) {
+  // marks: undefined (neu), 'is-good' / 'is-bad' für alles, oder ein Array pro Note
+  function drawStaff(item, marks) {
     const L = layout();
     svg.setAttribute('viewBox', `0 0 360 ${L.h}`);
     let out = '';
     const clefs = Object.keys(L.staves);
+    const k = SP * 4 / 1000;
     for (const clef of clefs) {
       const b = L.staves[clef];
       for (let i = 0; i < 5; i++) out += `<line class="staffline" x1="16" x2="344" y1="${b - i * SP}" y2="${b - i * SP}"/>`;
       // Schlüssel-Umrisse: Einheiten = 1/1000 Systemhöhe, Nullpunkt auf der untersten Linie;
       // der Bassschlüssel wird angehoben, damit seine Punkte die F-Linie einschließen
-      const k = SP * 4 / 1000;
       out += `<path class="clef" d="${clef === 'treble' ? TREBLE_PATH : BASS_PATH}" transform="translate(${clef === 'treble' ? 20 : 22} ${clef === 'treble' ? b : b - 106 * k}) scale(${k} ${-k})"/>`;
       out += `<line class="barline" x1="344" x2="344" y1="${b - 4 * SP}" y2="${b}"/>`;
     }
@@ -409,27 +524,69 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       const b = L.staves[clefs[0]];
       out += `<line class="staffline" x1="16" x2="16" y1="${b - 4 * SP}" y2="${b}"/>`;
     }
-    if (note) {
-      const b = L.staves[note.clef];
-      const bot = BOTTOM[note.clef], top = bot + 8;
-      const y = yOf(b, note.clef, note.step);
+    if (item) {
+      const b = L.staves[item.clef];
+      const bot = BOTTOM[item.clef], top = bot + 8, mid = bot + 4;
+      const steps = item.notes.map(n => n.step);
+      const lo = Math.min(...steps), hi = Math.max(...steps);
+      const y = s => yOf(b, item.clef, s);
+      const all = typeof marks === 'string' ? marks : '';
       let g = '';
-      for (let k = bot - 2; k >= note.step; k -= 2) { const ly = yOf(b, note.clef, k); g += `<line class="ledger" x1="${NX - 16}" x2="${NX + 16}" y1="${ly}" y2="${ly}"/>`; }
-      for (let k = top + 2; k <= note.step; k += 2) { const ly = yOf(b, note.clef, k); g += `<line class="ledger" x1="${NX - 16}" x2="${NX + 16}" y1="${ly}" y2="${ly}"/>`; }
-      const up = note.step < bot + 4;
-      const sx = up ? NX + 7.6 : NX - 7.6;
-      const sy2 = up ? y - 3.5 * SP : y + 3.5 * SP;
-      g += `<line class="stem" x1="${sx}" x2="${sx}" y1="${y}" y2="${sy2}"/>`;
-      g += `<ellipse class="notehead" cx="${NX}" cy="${y}" rx="8.6" ry="6.1" transform="rotate(-22 ${NX} ${y})"/>`;
-      out += `<g class="note ${cls || ''}">${g}</g>`;
+      for (let s = bot - 2; s >= lo; s -= 2) g += `<line class="ledger" x1="${NX - 16}" x2="${NX + 16}" y1="${y(s)}" y2="${y(s)}"/>`;
+      for (let s = top + 2; s <= hi; s += 2) g += `<line class="ledger" x1="${NX - 16}" x2="${NX + 16}" y1="${y(s)}" y2="${y(s)}"/>`;
+      const down = hi - mid >= mid - lo;
+      const sx = down ? NX - 7.6 : NX + 7.6;
+      g += down
+        ? `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(hi)}" y2="${y(lo) + 3.5 * SP}"/>`
+        : `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(lo)}" y2="${y(hi) - 3.5 * SP}"/>`;
+      // Vorzeichen von oben nach unten in Spalten, damit sie sich nicht überlappen
+      const placed = [];
+      [...item.notes].filter(n => n.acc).sort((a, b2) => b2.step - a.step).forEach(n => {
+        let col = 0;
+        while (placed.some(p => p.col === col && Math.abs(p.step - n.step) < 6)) col++;
+        placed.push({ step: n.step, col, acc: n.acc });
+      });
+      const noteCls = i => Array.isArray(marks) ? marks[i] : '';
+      item.notes.forEach((n, i) => {
+        const p = placed.find(p => p.step === n.step);
+        let acc = '';
+        if (p) {
+          const gl = ACC_GLYPH[String(n.acc)];
+          const right = NX - 13.5 - p.col * 13;
+          acc = `<path class="acc" d="${gl.d}" transform="translate(${right - gl.right * k} ${y(n.step) + gl.mid * k}) scale(${k} ${-k})"/>`;
+        }
+        g += `<g class="${noteCls(i)}">${acc}<ellipse class="notehead" cx="${NX}" cy="${y(n.step)}" rx="8.6" ry="6.1" transform="rotate(-22 ${NX} ${y(n.step)})"/></g>`;
+      });
+      out += `<g class="note ${all}">${g}</g>`;
     }
     svg.innerHTML = out;
     const n = svg.querySelector('.note');
-    if (n && !cls) n.classList.add('note-in');
-    svg.setAttribute('aria-label', note ? `Note im ${CLEF_NAME[note.clef]}` : 'Leeres Notensystem');
+    if (n && marks === undefined) n.classList.add('note-in');
+    svg.setAttribute('aria-label', item ? `${isChord() ? 'Akkord' : 'Note'} im ${CLEF_NAME[item.clef]}` : 'Leeres Notensystem');
   }
 
   // ---------- Antwort-Tasten ----------
+  function renderMods() {
+    const box = $('mods');
+    box.hidden = !(settings.acc === 'on' && settings.answer === 'names');
+    box.innerHTML = `
+      <button type="button" data-mod="-1" aria-pressed="${state.mod === -1}" class="${state.mod === -1 ? 'on' : ''}">♭</button>
+      <button type="button" data-mod="1" aria-pressed="${state.mod === 1}" class="${state.mod === 1 ? 'on' : ''}">♯</button>
+      <span class="hint">${state.mod ? 'Jetzt den Stammton wählen' : 'Bei Vorzeichen: erst ♭ oder ♯, dann den Buchstaben'}</span>`;
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setMod(+b.dataset.mod)));
+  }
+  function setMod(m) {
+    state.mod = state.mod === m ? 0 : m;
+    renderMods();
+    relabelNames();
+  }
+  function relabelNames() {
+    document.querySelectorAll('.names button').forEach(b => {
+      const i = +b.dataset.letter;
+      b.innerHTML = `${pitchName(i, state.mod)}<small>${SOLFEGE[i]}</small>`;
+    });
+  }
+
   function renderNames() {
     const box = $('names');
     box.innerHTML = '';
@@ -437,43 +594,47 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       const b = document.createElement('button');
       b.type = 'button';
       b.dataset.letter = i;
-      b.innerHTML = `${l}<small>${SOLFEGE[i]}</small>`;
-      b.addEventListener('click', () => answerLetter(i, b));
+      b.addEventListener('click', () => answerLetter(i));
       box.appendChild(b);
     });
+    relabelNames();
   }
 
-  function renderPiano() {
-    const clefs = settings.clef === 'both' ? ['treble', 'bass'] : [settings.clef];
+  function pianoRange() {
     let min = Infinity, max = -Infinity;
-    clefs.forEach(c => { const [lo, hi] = RANGES[c][settings.level]; min = Math.min(min, lo); max = Math.max(max, hi); });
-    const lo = Math.floor(min / 7) * 7, hi = Math.floor(max / 7) * 7 + 6;
+    activeClefs().forEach(c => { const [lo, hi] = RANGES[c][settings.level]; min = Math.min(min, lo); max = Math.max(max, hi); });
+    return [Math.floor(min / 7) * 7, Math.floor(max / 7) * 7 + 6];
+  }
+  function renderPiano() {
+    const [lo, hi] = pianoRange();
     const n = hi - lo + 1;
     const piano = $('piano');
     piano.innerHTML = '';
     piano.style.minWidth = (n * 26) + 'px';
     const w = 100 / n;
+    const bind = (el, m) => {
+      el.addEventListener('pointerdown', e => { e.preventDefault(); answerMidi(m); });
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); answerMidi(m); } });
+    };
     for (let s = lo; s <= hi; s++) {
       const k = document.createElement('button');
       k.type = 'button';
       k.className = 'wk';
       k.dataset.midi = midiOf(s);
-      k.setAttribute('aria-label', fullName(s));
+      k.setAttribute('aria-label', midiName(midiOf(s)));
       if (letterOf(s) === 0) k.textContent = 'C' + octOf(s);
-      k.addEventListener('pointerdown', e => { e.preventDefault(); answerMidi(midiOf(s), k); });
-      k.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); answerMidi(midiOf(s), k); } });
+      bind(k, midiOf(s));
       piano.appendChild(k);
-      if ([0, 1, 3, 4, 5].includes(letterOf(s)) && s < hi) {
+      if (SHARPABLE.includes(letterOf(s)) && s < hi) {
         const i = s - lo;
         const bk = document.createElement('button');
         bk.type = 'button';
         bk.className = 'bk';
-        bk.tabIndex = -1;
-        bk.setAttribute('aria-hidden', 'true');
         bk.dataset.midi = midiOf(s) + 1;
+        bk.setAttribute('aria-label', midiName(midiOf(s) + 1));
         bk.style.left = `calc(${(i + 1) * w}% - ${w * 0.3}%)`;
         bk.style.width = `${w * 0.6}%`;
-        bk.addEventListener('pointerdown', e => { e.preventDefault(); answerMidi(midiOf(s) + 1, bk); });
+        bind(bk, midiOf(s) + 1);
         piano.appendChild(bk);
       }
     }
@@ -483,40 +644,65 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const piano = settings.answer === 'piano';
     $('names').hidden = piano;
     $('piano-wrap').hidden = !piano;
+    state.mod = 0;
+    renderMods();
     if (piano) renderPiano(); else renderNames();
+    renderSel();
   }
+
+  // Anzeige der Auswahl bei Akkorden
+  function renderSel() {
+    const bar = $('selbar');
+    bar.hidden = !isChord();
+    if (!isChord() || !state.current) return;
+    const need = state.current.notes.length;
+    const names = state.sel.map(v => typeof v === 'number' ? midiName(v).replace(/-?\d+$/, '') : pitchName(...v.split(':').map(Number)));
+    $('seltext').innerHTML = `Gewählt: <b>${names.length ? names.join(' · ') : '–'}</b> <span>(${state.sel.length} von ${need})</span>`;
+  }
+  $('selclear').addEventListener('click', () => {
+    if (state.locked) return;
+    state.sel = [];
+    document.querySelectorAll('.wk.sel, .bk.sel, .names button.sel').forEach(el => el.classList.remove('sel'));
+    renderSel();
+  });
 
   // ---------- Klang ----------
   let actx = null;
-  function play(midi) {
+  function play(midis) {
     if (settings.sound !== 'on') return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === 'suspended') actx.resume();
-      const f = 440 * Math.pow(2, (midi - 69) / 12);
       const t = actx.currentTime;
       const out = actx.createGain();
       out.gain.setValueAtTime(0.0001, t);
-      out.gain.exponentialRampToValueAtTime(0.28, t + 0.012);
-      out.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+      out.gain.exponentialRampToValueAtTime(0.28 / Math.sqrt(midis.length), t + 0.012);
+      out.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
       out.connect(actx.destination);
-      [[1, 'triangle', 1], [2, 'sine', 0.35], [3, 'sine', 0.12]].forEach(([m, type, amp]) => {
-        const o = actx.createOscillator(), g = actx.createGain();
-        o.type = type; o.frequency.value = f * m; g.gain.value = amp;
-        o.connect(g); g.connect(out); o.start(t); o.stop(t + 1.5);
+      midis.forEach(midi => {
+        const f = 440 * Math.pow(2, (midi - 69) / 12);
+        [[1, 'triangle', 1], [2, 'sine', 0.35], [3, 'sine', 0.12]].forEach(([m, type, amp]) => {
+          const o = actx.createOscillator(), g = actx.createGain();
+          o.type = type; o.frequency.value = f * m; g.gain.value = amp;
+          o.connect(g); g.connect(out); o.start(t); o.stop(t + 1.7);
+        });
       });
     } catch (e) {}
   }
 
   // ---------- Ablauf ----------
-  function nextNote() {
-    state.current = pickNote();
+  function nextItem() {
+    clearTimeout(state.nextTimer);
+    state.current = pickItem();
     state.prevId = state.current.id;
     state.locked = false;
+    state.sel = [];
     state.shownAt = performance.now();
     drawStaff(state.current);
-    document.querySelectorAll('.names button, .wk, .bk').forEach(el => el.classList.remove('good', 'bad'));
-    setFeedback('', state.timed.running ? 'Weiter so!' : 'Welche Note ist das?');
+    document.querySelectorAll('.names button, .wk, .bk').forEach(el => el.classList.remove('good', 'bad', 'sel'));
+    const q = isChord() ? 'Welche Noten hat dieser Akkord?' : 'Welche Note ist das?';
+    setFeedback('', state.timed.running ? 'Weiter so!' : q);
+    renderSel();
   }
 
   function setFeedback(kind, text) {
@@ -526,41 +712,89 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     $('msg').textContent = text;
   }
 
-  function answerLetter(letter, btn) {
-    if (!ready()) return;
-    const ok = letter === letterOf(state.current.step);
-    if (btn) btn.classList.add(ok ? 'good' : 'bad');
-    if (!ok) document.querySelector(`.names button[data-letter="${letterOf(state.current.step)}"]`)?.classList.add('good');
-    resolve(ok, LETTERS[settings.names][letter]);
-  }
-
-  function answerMidi(midi, keyEl) {
-    if (!ready()) return;
-    const target = midiOf(state.current.step);
-    const ok = midi === target;
-    const el = keyEl || document.querySelector(`#piano [data-midi="${midi}"]`);
-    if (el) el.classList.add(ok ? 'good' : 'bad');
-    if (!ok) document.querySelector(`#piano [data-midi="${target}"]`)?.classList.add('good');
-    let given = 'eine andere Taste';
-    const pc = midi % 12, idx = SEMI.indexOf(pc);
-    if (idx >= 0) given = LETTERS[settings.names][idx] + (Math.floor(midi / 12) - 1);
-    else given = 'eine schwarze Taste';
-    if (!ok && idx >= 0 && idx === letterOf(state.current.step)) given += ' (falsche Oktave)';
-    resolve(ok, given);
-  }
-
   function ready() {
     if (!state.current || state.locked) return false;
     if (settings.mode === 'timed' && !state.timed.running) return false;
     return true;
   }
 
-  function resolve(ok, given) {
+  const btnFor = letter => document.querySelector(`.names button[data-letter="${letter}"]`);
+  const keyFor = midi => document.querySelector(`#piano [data-midi="${midi}"]`);
+
+  function answerLetter(letter) {
+    if (!ready()) return;
+    const acc = state.mod;
+    if (state.mod) setMod(0);
+    const item = state.current;
+    if (isChord()) {
+      const v = `${letter}:${acc}`;
+      const i = state.sel.indexOf(v);
+      if (i >= 0) state.sel.splice(i, 1); else state.sel.push(v);
+      document.querySelectorAll('.names button').forEach(b => {
+        b.classList.toggle('sel', state.sel.some(s => s.startsWith(b.dataset.letter + ':')));
+      });
+      renderSel();
+      if (state.sel.length === item.notes.length) {
+        const want = item.notes.map(n => `${letterOf(n.step)}:${n.acc}`);
+        const hits = item.notes.map((n, j) => state.sel.includes(want[j]));
+        const ok = hits.every(Boolean) && state.sel.every(s => want.includes(s));
+        document.querySelectorAll('.names button').forEach(b => b.classList.remove('sel'));
+        const given = state.sel.map(s => pitchName(...s.split(':').map(Number)));
+        resolve(ok, hits, given.join(' '));
+      }
+      return;
+    }
+    const n = item.notes[0];
+    const ok = letter === letterOf(n.step) && acc === n.acc;
+    btnFor(letter)?.classList.add(ok ? 'good' : 'bad');
+    if (!ok) btnFor(letterOf(n.step))?.classList.add('good');
+    let given = pitchName(letter, acc);
+    const sameKey = (SEMI[letter] + acc - SEMI[letterOf(n.step)] - n.acc + 12) % 12 === 0;
+    if (!ok && sameKey) given += ' (klingt gleich, ist hier aber anders notiert)';
+    resolve(ok, [ok], given);
+  }
+
+  function answerMidi(midi) {
+    if (!ready()) return;
+    const item = state.current;
+    const want = item.notes.map(noteMidi);
+    if (isChord()) {
+      const i = state.sel.indexOf(midi);
+      if (i >= 0) state.sel.splice(i, 1); else state.sel.push(midi);
+      keyFor(midi)?.classList.toggle('sel', i < 0);
+      renderSel();
+      if (state.sel.length === want.length) {
+        const hits = want.map(m => state.sel.includes(m));
+        const ok = hits.every(Boolean) && state.sel.every(m => want.includes(m));
+        document.querySelectorAll('#piano .sel').forEach(el => el.classList.remove('sel'));
+        state.sel.forEach(m => keyFor(m)?.classList.add(want.includes(m) ? 'good' : 'bad'));
+        want.forEach(m => keyFor(m)?.classList.add('good'));
+        const given = state.sel.map(m => {
+          const j = want.indexOf(m);
+          return j >= 0 ? fullName(item.notes[j]) : midiName(m);
+        });
+        resolve(ok, hits, given.join(' '));
+      }
+      return;
+    }
+    const target = want[0];
+    const ok = midi === target;
+    keyFor(midi)?.classList.add(ok ? 'good' : 'bad');
+    if (!ok) keyFor(target)?.classList.add('good');
+    let given = midiName(midi);
+    if (!ok && (midi - target) % 12 === 0) given += ' (falsche Oktave)';
+    resolve(ok, [ok], given);
+  }
+
+  function resolve(ok, hits, given) {
     state.locked = true;
-    const n = state.current;
+    const item = state.current;
     const ms = performance.now() - state.shownAt;
-    const st = store.notes[n.id] || (store.notes[n.id] = { seen: 0, wrong: 0 });
+    const st = store.notes[item.id] || (store.notes[item.id] = { seen: 0, wrong: 0 });
     st.seen++;
+    st.label = item.label;
+    st.kind = isChord() ? 'chord' : 'note';
+    st.clef = item.clef;
     if (!ok) st.wrong++;
     state.total++;
     if (ok) {
@@ -569,17 +803,27 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     } else state.streak = 0;
     if (state.timed.running) { state.timed.tries++; if (ok) state.timed.score++; }
     save();
-    play(midiOf(n.step));
-    drawStaff(n, ok ? 'is-good' : 'is-bad');
-    const exact = settings.answer === 'piano' ? ` (${fullName(n.step)})` : '';
-    if (ok) setFeedback('good', `Richtig: ${nameOf(n.step)}${exact} · ${(ms / 1000).toFixed(1)} s`);
-    else setFeedback('bad', `Das war ${nameOf(n.step)}${settings.answer === 'piano' ? ' (' + fullName(n.step) + ')' : ''}. Du hast ${given} gewählt.`);
+    play(item.notes.map(noteMidi));
+    drawStaff(item, isChord() && !ok ? hits.map(h => (h ? 'is-good' : 'is-bad')) : (ok ? 'is-good' : 'is-bad'));
+    const piano = settings.answer === 'piano';
+    const secs = (ms / 1000).toFixed(1).replace('.', ',') + ' s';
+    if (isChord()) {
+      const notes = item.notes.map(n => (piano ? fullName(n) : noteName(n))).join(' ');
+      if (ok) setFeedback('good', `Richtig: ${item.label}, ${notes} · ${secs}`);
+      else setFeedback('bad', `Das war ${item.label}: ${notes}. Du hattest ${given}.`);
+    } else {
+      const n = item.notes[0];
+      const name = piano ? fullName(n) : noteName(n);
+      if (ok) setFeedback('good', `Richtig: ${name} · ${secs}`);
+      else setFeedback('bad', `Das war ${name}. Du hast ${given} gewählt.`);
+    }
     updateStats();
     renderHard();
-    setTimeout(() => {
+    renderSel();
+    state.nextTimer = setTimeout(() => {
       if (settings.mode === 'timed' && !state.timed.running) return;
-      nextNote();
-    }, ok ? 450 : 1500);
+      nextItem();
+    }, ok ? 500 : (isChord() ? 2600 : 1600));
   }
 
   function updateStats() {
@@ -587,22 +831,25 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     $('s-streak').textContent = state.streak;
     $('s-best').textContent = store.best || 0;
     const t = state.times.slice(-20);
-    $('s-time').textContent = t.length ? (t.reduce((a, b) => a + b, 0) / t.length / 1000).toFixed(1) + ' s' : '–';
+    $('s-time').textContent = t.length ? (t.reduce((a, b) => a + b, 0) / t.length / 1000).toFixed(1).replace('.', ',') + ' s' : '–';
   }
 
   // ---------- 60-Sekunden-Test ----------
-  const timedKey = () => `${settings.clef}-${settings.level}-${settings.answer}`;
+  const timedKey = () => `${settings.task}-${settings.clef}-${settings.level}-${settings.acc}-${settings.answer}`;
   function showStart() {
     const ov = $('overlay');
     const rec = store.best60[timedKey()];
+    const what = isChord() ? 'Akkorde' : 'Noten';
     ov.innerHTML = `<h2>60-Sekunden-Test</h2>
-      <p>Wie viele Noten erkennst du in einer Minute? Falsche Antworten kosten keine Punkte, aber Zeit.</p>
+      <p>Wie viele ${what} erkennst du in einer Minute? Falsche Antworten kosten keine Punkte, aber Zeit.</p>
       ${rec ? `<p>Dein Rekord mit diesen Einstellungen: <b>${rec}</b></p>` : ''}
       <button class="primary" id="start" type="button">Test starten</button>`;
     ov.hidden = false;
     $('timerbar').hidden = true;
+    state.current = null;
     drawStaff(null);
     setFeedback('', 'Bereit?');
+    renderSel();
     $('start').addEventListener('click', startTimed);
   }
   function startTimed() {
@@ -615,10 +862,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       $('timerfill').style.width = Math.max(0, left / 600) + '%';
       if (left <= 0) endTimed();
     }, 250);
-    nextNote();
+    nextItem();
   }
   function endTimed() {
     clearInterval(state.timed.tick);
+    clearTimeout(state.nextTimer);
     state.timed.running = false;
     state.locked = true;
     const k = timedKey(), score = state.timed.score;
@@ -629,7 +877,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const ov = $('overlay');
     ov.innerHTML = `<h2>${isRec ? 'Neuer Rekord!' : 'Zeit ist um'}</h2>
       <div class="big">${score}</div>
-      <p>Noten richtig in 60 Sekunden · ${acc} % Trefferquote${!isRec && rec ? ` · Rekord: ${rec}` : ''}</p>
+      <p>${isChord() ? 'Akkorde' : 'Noten'} richtig in 60 Sekunden · ${acc} % Trefferquote${!isRec && rec ? ` · Rekord: ${rec}` : ''}</p>
       <button class="primary" id="again" type="button">Nochmal</button>`;
     ov.hidden = false;
     $('again').addEventListener('click', startTimed);
@@ -661,27 +909,35 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     });
   }
   function applySettings() {
+    clearTimeout(state.nextTimer);
+    $('tagline').textContent = isChord() ? 'Lies den ganzen Akkord, von unten nach oben.' : 'Erkenne die Note, so schnell du kannst.';
     renderAnswerArea();
     stopTimed();
     if (settings.mode === 'timed') showStart();
-    else { state.prevId = null; nextNote(); }
+    else { state.prevId = null; nextItem(); }
     renderHard();
   }
 
-  // ---------- Schwierigste Noten ----------
+  // ---------- Schwierigste Noten und Akkorde ----------
   function renderHard() {
     const list = Object.entries(store.notes)
       .filter(([, v]) => v.seen >= 3 && v.wrong > 0)
-      .map(([id, v]) => { const [clef, s] = id.split(':'); return { clef, step: +s, ...v, rate: v.wrong / v.seen }; })
+      .map(([id, v]) => {
+        let label = v.label, clef = v.clef || id.split(':')[0];
+        const old = id.match(/^(treble|bass):(\d+)$/);          // Einträge aus der ersten Version
+        if (!label && old) label = fullName({ step: +old[2], acc: 0 });
+        return { label, clef, ...v, rate: v.wrong / v.seen };
+      })
+      .filter(v => v.label)
       .sort((a, b) => b.rate - a.rate || b.wrong - a.wrong)
-      .slice(0, 6);
+      .slice(0, 8);
     const box = $('hard');
     if (!list.length) {
-      box.innerHTML = '<p class="muted">Noch keine Daten. Nach ein paar Runden siehst du hier, welche Noten dir schwerfallen.</p>';
+      box.innerHTML = '<p class="muted">Noch keine Daten. Nach ein paar Runden siehst du hier, was dir schwerfällt.</p>';
       return;
     }
     box.innerHTML = list.map(n => `
-      <div class="item"><b>${fullName(n.step)}</b><span>${n.clef === 'treble' ? 'Violin' : 'Bass'}</span>
+      <div class="item"><b>${n.label}</b><span>${n.clef === 'treble' ? 'Violin' : 'Bass'}</span>
       <em>${Math.round(n.rate * 100)} % falsch</em><span>(${n.wrong}/${n.seen})</span></div>`).join('');
   }
   let resetArmed = false;
@@ -701,15 +957,20 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   document.addEventListener('keydown', e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target.matches('input, textarea')) return;
-    const map = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, h: 6, b: 6 };
     const k = e.key.toLowerCase();
+    if (settings.acc === 'on' && (k === '#' || k === '+' || k === '-')) {
+      if (settings.answer === 'names') setMod(k === '-' ? -1 : 1);
+      else state.mod = k === '-' ? -1 : 1;
+      return;
+    }
+    const map = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, h: 6, b: 6 };
     if (!(k in map)) return;
-    if (settings.answer === 'names') {
-      answerLetter(map[k], document.querySelector(`.names button[data-letter="${map[k]}"]`));
-    } else if (ready()) {
-      // Bei Klaviertasten zählt der Buchstabe in der richtigen Oktave
-      const s = state.current.step;
-      answerMidi(midiOf(s - letterOf(s) + map[k]));
+    if (settings.answer === 'names') answerLetter(map[k]);
+    else if (ready() && !isChord()) {
+      // Bei Klaviertasten zählt der Buchstabe in der Oktave der gezeigten Note
+      const s = state.current.notes[0].step;
+      const acc = state.mod; state.mod = 0;
+      answerMidi(midiOf(s - letterOf(s) + map[k], acc));
     }
   });
 
@@ -723,7 +984,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
             any = true;
             inp.onmidimessage = ev => {
               const [st, note, vel] = ev.data;
-              if ((st & 0xf0) === 0x90 && vel > 0) answerMidi(note);
+              if ((st & 0xf0) !== 0x90 || vel === 0) return;
+              if (isChord() && settings.answer !== 'piano') {
+                // Ohne Bildschirm-Klavier: gedrückte Tasten direkt sammeln
+                if (!ready()) return;
+                if (!state.sel.includes(note)) state.sel.push(note);
+                const want = state.current.notes.map(noteMidi);
+                renderSel();
+                if (state.sel.length === want.length) {
+                  const hits = want.map(m => state.sel.includes(m));
+                  resolve(hits.every(Boolean) && state.sel.every(m => want.includes(m)), hits, state.sel.map(midiName).join(' '));
+                }
+              } else answerMidi(note);
             };
           });
           $('midi-chip').hidden = !any;
