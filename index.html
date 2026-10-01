@@ -222,7 +222,7 @@ button:focus-visible, input:focus-visible + label { outline: 3px solid var(--acc
 }
 fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 6px; }
 legend { font-size: 0.85rem; font-weight: 600; padding: 0; margin-bottom: 6px; }
-.seg { display: flex; background: var(--paper); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg { display: flex; flex-wrap: wrap; background: var(--paper); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
 .seg input { position: absolute; opacity: 0; pointer-events: none; }
 .seg label {
   flex: 1; text-align: center; padding: 6px 8px; border-radius: 6px; cursor: pointer;
@@ -335,6 +335,15 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 }
 .mods button.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
 .mods .hint { font-size: 0.85rem; color: var(--muted); }
+.ivbtns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ivbtns button {
+  background: var(--card); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 10px;
+  padding-block: 12px; font-size: 1.05rem; font-weight: 600; display: grid; gap: 2px;
+}
+.ivbtns button small { font-size: 0.68rem; font-weight: 500; color: var(--muted); }
+.ivbtns button:hover { border-color: var(--accent); }
+.ivbtns button.good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.ivbtns button.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 .names button.sel { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .wk.sel, .bk.sel { background: var(--accent); }
 .wk.sel { color: #fff; }
@@ -398,6 +407,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   <section class="answer" aria-label="Antwort">
     <div class="mods" id="mods" hidden></div>
     <div class="names" id="names"></div>
+    <div class="ivbtns" id="ivbtns" hidden></div>
     <div class="piano-scroll" id="piano-wrap" hidden><div class="piano" id="piano"></div></div>
     <button class="tap" id="tap" type="button" hidden><span class="tap-fill" id="tapfill"></span><span class="tap-label" id="taplabel">Hier tippen zum Starten</span></button>
     <div class="selbar" id="selbar" hidden>
@@ -432,6 +442,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     <ul class="tips">
       <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende.</li>
       <li>Beginne mit <b>Im System</b> und einem Schlüssel. Wechsle zu <b>Mit Hilfslinien</b>, wenn du fast immer richtig liegst.</li>
+      <li><b>Intervalle</b>: Ungerade Abstände (Terz, Quinte, Septime) liegen Linie–Linie oder Zwischenraum–Zwischenraum, gerade (Sekunde, Quarte, Sexte, Oktave) Linie–Zwischenraum. Den Grundton zählst du immer mit: C–D–E ist eine Terz. Am Computer kannst du die Zahlen 1–8 tippen.</li>
       <li><b>Lernpfad</b> (Einzelnoten → Lernpfad An): Du startest mit drei Ankernoten. Kannst du alle sicher (dreimal hintereinander richtig), kommt automatisch die nächste Note dazu. Neue Noten kommen anfangs öfter dran.</li>
       <li><b>Ankernoten</b>: Präge dir zuerst diese Noten ein. Im Violinschlüssel: mittleres C, G (2. Linie), C (3. Zwischenraum) und hohes C. Im Bassschlüssel: tiefes C, C (2. Zwischenraum), F (4. Linie) und mittleres C. Alle anderen Noten zählst du von dort ab.</li>
       <li>Mit <b>Hilfe bei Fehlern</b> zeigt dir die App nach einem Fehler die richtige Taste und eine Merkhilfe. Weiter geht es, wenn du die richtige Note gespielt oder getippt hast.</li>
@@ -538,18 +549,20 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off', path: 'off' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off', path: 'off', ivmode: 'mel', ivmax: '5' },
     store.settings
   );
 
   const SETTINGS_UI = [
-    { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde'],['melody','Melodie'],['anchors','Ankernoten']] },
+    { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde'],['melody','Melodie'],['anchors','Ankernoten'],['intervals','Intervalle']] },
     { key: 'clef',   label: 'Schlüssel', show: () => !isTwoHands(), opts: [['treble','Violin'],['bass','Bass'],['both','Beide']] },
     { key: 'level',  label: 'Tonumfang', show: () => !isPath(), opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', show: () => !isPath(), opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
     { key: 'endless', label: 'Endlos spielen', show: () => isMelody() || isRhythmOnly(), opts: [['off','Aus'],['on','An']] },
     { key: 'hands',  label: 'Hände', show: () => isMelody(), opts: [['one','Eine Hand'],['two','Beide Hände']] },
+    { key: 'ivmode', label: 'Intervalle zeigen', show: () => isIntervals(), opts: [['mel','Nacheinander'],['harm','Zusammen'],['mix','Gemischt']] },
+    { key: 'ivmax',  label: 'Intervalle bis', show: () => isIntervals(), opts: [['5','Quinte'],['8','Oktave']] },
     { key: 'path',   label: 'Lernpfad (Noten kommen nach und nach dazu)', show: () => settings.task === 'notes' && settings.nrhythm === 'off', opts: [['off','Aus'],['on','An']] },
     { key: 'nrhythm', label: 'Rhythmus (gleicher Ton, nur tippen)', show: () => settings.task === 'notes', opts: [['off','Aus'],['simple','Halbe & Viertel'],['eighths','Mit Achteln']] },
     { key: 'diff',   label: 'Schwierigkeit (Leicht = feste Handlage)', show: () => isMelody(), opts: [['easy','Leicht'],['mid','Mittel'],['hard','Schwer']] },
@@ -583,6 +596,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const helpOn = () => settings.help === 'on';
   // Ohne Stopp: während der Melodie keine Rückmeldung, Auswertung erst am Ende
   // Rhythmus läuft bei Melodien oder als reines Rhythmus-Training bei Einzelnoten (immer derselbe Ton)
+  const isIntervals = () => settings.task === 'intervals';
   const isPath = () => settings.task === 'notes' && settings.path === 'on' && settings.nrhythm === 'off';
   const isEndless = () => settings.endless === 'on' && (isMelody() || isRhythmOnly());
   const isTwoHands = () => isMelody() && settings.hands === 'two';
@@ -906,8 +920,114 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     }).join('');
   }
 
+  // ---------- Intervalle ----------
+  const IV_NAMES = ['Prime', 'Sekunde', 'Terz', 'Quarte', 'Quinte', 'Sexte', 'Septime', 'Oktave'];
+  function pickInterval() {
+    const harm = settings.ivmode === 'harm' || (settings.ivmode === 'mix' && Math.random() < 0.5);
+    const max = +settings.ivmax;
+    // Prime im Zusammenklang wäre nur eine Note; außerdem nicht zweimal dasselbe Intervall hintereinander
+    let ivs = [];
+    for (let n = harm ? 2 : 1; n <= max; n++) ivs.push(n);
+    if (ivs.length > 1) ivs = ivs.filter(n => `iv:${n}` !== state.prevId);
+    const w = ivs.map(n => { const st = store.notes[`iv:${n}`]; return !st || st.seen < 2 ? 1.4 : 1 + 4 * st.wrong / st.seen; });
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), iv = ivs[ivs.length - 1];
+    for (let i = 0; i < ivs.length; i++) { r -= w[i]; if (r <= 0) { iv = ivs[i]; break; } }
+    const clefs = activeClefs();
+    const clef = clefs[Math.floor(Math.random() * clefs.length)];
+    const [lo, hi] = RANGES[clef][settings.level];
+    const s1 = lo + Math.floor(Math.random() * (hi - lo - iv + 2));
+    const mk = st => {
+      let acc = keyAcc(letterOf(st));
+      if (settings.acc === 'on' && Math.random() < 0.2) {
+        const o = accOptions(letterOf(st)).filter(a => a !== acc);
+        if (o.length) acc = o[Math.floor(Math.random() * o.length)];
+      }
+      return { step: st, acc };
+    };
+    const a = mk(s1), b = iv === 1 ? { ...a } : mk(s1 + iv - 1);
+    const notes = !harm && Math.random() < 0.5 ? [b, a] : [a, b];
+    return { clef, notes, iv, harm, id: `iv:${iv}`, label: IV_NAMES[iv - 1], base: 1 };
+  }
+  function drawInterval(item, marks) {
+    const L = layout(activeClefs());
+    svg.setAttribute('viewBox', `0 0 360 ${L.h}`);
+    let out = frameSvg(L);
+    const b = L.staves[item.clef];
+    const mk = typeof marks === 'string' ? marks : '';
+    const cls = marks === undefined ? 'note-in' : '';
+    if (item.harm) out += noteSvg({ clef: item.clef, notes: item.notes }, NX, b, mk, cls);
+    else item.notes.forEach((n, i) => { out += noteSvg({ clef: item.clef, notes: [n] }, i ? NX + 34 : NX - 34, b, mk, cls); });
+    svg.innerHTML = out;
+    svg.setAttribute('aria-label', `Zwei Noten im ${CLEF_NAME[item.clef]}${item.harm ? ', gleichzeitig' : ', nacheinander'}`);
+  }
+  function ivHint(item) {
+    const n = item.iv;
+    const [a, b] = [...item.notes].sort((x, y) => x.step - y.step);
+    const seq = [];
+    for (let s2 = a.step; s2 <= b.step; s2++) seq.push(LETTERS[settings.names][letterOf(s2)]);
+    let rule;
+    if (n === 1) rule = 'Beide Noten stehen an derselben Stelle.';
+    else if (n % 2) rule = 'Beide Noten liegen auf Linien oder beide in Zwischenräumen.';
+    else rule = 'Eine Note liegt auf einer Linie, die andere in einem Zwischenraum.';
+    const extra = n === 3 ? ' Terz = eine Linie bzw. ein Zwischenraum weiter.' : n === 5 ? ' Quinte = zwei Linien bzw. Zwischenräume weiter.' : n === 2 ? ' Sekunde = direkt daneben.' : '';
+    return `${IV_NAMES[n - 1]}: ${rule}${extra} Zähl beide Töne mit: ${seq.join(' – ')} = ${n} ${n === 1 ? 'Ton' : 'Töne'}.`;
+  }
+  function renderIvButtons() {
+    $('ivbtns').innerHTML = IV_NAMES.map((nm, i) => `<button type="button" data-iv="${i + 1}" ${settings.ivmode === 'harm' && i === 0 ? 'hidden' : ''}>${nm}<small>${i + 1}</small></button>`).join('');
+    $('ivbtns').querySelectorAll('button').forEach(bt => bt.addEventListener('click', () => answerInterval(+bt.dataset.iv)));
+  }
+  function answerInterval(k) {
+    const item = state.current;
+    if (!item || !isIntervals()) return;
+    const btn = q => $('ivbtns').querySelector(`[data-iv="${q}"]`);
+    if (state.fix && state.fix.iv) {
+      if (k === state.fix.iv) {
+        state.fix = null; state.locked = true; hideHint();
+        setFeedback('good', 'Genau. Weiter geht’s.');
+        state.nextTimer = setTimeout(nextItem, 450);
+      } else setFeedback('bad', `Noch nicht. Gesucht ist die ${IV_NAMES[state.fix.iv - 1]}.`);
+      return;
+    }
+    if (!ready()) return;
+    state.locked = true;
+    const ok = k === item.iv;
+    const ms = performance.now() - state.shownAt;
+    const st = store.notes[item.id] || (store.notes[item.id] = { seen: 0, wrong: 0 });
+    st.seen++; st.label = item.label; st.kind = 'interval'; st.clef = item.clef;
+    if (!ok) st.wrong++;
+    state.total++;
+    if (ok) { state.correct++; state.streak++; state.times.push(ms); if (state.streak > (store.best || 0)) store.best = state.streak; }
+    else state.streak = 0;
+    if (state.timed.running) { state.timed.tries++; if (ok) state.timed.score++; }
+    save();
+    btn(k)?.classList.add(ok ? 'good' : 'bad');
+    if (!ok) btn(item.iv)?.classList.add('good');
+    // anhören: nacheinander oder zusammen
+    const mids = item.notes.map(noteMidi);
+    if (item.harm) play(mids); else mids.forEach((m, i) => play([m], i * 0.45));
+    drawInterval(item, ok ? 'is-good' : 'is-bad');
+    const names = item.notes.map(fullName).join(item.harm ? ' + ' : ' → ');
+    const secs = (ms / 1000).toFixed(1).replace('.', ',') + ' s';
+    if (ok) setFeedback('good', `Richtig: ${item.label} (${names}) · ${secs}`);
+    else setFeedback('bad', `Das war eine ${item.label} (${names}). Du hast ${IV_NAMES[k - 1]} gewählt.`);
+    updateStats(); renderHard();
+    if (!ok && helpOn() && !state.timed.running) {
+      const box = $('hint');
+      box.innerHTML = `<p>${ivHint(item)} Tippe jetzt „${item.label}“, dann geht es weiter.</p>${miniKeys(mids)}`;
+      box.hidden = false;
+      state.fix = { iv: item.iv };
+      state.locked = false;
+      return;
+    }
+    state.nextTimer = setTimeout(() => {
+      if (settings.mode === 'timed' && !state.timed.running) return;
+      nextItem();
+    }, ok ? 500 : 1800);
+  }
+
   function pickItem() {
     if (state.forceNext) { const f = state.forceNext; state.forceNext = null; return f; }
+    if (isIntervals()) return pickInterval();
     const all = isChord() ? chordCandidates() : isAnchors() ? anchorCandidates() : isPath() ? pathCandidates() : noteCandidates();
     const list = all.length > 1 ? all.filter(n => n.id !== state.prevId) : all;
     const weights = list.map(n => {
@@ -997,15 +1117,20 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       placed.push({ step: n.step, col, acc: shownAcc(n) });
     });
     const noteCls = i => Array.isArray(marks) ? marks[i] : '';
+    // Sekunde im Zusammenklang: ein Notenkopf rückt neben den Hals
+    let shiftStep = null;
+    const sorted = [...steps].sort((a, b2) => a - b2);
+    for (let k = 1; k < sorted.length; k++) if (sorted[k] - sorted[k - 1] === 1) shiftStep = down ? sorted[k - 1] : sorted[k];
     item.notes.forEach((n, i) => {
       const p = placed.find(p => p.step === n.step);
+      const hx = n.step === shiftStep ? x + (down ? -16.6 : 16.6) : x;
       let acc = '';
       if (p) {
         const gl = ACC_GLYPH[String(p.acc)];
         const right = x - 13.5 - p.col * 13;
         acc = `<path class="acc" d="${gl.d}" transform="translate(${right - gl.right * K} ${y(n.step) + gl.mid * K}) scale(${K} ${-K})"/>`;
       }
-      g += `<g class="${noteCls(i)}">${acc}<ellipse class="notehead${opts.hollow ? ' hollow' : ''}" cx="${x}" cy="${y(n.step)}" rx="8.6" ry="6.1" transform="rotate(-22 ${x} ${y(n.step)})"/></g>`;
+      g += `<g class="${noteCls(i)}">${acc}<ellipse class="notehead${opts.hollow ? ' hollow' : ''}" cx="${hx}" cy="${y(n.step)}" rx="8.6" ry="6.1" transform="rotate(-22 ${hx} ${y(n.step)})"/></g>`;
     });
     return `<g class="note ${all} ${cls || ''}">${g}</g>`;
   }
@@ -1362,9 +1487,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     $('names').hidden = piano || tap;
     $('piano-wrap').hidden = !piano || tap;
     $('tap').hidden = !tap;
+    const iv = isIntervals();
+    $('ivbtns').hidden = !iv;
+    if (iv) { $('names').hidden = true; $('piano-wrap').hidden = true; renderIvButtons(); }
     state.mod = 0;
     renderMods();
-    if (tap) $('mods').hidden = true;
+    if (tap || iv) $('mods').hidden = true;
     if (piano) renderPiano(); else renderNames();
     renderSel();
   }
@@ -1462,9 +1590,9 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     state.locked = false;
     state.sel = [];
     state.shownAt = performance.now();
-    drawStaff(state.current);
-    document.querySelectorAll('.names button, .wk, .bk').forEach(el => el.classList.remove('good', 'bad', 'sel'));
-    const q = isChord() ? 'Welche Noten hat dieser Akkord?' : 'Welche Note ist das?';
+    if (isIntervals()) drawInterval(state.current); else drawStaff(state.current);
+    document.querySelectorAll('.names button, .wk, .bk, #ivbtns button').forEach(el => el.classList.remove('good', 'bad', 'sel'));
+    const q = isChord() ? 'Welche Noten hat dieser Akkord?' : isIntervals() ? 'Welcher Abstand ist das?' : 'Welche Note ist das?';
     if (state.pathIntro) { setFeedback('good', state.pathIntro); state.pathIntro = null; }
     else setFeedback('', state.timed.running ? 'Weiter so!' : q);
     renderSel();
@@ -1488,6 +1616,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const keyFor = midi => document.querySelector(`#piano [data-midi="${midi}"]`);
 
   function answerLetter(letter, src = 'pointer') {
+    if (isIntervals()) return;
     if (!isRhythm() && !ready()) return;
     const acc = state.mod;
     if (state.mod) setMod(0);
@@ -1527,6 +1656,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
 
   function answerMidi(midi, source = 'screen') {
+    if (isIntervals()) { if (source !== 'midi') play([midi]); return; }
     if (isRhythm()) { rhythmInput(n => noteMidi(n) === midi, source === 'midi' ? null : midi, source === 'midi' ? 'midi' : source === 'key' ? 'key' : 'pointer', midi); return; }
     if (!ready()) return;
     if (isTwoHands()) { if (source === 'screen') play([midi]); twoInput('midi', midi); return; }
@@ -1973,7 +2103,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function showStart() {
     const ov = $('overlay');
     const rec = store.best60[timedKey()];
-    const what = isChord() ? 'Akkorde' : isMelody() ? 'Melodie-Noten' : isAnchors() ? 'Ankernoten' : 'Noten';
+    const what = isChord() ? 'Akkorde' : isMelody() ? 'Melodie-Noten' : isAnchors() ? 'Ankernoten' : isIntervals() ? 'Intervalle' : 'Noten';
     ov.innerHTML = `<h2>60-Sekunden-Test</h2>
       <p>Wie viele ${what} erkennst du in einer Minute? Falsche Antworten kosten keine Punkte, aber Zeit.</p>
       ${rec ? `<p>Dein Rekord mit diesen Einstellungen: <b>${rec}</b></p>` : ''}
@@ -2099,7 +2229,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     state.forceNext = null;
     state.pathIntro = null;
     renderPath();
-    $('tagline').textContent = isPath() ? 'Lernpfad: Neue Noten kommen dazu, sobald du die bisherigen sicher kannst.' : isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
+    $('tagline').textContent = isIntervals() ? 'Erkenne den Abstand zwischen zwei Noten auf einen Blick.' : isPath() ? 'Lernpfad: Neue Noten kommen dazu, sobald du die bisherigen sicher kannst.' : isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
       : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.'
       : isAnchors() ? 'Lerne die Ankernoten. Von ihnen aus findest du jede andere Note.'
       : isRhythmOnly() ? 'Rhythmus üben: immer derselbe Ton, du tippst im Takt.' : 'Erkenne die Note, so schnell du kannst.';
@@ -2148,7 +2278,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       return;
     }
     box.innerHTML = list.map(n => `
-      <div class="item"><b>${n.label}</b><span>${n.clef === 'treble' ? 'Violin' : 'Bass'}</span>
+      <div class="item"><b>${n.label}</b><span>${n.kind === 'interval' ? 'Intervall' : n.clef === 'treble' ? 'Violin' : 'Bass'}</span>
       <em>${Math.round(n.rate * 100)} % falsch</em><span>(${n.wrong}/${n.seen})</span></div>`).join('');
   }
   let resetArmed = false;
@@ -2181,6 +2311,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       else state.mod = k === '-' ? -1 : 1;
       return;
     }
+    if (isIntervals()) { if (/^[1-8]$/.test(k)) answerInterval(+k); return; }
     const map = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, h: 6, b: 6 };
     if (!(k in map)) return;
     if (settings.answer === 'names') answerLetter(map[k], 'key');
