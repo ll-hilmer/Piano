@@ -256,6 +256,19 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 .mk-label { font: 500 6.5px var(--font-body); fill: var(--muted); }
 .mk-w.hit + .mk-label { fill: #fff; }
 @media (min-width: 600px) { fieldset[data-key="task"] { grid-column: span 2; } }
+.more { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 12px; }
+.more summary {
+  cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+  font-size: 0.88rem; border-radius: 6px;
+}
+.more summary::-webkit-details-marker { display: none; }
+.more summary::before { content: "▸"; color: var(--muted); transition: transform .15s; display: inline-block; }
+.more[open] summary::before { transform: rotate(90deg); }
+.more summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.more-title { font-weight: 600; }
+.more-sum { color: var(--muted); font-size: 0.82rem; min-width: 0; }
+.more .settings { margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) { .more summary::before { transition: none; } }
 .is-played .notehead, .is-played .acc { fill: var(--muted); }
 .is-played .stem, .is-played .ledger { stroke: var(--muted); }
 .cover rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
@@ -293,6 +306,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 .selbar span span { color: var(--muted); }
 
 @media (max-width: 480px) {
+  .seg label { padding: 6px 4px; font-size: 0.82rem; }
   .names { gap: 5px; }
   .names button { font-size: 1.15rem; padding-block: 12px; }
   .names button small { display: none; }
@@ -477,12 +491,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
     { key: 'flow',   label: 'Melodie-Ablauf', only: 'melody', opts: [['stop','Mit Rückmeldung'],['flow','Ohne Stopp']] },
     { key: 'ahead',  label: 'Vorauslesen', only: 'melody', opts: [['0','Aus'],['1','1 Note'],['2','2 Noten']] },
-    { key: 'help',   label: 'Hilfe bei Fehlern', opts: [['on','An'],['off','Aus']] },
-    { key: 'answer', label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
+    { key: 'help',   more: true, label: 'Hilfe bei Fehlern', opts: [['on','An'],['off','Aus']] },
+    { key: 'answer', more: true, label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
     { key: 'mode',   label: 'Modus', opts: [['free','Frei üben'],['timed','60 Sekunden']] },
-    { key: 'names',  label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
-    { key: 'sound',  label: 'Ton', opts: [['on','An'],['off','Aus']] },
-    { key: 'theme',  label: 'Darstellung', opts: [['auto','Automatisch'],['light','Hell'],['dark','Dunkel']] }
+    { key: 'names',  more: true, label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
+    { key: 'sound',  more: true, label: 'Ton', opts: [['on','An'],['off','Aus']] },
+    { key: 'theme',  more: true, label: 'Darstellung', opts: [['auto','Automatisch'],['light','Hell'],['dark','Dunkel']] }
   ];
 
   // ---------- Zustand ----------
@@ -1264,7 +1278,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   // ---------- Einstellungen ----------
   function renderSettings() {
     const box = $('settings');
-    box.innerHTML = SETTINGS_UI.map(s => s.select ? `
+    const field = s => s.select ? `
       <fieldset data-key="${s.key}">
         <legend><label for="set-${s.key}">${s.label}</label></legend>
         <select class="select" name="set-${s.key}" id="set-${s.key}"></select>
@@ -1276,15 +1290,33 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
             <input type="radio" name="set-${s.key}" id="set-${s.key}-${v}" value="${v}" ${settings[s.key] === v ? 'checked' : ''}>
             <label for="set-${s.key}-${v}">${l}</label>`).join('')}
         </div>
-      </fieldset>`).join('');
+      </fieldset>`;
+    // Selten genutzte Einstellungen stecken in einem einklappbaren Bereich
+    box.innerHTML = SETTINGS_UI.filter(s => !s.more).map(field).join('') + `
+      <details class="more" id="more" ${store.moreOpen ? 'open' : ''}>
+        <summary><span class="more-title">Weitere Einstellungen</span><span class="more-sum" id="more-sum"></span></summary>
+        <div class="settings">${SETTINGS_UI.filter(s => s.more).map(field).join('')}</div>
+      </details>`;
+    $('more').addEventListener('toggle', () => { store.moreOpen = $('more').open; save(); });
+    renderMoreSummary();
     box.addEventListener('change', e => {
       const key = e.target.name.replace('set-', '');
       settings[key] = e.target.value;
       store.settings = settings; save();
+      renderMoreSummary();
       if (key === 'theme') { applyTheme(); return; }
       if (key === 'sound') return;
       applySettings();
     });
+  }
+  // Kurzfassung der eingeklappten Einstellungen, z. B. "Notenname · Deutsch (H) · Ton an"
+  function renderMoreSummary() {
+    const pick = (key, word) => {
+      const s = SETTINGS_UI.find(x => x.key === key);
+      const label = s.opts.find(([v]) => v === settings[key])[1];
+      return word ? `${word} ${label.toLowerCase()}` : label;
+    };
+    $('more-sum').textContent = [pick('answer'), pick('names'), pick('help', 'Hilfe'), pick('sound', 'Ton'), pick('theme')].join(' · ');
   }
   const hostTheme = document.documentElement.getAttribute('data-theme');
   function applyTheme() {
