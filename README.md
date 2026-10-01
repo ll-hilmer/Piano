@@ -18,4 +18,3 @@ Eine kleine Web-App zum Üben des Notenlesens am Klavier.
 - Statistik der schwierigsten Noten und Akkorde; diese kommen häufiger dran
 - Tastatur-Kürzel C D E F G A H (# für ♯, - für ♭) und MIDI-Keyboard (Chrome/Edge)
 - Darstellung automatisch, hell oder dunkel
-- Tagesziel (5–30 Minuten aktive Übungszeit), Tagesserie und Übungskalender der letzten sechs Wochen
