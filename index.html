@@ -247,6 +247,15 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
 .answer { display: grid; gap: 10px; }
 .cursor { fill: var(--accent-soft); }
+.hint { border-top: 1px solid var(--line); padding: 12px 16px 14px; display: grid; gap: 10px; background: var(--paper); }
+.hint p { margin: 0; font-size: 0.92rem; max-width: 70ch; }
+.hint svg { width: 100%; max-width: 420px; height: auto; display: block; }
+.mk-w { fill: var(--key-white); stroke: var(--muted); stroke-width: 0.8; }
+.mk-b { fill: var(--key-black); }
+.mk-w.hit, .mk-b.hit { fill: var(--good); }
+.mk-label { font: 500 6.5px var(--font-body); fill: var(--muted); }
+.mk-w.hit + .mk-label { fill: #fff; }
+@media (min-width: 600px) { fieldset[data-key="task"] { grid-column: span 2; } }
 .is-played .notehead, .is-played .acc { fill: var(--muted); }
 .is-played .stem, .is-played .ledger { stroke: var(--muted); }
 .cover rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
@@ -317,6 +326,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <span class="chip" id="key-chip" hidden></span>
       <span class="chip" id="midi-chip" hidden>MIDI verbunden</span>
     </div>
+    <div class="hint" id="hint" hidden></div>
     <div class="overlay" id="overlay" hidden></div>
   </section>
 
@@ -356,6 +366,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     <ul class="tips">
       <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende.</li>
       <li>Beginne mit <b>Im System</b> und einem Schlüssel. Wechsle zu <b>Mit Hilfslinien</b>, wenn du fast immer richtig liegst.</li>
+      <li><b>Ankernoten</b>: Präge dir zuerst diese Noten ein. Im Violinschlüssel: mittleres C, G (2. Linie), C (3. Zwischenraum) und hohes C. Im Bassschlüssel: tiefes C, C (2. Zwischenraum), F (4. Linie) und mittleres C. Alle anderen Noten zählst du von dort ab.</li>
+      <li>Mit <b>Hilfe bei Fehlern</b> zeigt dir die App nach einem Fehler die richtige Taste und eine Merkhilfe. Weiter geht es, wenn du die richtige Note gespielt oder getippt hast.</li>
       <li>Merkhilfen: Linien im Violinschlüssel von unten <b>E G H D F</b>, im Bassschlüssel <b>G H D F A</b>.</li>
       <li><b>Tonart</b>: Die Vorzeichen direkt nach dem Schlüssel gelten für jede Note auf dieser Stufe, in allen Oktaven. In G-Dur ist also jedes F ein Fis. Reihenfolge der Kreuze: Fis Cis Gis Dis Ais Eis, der Bes: B Es As Des Ges Ces.</li>
       <li>Ein ♮ (Auflösungszeichen) hebt ein Vorzeichen bis zum Taktende auf.</li>
@@ -453,18 +465,19 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on' },
     store.settings
   );
 
   const SETTINGS_UI = [
-    { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde'],['melody','Melodie']] },
+    { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde'],['melody','Melodie'],['anchors','Ankernoten']] },
     { key: 'clef',   label: 'Schlüssel', opts: [['treble','Violin'],['bass','Bass'],['both','Beide']] },
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
     { key: 'flow',   label: 'Melodie-Ablauf', only: 'melody', opts: [['stop','Mit Rückmeldung'],['flow','Ohne Stopp']] },
     { key: 'ahead',  label: 'Vorauslesen', only: 'melody', opts: [['0','Aus'],['1','1 Note'],['2','2 Noten']] },
+    { key: 'help',   label: 'Hilfe bei Fehlern', opts: [['on','An'],['off','Aus']] },
     { key: 'answer', label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
     { key: 'mode',   label: 'Modus', opts: [['free','Frei üben'],['timed','60 Sekunden']] },
     { key: 'names',  label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
@@ -474,7 +487,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   // ---------- Zustand ----------
   const state = {
-    current: null, prevId: null, melody: null, key: 0, locked: false, shownAt: 0, nextTimer: null,
+    current: null, prevId: null, melody: null, key: 0, fix: null, locked: false, shownAt: 0, nextTimer: null,
     mod: 0,          // gewähltes Vorzeichen für die nächste Namens-Antwort
     sel: [],         // Auswahl bei Akkorden (Namen "l:acc" oder MIDI-Nummern)
     correct: 0, total: 0, streak: 0, times: [],
@@ -485,6 +498,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const svg = $('staff');
   const isChord = () => settings.task === 'chords';
   const isMelody = () => settings.task === 'melody';
+  const isAnchors = () => settings.task === 'anchors';
+  const helpOn = () => settings.help === 'on';
   // Ohne Stopp: während der Melodie keine Rückmeldung, Auswertung erst am Ende
   const isFlow = () => isMelody() && settings.flow === 'flow';
   const activeClefs = () => settings.clef === 'both' ? ['treble', 'bass'] : [settings.clef];
@@ -571,8 +586,111 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     return { clef, notes, idx: 0, results: [], key: state.key };
   }
 
+  // ---------- Ankernoten ----------
+  // Von diesen Noten aus findet man jede andere durch Abzählen
+  const ANCHORS = { treble: [28, 32, 35, 42], bass: [14, 21, 24, 28] };
+  const ANCHOR_DESC = {
+    'treble:28': 'das mittlere C auf der 1. Hilfslinie unter dem System',
+    'treble:32': 'das G auf der 2. Linie (um sie kringelt sich der Violinschlüssel)',
+    'treble:35': 'das C im 3. Zwischenraum',
+    'treble:42': 'das hohe C auf der 2. Hilfslinie über dem System',
+    'bass:28': 'das mittlere C auf der 1. Hilfslinie über dem System',
+    'bass:24': 'das F auf der 4. Linie (zwischen den Punkten des Bassschlüssels)',
+    'bass:21': 'das C im 2. Zwischenraum',
+    'bass:14': 'das tiefe C auf der 2. Hilfslinie unter dem System'
+  };
+  function anchorCandidates() {
+    const list = [];
+    for (const clef of activeClefs()) {
+      for (const st of ANCHORS[clef]) {
+        const n = { step: st, acc: keyAcc(letterOf(st)) };
+        list.push({ clef, notes: [n], id: `${clef}:${st}:${n.acc}`, label: fullName(n), base: 1 });
+      }
+    }
+    return list;
+  }
+  function posDesc(clef, step) {
+    const k = step - BOTTOM[clef];
+    if (k >= 0 && k <= 8) return k % 2 === 0 ? `auf der ${k / 2 + 1}. Linie` : `im ${(k + 1) / 2}. Zwischenraum`;
+    if (k === -1) return 'direkt unter dem System';
+    if (k === 9) return 'direkt über dem System';
+    if (k < 0) { const n = Math.floor(-k / 2); return k % 2 === 0 ? `auf der ${n}. Hilfslinie unter dem System` : `unter der ${n}. Hilfslinie unter dem System`; }
+    const n = Math.floor((k - 8) / 2);
+    return k % 2 === 0 ? `auf der ${n}. Hilfslinie über dem System` : `über der ${n}. Hilfslinie über dem System`;
+  }
+  // Merkhilfe: Lage der Note, Abzählen von der nächsten Ankernote, Hinweis auf Vorzeichen
+  function hintText(clef, n) {
+    const name = noteName(n);
+    const a = ANCHORS[clef].reduce((best, x) => (Math.abs(x - n.step) < Math.abs(best - n.step) ? x : best));
+    const d = n.step - a;
+    let t = `${name} liegt ${posDesc(clef, n.step)}. `;
+    if (d === 0) t += `Das ist eine Ankernote: ${ANCHOR_DESC[clef + ':' + a]}.`;
+    else {
+      const seq = [];
+      for (let x = a; d > 0 ? x <= n.step : x >= n.step; x += Math.sign(d)) seq.push(LETTERS[settings.names][letterOf(x)]);
+      t += `Zähl von der Ankernote aus, ${ANCHOR_DESC[clef + ':' + a]}: ${seq.join(' – ')}.`;
+    }
+    const L = LETTERS[settings.names][letterOf(n.step)];
+    const shown = shownAcc(n);
+    if (shown === null && n.acc !== 0) t += ` Die Tonart ${keyShort(state.key)} macht aus ${L} ein ${name}.`;
+    else if (shown === 0) t += ` Das ♮ hebt das Vorzeichen der Tonart auf, also bleibt es ${name}.`;
+    else if (shown) t += ` Das ${shown > 0 ? '♯' : '♭'} davor macht aus ${L} ein ${name}.`;
+    return t;
+  }
+  // Kleine Tastatur mit den gesuchten Tasten
+  function miniKeys(midis) {
+    const lo = Math.min(...midis), hi = Math.max(...midis);
+    let start = Math.floor(lo / 12) * 12;
+    if (lo - start < 5) start -= 12;
+    const octaves = Math.max(2, Math.ceil((hi - start + 1) / 12));
+    const W = 14, H = 58;
+    let whites = '', blacks = '';
+    for (let o = 0; o < octaves; o++) {
+      SEMI.forEach((semi, i) => {
+        const m = start + o * 12 + semi, x = (o * 7 + i) * W;
+        whites += `<rect class="mk-w ${midis.includes(m) ? 'hit' : ''}" x="${x}" y="0" width="${W}" height="${H}" rx="2"/>`;
+        if (i === 0) whites += `<text class="mk-label" x="${x + W / 2}" y="${H - 5}" text-anchor="middle">C${start / 12 + o - 1}</text>`;
+        if ([0, 1, 3, 4, 5].includes(i)) {
+          blacks += `<rect class="mk-b ${midis.includes(m + 1) ? 'hit' : ''}" x="${x + W - 4.5}" y="0" width="9" height="${H * 0.6}" rx="1.5"/>`;
+        }
+      });
+    }
+    return `<svg viewBox="-1 -1 ${octaves * 7 * W + 2} ${H + 2}" role="img" aria-label="Tastatur mit der richtigen Taste">${whites}${blacks}</svg>`;
+  }
+  function showHint(item) {
+    const box = $('hint');
+    let text;
+    if (item.notes.length > 1) {
+      text = 'Tipp: Ein Dreiklang in Grundstellung liegt ganz auf Linien oder ganz in Zwischenräumen. Bestimme die unterste Note und zähle in Terzen nach oben, also immer eine Stufe überspringen.';
+    } else text = hintText(item.clef, item.notes[0]);
+    box.innerHTML = `<p>${text}</p>${miniKeys(item.notes.map(noteMidi))}`;
+    box.hidden = false;
+  }
+  const hideHint = () => { $('hint').hidden = true; };
+  // Nach einem Fehler: erst mit der richtigen Antwort geht es weiter
+  function tryFix(ok) {
+    if (ok) {
+      const done = state.fix.done;
+      state.fix = null;
+      state.locked = true;
+      hideHint();
+      setFeedback('good', 'Genau. Weiter geht’s.');
+      state.nextTimer = setTimeout(done, 450);
+    } else {
+      setFeedback('bad', `Noch nicht. Gesucht ist ${state.fix.name}. Schau auf die kleine Tastatur.`);
+    }
+  }
+  function startFix(n, given, done) {
+    const name = settings.answer === 'piano' ? fullName(n) : noteName(n);
+    const verb = settings.answer === 'piano' || (state.pressed && state.pressed.source === 'midi') ? 'Spiel' : 'Tippe';
+    state.fix = { note: n, name, done };
+    state.locked = false;
+    showHint({ clef: state.current.clef, notes: [n] });
+    setFeedback('bad', `Das war ${name}, du hattest ${given}. ${verb} jetzt ${name}, dann geht es weiter.`);
+  }
+
   function pickItem() {
-    const all = isChord() ? chordCandidates() : noteCandidates();
+    const all = isChord() ? chordCandidates() : isAnchors() ? anchorCandidates() : noteCandidates();
     const list = all.length > 1 ? all.filter(n => n.id !== state.prevId) : all;
     const weights = list.map(n => {
       const st = store.notes[n.id];
@@ -852,6 +970,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   // ---------- Ablauf ----------
   function nextItem() {
     clearTimeout(state.nextTimer);
+    state.fix = null;
+    hideHint();
     if (isMelody()) {
       if (!state.melody || state.melody.idx >= state.melody.notes.length) { chooseKey(); state.melody = makeMelody(); }
       const mel = state.melody, n = mel.notes[mel.idx];
@@ -904,6 +1024,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (!ready()) return;
     const acc = state.mod;
     if (state.mod) setMod(0);
+    if (state.fix) { const f = state.fix.note; tryFix(letter === letterOf(f.step) && acc === f.acc); return; }
     const item = state.current;
     if (isChord()) {
       const v = `${letter}:${acc}`;
@@ -938,6 +1059,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   function answerMidi(midi, source = 'screen') {
     if (!ready()) return;
+    if (state.fix) {
+      const ok = midi === noteMidi(state.fix.note);
+      keyFor(midi)?.classList.add(ok ? 'good' : 'bad');
+      tryFix(ok);
+      return;
+    }
     state.pressed = { midi, source };
     const item = state.current;
     const want = item.notes.map(noteMidi);
@@ -1006,10 +1133,13 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     updateStats();
     renderHard();
     renderSel();
+    const helping = !ok && helpOn() && !state.timed.running;
+    if (helping && !isChord()) { startFix(item.notes[0], given, nextItem); return; }
+    if (helping) showHint(item);
     state.nextTimer = setTimeout(() => {
       if (settings.mode === 'timed' && !state.timed.running) return;
       nextItem();
-    }, ok ? 500 : (isChord() ? 2600 : 1600));
+    }, ok ? 500 : (isChord() ? (helping ? 4500 : 2600) : 1600));
   }
 
   function resolveMelody(ok, given) {
@@ -1032,6 +1162,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     else setFeedback('bad', `Das war ${name}. Du hast ${given} gewählt.`);
     updateStats();
     renderHard();
+    if (!ok && !isFlow() && helpOn() && !state.timed.running) {
+      startFix(n, given, mel.idx < mel.notes.length ? nextItem : () => finishMelody(0));
+      return;
+    }
     if (mel.idx < mel.notes.length) {
       state.nextTimer = setTimeout(() => {
         if (settings.mode === 'timed' && !state.timed.running) return;
@@ -1041,6 +1175,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     }
     // Melodie fertig
     if (state.timed.running) { state.nextTimer = setTimeout(nextItem, 700); return; }
+    finishMelody(isFlow() ? 300 : ok ? 400 : 1000);
+  }
+  function finishMelody(delay) {
+    const mel = state.melody;
+    state.locked = true;
     const right = mel.results.filter(Boolean).length;
     state.nextTimer = setTimeout(() => {
       drawMelody();
@@ -1048,7 +1187,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         `Melodie fertig: ${right} von ${mel.notes.length} richtig.`);
       $('fbactions').hidden = false;
       playMelody();
-    }, isFlow() ? 300 : ok ? 400 : 1000);
+    }, delay);
   }
   function playMelody() {
     if (!state.melody) return;
@@ -1070,7 +1209,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function showStart() {
     const ov = $('overlay');
     const rec = store.best60[timedKey()];
-    const what = isChord() ? 'Akkorde' : isMelody() ? 'Melodie-Noten' : 'Noten';
+    const what = isChord() ? 'Akkorde' : isMelody() ? 'Melodie-Noten' : isAnchors() ? 'Ankernoten' : 'Noten';
     ov.innerHTML = `<h2>60-Sekunden-Test</h2>
       <p>Wie viele ${what} erkennst du in einer Minute? Falsche Antworten kosten keine Punkte, aber Zeit.</p>
       ${rec ? `<p>Dein Rekord mit diesen Einstellungen: <b>${rec}</b></p>` : ''}
@@ -1173,7 +1312,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     document.querySelectorAll('#settings [data-only]').forEach(f => { f.hidden = f.dataset.only !== settings.task; });
     state.melody = null;
     $('tagline').textContent = isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
-      : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.' : 'Erkenne die Note, so schnell du kannst.';
+      : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.'
+      : isAnchors() ? 'Lerne die Ankernoten. Von ihnen aus findest du jede andere Note.' : 'Erkenne die Note, so schnell du kannst.';
     renderAnswerArea();
     stopTimed();
     if (settings.mode === 'timed') showStart();
