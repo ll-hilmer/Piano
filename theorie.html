@@ -152,6 +152,10 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font-size: 0.8rem; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .small { font-size: 0.88rem; color: var(--muted); }
+.acc-patterns { display: grid; gap: 18px; }
+.pattern { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
+.pattern h3 { margin: 0; }
+.pattern .lvl { font-size: 0.75rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 9px; margin-left: 8px; vertical-align: 2px; }
 .dynsym { font: italic 700 1.3rem var(--font-display); }
 .hairs { display: grid; gap: 10px; }
 .hair { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
@@ -213,6 +217,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
         <li><a href="#moll">Die drei Moll-Tonleitern</a></li>
         <li><a href="#septakkorde">Septakkorde</a></li>
         <li><a href="#folgen">Typische Akkordfolgen</a></li>
+        <li><a href="#begleitung">Begleitmuster für die linke Hand</a></li>
       </ol>
     </div>
   </nav>
@@ -486,6 +491,13 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     </ul>
     <div class="ex" data-ex="pop"></div>
     <div class="ex" data-ex="jazz"></div>
+  </section>
+
+  <section class="ch" id="begleitung">
+    <h2><small>22</small>Begleitmuster für die linke Hand</h2>
+    <p>Die linke Hand spielt meist nicht die Melodie, sondern eine <b>Begleitung</b> aus den Tönen des jeweiligen Akkords. Ein paar Muster reichen für sehr viele Stücke. Alle Beispiele nutzen die Folge <b>C – Am – F – G</b> (I – vi – IV – V) aus dem vorigen Kapitel.</p>
+    <p class="tip"><b>So übst du ein Muster:</b> erst die linke Hand allein und langsam, bis sie von selbst läuft. Dann die rechte Hand mit langen Akkorden dazu, zuletzt eine Melodie. Unter den Noten steht jeweils der Akkord.</p>
+    <div class="acc-patterns" id="patterns"></div>
   </section>
 </div>
 
@@ -977,6 +989,64 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
         step();
         timer = setInterval(step, 700);
       });
+    });
+  }
+
+  // ---------- Begleitmuster ----------
+  {
+    // Grundtöne im Bassschlüssel (C3, A2, F2, G2); alle Akkorde leitereigen in C-Dur, also ohne Vorzeichen
+    const ROOT = { C: 21, Am: 19, F: 17, G: 18 };
+    const RHC = { C: 'C4 E4 G4', Am: 'C4 E4 A4', F: 'C4 F4 A4', G: 'B3 D4 G4' };
+    const n = st => ({ step: st, acc: 0 });
+    // r = Grundton, t = Terz, f = Quinte, o = Oktave
+    const PATTERNS = [
+      { id: 'root', title: 'Grundton', lvl: 'Einstieg', bpm: 76, prog: ['C', 'Am', 'F', 'G'], step: 74,
+        text: 'Nur der Grundton des Akkords, lang ausgehalten. Ideal für den Anfang und für ruhige Lieder: Die linke Hand legt das Fundament, die rechte hat den Kopf frei.',
+        bar: r => [{ notes: [n(r)], dur: 'w' }] },
+      { id: 'fifth', title: 'Grundton und Quinte', lvl: 'Einstieg', bpm: 84, prog: ['C', 'Am', 'F', 'G'], step: 46,
+        text: 'Grundton und Quinte im Wechsel, je eine Halbe. Klingt voller als der Grundton allein und passt zu Volks- und Kinderliedern.',
+        bar: r => [{ notes: [n(r)], dur: 'h' }, { notes: [n(r + 4)], dur: 'h' }] },
+      { id: 'broken', title: 'Gebrochener Akkord', lvl: 'Leicht', bpm: 84, prog: ['C', 'Am', 'F', 'G'], step: 30,
+        text: 'Die Akkordtöne nacheinander: Grundton, Terz, Quinte, Terz. So fließt die Begleitung, typisch für Balladen und ruhige Popsongs.',
+        bar: r => [r, r + 2, r + 4, r + 2].map(st => ({ notes: [n(st)], dur: 'q' })) },
+      { id: 'waltz', title: 'Walzer', lvl: 'Leicht', bpm: 132, time: '3/4', prog: ['C', 'Am', 'F', 'G'], step: 34,
+        text: 'Im 3/4-Takt: auf der Eins der Grundton, auf Zwei und Drei die übrigen Akkordtöne zusammen. Das bekannte „Hm-ta-ta“.',
+        bar: r => [{ notes: [n(r)], dur: 'q' }, { notes: [n(r + 2), n(r + 4)], dur: 'q' }, { notes: [n(r + 2), n(r + 4)], dur: 'q' }] },
+      { id: 'pop', title: 'Pop-Ballade (1 – 5 – 8)', lvl: 'Mittel', bpm: 76, prog: ['C', 'G'], step: 30,
+        text: 'Grundton, Quinte und Oktave in Achteln, auf und ab. Klingt weit und offen, die Hand bleibt dabei in einer Lage. Sehr verbreitet in Pop-Balladen.',
+        bar: r => [r, r + 4, r + 7, r + 4, r, r + 4, r + 7, r + 4].map((st, k) => ({ notes: [n(st)], dur: 'e', beam: ['start', 'mid', 'mid', 'end'][k % 4] })) },
+      { id: 'alberti', title: 'Alberti-Bass', lvl: 'Fortgeschritten', bpm: 76, prog: ['C', 'G'], step: 30,
+        text: 'Tief – hoch – Mitte – hoch, in Achteln: Grundton, Quinte, Terz, Quinte. Benannt nach Domenico Alberti und typisch für die Klassik, etwa bei Mozart. Gleichmäßig und leise spielen, die Melodie steht im Vordergrund.',
+        bar: r => [r, r + 4, r + 2, r + 4, r, r + 4, r + 2, r + 4].map((st, k) => ({ notes: [n(st)], dur: 'e', beam: ['start', 'mid', 'mid', 'end'][k % 4] })) }
+    ];
+    const box = $('patterns');
+    PATTERNS.forEach(pt => {
+      const items = [];
+      pt.prog.forEach((ch, b2) => {
+        const bar = pt.bar(ROOT[ch]);
+        bar[0] = { ...bar[0], label: ch, bar: b2 > 0, rh: RHC[ch] };
+        items.push(...bar);
+      });
+      const el = document.createElement('div');
+      el.className = 'pattern';
+      el.innerHTML = `<h3>${pt.title}<span class="lvl">${pt.lvl}</span></h3><p>${pt.text}</p><div class="ex" data-ex="pat-${pt.id}"></div>`;
+      box.appendChild(el);
+      // Wiedergabe: Begleitung zweimal; auf Wunsch die Akkorde der rechten Hand dazu
+      const playPattern = withRH => {
+        const all = [...items, ...items.map((it, k) => (k === 0 ? { ...it, bar: true } : it))];
+        playRhythm(all, pt.bpm, all.map(() => 0.9));
+        if (!withRH) return;
+        const beat = 60 / pt.bpm;
+        let t = 0;
+        const barLen = pt.time === '3/4' ? 3 : 4;
+        all.forEach(it => {
+          if (it.rh) tone(chord(it.rh).map(midiOf), t, barLen * beat * 0.95, 0.45);
+          const base = (it.dur || 'q').replace('.', '');
+          t += BEATS[base] * beat;
+        });
+      };
+      mount('pat-' + pt.id, staff({ clef: 'bass', items, time: pt.time || '4/4', step: pt.step, aria: `Begleitmuster ${pt.title}` }),
+        [['Anhören', () => playPattern(false)], ['Mit rechter Hand', () => playPattern(true)]]);
     });
   }
 
