@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 rm -rf _site
 mkdir -p _site
 { cat site/head.html; cat index.html; printf '\n</body>\n</html>\n'; } > _site/index.html
+{ cat site/head.html; cat theorie.html; printf '\n</body>\n</html>\n'; } > _site/theorie.html
 cp site/manifest.webmanifest site/*.png _site/
 touch _site/.nojekyll
 echo "Fertig: _site/index.html"

@@ -1,0 +1,823 @@
+<title>Musiktheorie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: Lesespalte mit Inhaltsverzeichnis oben; jedes Kapitel eine Karte mit Text, Notenbeispiel und „Anhören“. Gleiche Farbwelt wie die Übungs-App. */
+:root {
+  --paper: #f3f5f9;
+  --card: #ffffff;
+  --ink: #161a2c;
+  --muted: #5c627c;
+  --line: #d8dce8;
+  --accent: #2d4bd0;
+  --accent-soft: #e4e9fc;
+  --good: #1d8549;
+  --good-soft: #dcf2e4;
+  --key-white: #ffffff;
+  --key-black: #1b1f33;
+  --font-display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
+    --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
+    --key-white: #e9ebf3; --key-black: #0a0c16;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
+  --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
+  --key-white: #e9ebf3; --key-black: #0a0c16;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 820px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 64px; display: grid; gap: 18px; }
+.wrap > * { min-width: 0; }
+
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
+h1 { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: clamp(2rem, 6vw, 2.8rem); line-height: 1; margin: 0; }
+.tagline { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; }
+.back { color: var(--accent); font-weight: 600; text-decoration: none; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 8px 14px; }
+.back:hover { border-color: var(--accent); }
+
+.toc { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.toc h2 { margin: 0 0 6px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+.toc ol { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.toc a { color: var(--ink); text-decoration: none; }
+.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+.part { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; margin: 14px 0 -6px; }
+section.ch { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: grid; gap: 12px; scroll-margin-top: 16px; }
+section.ch h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.55rem; margin: 0; line-height: 1.2; text-wrap: balance; }
+section.ch h2 small { font-family: var(--font-body); font-size: 0.8rem; color: var(--muted); font-weight: 600; margin-right: 8px; }
+section.ch p { margin: 0; max-width: 68ch; }
+section.ch ul { margin: 0; padding-left: 1.2em; max-width: 68ch; display: grid; gap: 4px; }
+.tip { background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; max-width: 68ch; }
+.tip b { color: var(--accent); }
+
+.ex { display: grid; gap: 8px; justify-items: start; overflow-x: auto; }
+.ex svg.staff { width: 100%; height: auto; color: var(--ink); display: block; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: inherit; cursor: pointer; color: inherit; }
+.play { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 5px 12px; font-size: 0.88rem; font-weight: 600; color: var(--accent); }
+.play:hover { border-color: var(--accent); }
+.play::before { content: "▶ "; font-size: 0.75em; }
+button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.select { font: inherit; font-size: 0.92rem; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; }
+
+table { border-collapse: collapse; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; max-width: 100%; }
+th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+
+/* Notensatz */
+.sl { stroke: currentColor; stroke-width: 1.2; }
+.bl { stroke: currentColor; stroke-width: 1.8; }
+.clef, .acc, .glyph { fill: currentColor; }
+.nh { fill: currentColor; }
+.nh.hollow { fill: var(--card); stroke: currentColor; stroke-width: 1.8; }
+.stem, .ledger { stroke: currentColor; stroke-width: 1.4; }
+.lbl { font: 600 11px var(--font-body); fill: var(--muted); }
+.lbl.strong { fill: var(--ink); }
+.btw { font: 600 10px var(--font-body); fill: var(--accent); }
+.ts { font: 600 27px var(--font-display); fill: currentColor; }
+.hl .nh, .hl .acc { fill: var(--accent); }
+.hl .nh.hollow { fill: var(--card); stroke: var(--accent); }
+.hl .stem, .hl .ledger { stroke: var(--accent); }
+
+/* Werte-Tabelle */
+.vals { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; width: 100%; }
+.val { border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; justify-items: center; gap: 2px; text-align: center; font-size: 0.85rem; }
+.val svg { width: 100%; max-width: 110px; height: auto; color: var(--ink); }
+.val b { font-size: 0.92rem; }
+.val span { color: var(--muted); font-size: 0.8rem; }
+
+/* Klaviatur */
+.kb { width: 100%; max-width: 560px; height: auto; }
+.kw { fill: var(--key-white); stroke: var(--muted); stroke-width: 1; }
+.kbk { fill: var(--key-black); }
+.kw.on, .kbk.on { fill: var(--accent); }
+.kt { font: 600 11px var(--font-body); fill: var(--muted); }
+.kt.ht { fill: var(--accent); }
+.kw.on + .kt { fill: #fff; }
+
+/* Quintenzirkel */
+.circle-wrap { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.circle { width: 100%; max-width: 360px; height: auto; flex: 0 1 360px; }
+.seg path { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; cursor: pointer; transition: fill .15s; }
+.seg.minor path { fill: var(--card); }
+.seg:hover path { fill: var(--accent-soft); }
+.seg.on path { fill: var(--accent); }
+.seg text { font: 600 13px var(--font-body); fill: var(--ink); pointer-events: none; }
+.seg.minor text { font-size: 11px; fill: var(--muted); }
+.seg.on text { fill: var(--card); }
+.seg:focus-visible path { stroke: var(--accent); stroke-width: 3; }
+.cinfo { flex: 1 1 260px; min-width: 0; display: grid; gap: 8px; }
+.cinfo h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.4rem; }
+.cinfo .ex svg.staff { max-width: 420px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 0.8rem; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.small { font-size: 0.88rem; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Musiktheorie</h1>
+      <p class="tagline">Was hinter den Noten steckt: von den Grundlagen bis zur Kadenz.</p>
+    </div>
+    <a class="back" href="index.html">Zum Üben</a>
+  </header>
+
+  <nav class="toc" aria-label="Inhalt">
+    <div>
+      <h2>Grundlagen</h2>
+      <ol>
+        <li><a href="#system">Notensystem und Schlüssel</a></li>
+        <li><a href="#namen">Notennamen und Oktaven</a></li>
+        <li><a href="#werte">Notenwerte und Pausen</a></li>
+        <li><a href="#takt">Takt</a></li>
+        <li><a href="#halbton">Ganz- und Halbtöne</a></li>
+        <li><a href="#vorzeichen">Vorzeichen</a></li>
+        <li><a href="#dur">Die Dur-Tonleiter</a></li>
+        <li><a href="#intervalle">Intervalle</a></li>
+        <li><a href="#dreiklaenge">Dreiklänge</a></li>
+        <li><a href="#umkehrungen">Umkehrungen</a></li>
+      </ol>
+    </div>
+    <div>
+      <h2>Fortgeschritten</h2>
+      <ol start="11">
+        <li><a href="#quintenzirkel">Quintenzirkel</a></li>
+        <li><a href="#parallel">Paralleltonarten und Merksprüche</a></li>
+        <li><a href="#stufen">Stufen und Funktionen</a></li>
+        <li><a href="#kadenz">Die Kadenz</a></li>
+        <li><a href="#septakkord">Der Dominantseptakkord</a></li>
+        <li><a href="#moll">Die drei Moll-Tonleitern</a></li>
+        <li><a href="#septakkorde">Septakkorde</a></li>
+        <li><a href="#folgen">Typische Akkordfolgen</a></li>
+      </ol>
+    </div>
+  </nav>
+
+  <p class="part">Grundlagen</p>
+
+  <section class="ch" id="system">
+    <h2><small>1</small>Notensystem und Schlüssel</h2>
+    <p>Noten stehen auf fünf Linien und in den vier Zwischenräumen dazwischen. Je höher eine Note steht, desto höher klingt sie. Reicht das System nicht aus, helfen kurze <b>Hilfslinien</b>.</p>
+    <p>Der <b>Schlüssel</b> am Anfang legt fest, welcher Ton wo steht. Am Klavier spielt die rechte Hand meist im <b>Violinschlüssel</b>, die linke im <b>Bassschlüssel</b>. Beide Systeme zusammen heißen Klaviersystem.</p>
+    <ul>
+      <li>Der Violinschlüssel ist ein <b>G-Schlüssel</b>: Seine Schnecke kringelt sich um die 2. Linie, dort steht das g′.</li>
+      <li>Der Bassschlüssel ist ein <b>F-Schlüssel</b>: Seine zwei Punkte umschließen die 4. Linie, dort steht das f.</li>
+      <li>Das <b>mittlere C</b> (c′) liegt genau dazwischen, auf einer Hilfslinie: unter dem Violin- und über dem Basssystem.</li>
+    </ul>
+    <div class="ex" data-ex="clefs"></div>
+  </section>
+
+  <section class="ch" id="namen">
+    <h2><small>2</small>Notennamen und Oktaven</h2>
+    <p>Die sieben Stammtöne heißen <b>C D E F G A H</b>, danach beginnt es wieder mit C, eine <b>Oktave</b> höher. Im Englischen heißt das H „B“; im Deutschen ist B das erniedrigte H.</p>
+    <p>Damit klar ist, welches C gemeint ist, bekommen die Oktaven Namen. In der App steht die Zahl dahinter (C4 = c′), wie international üblich.</p>
+    <div class="ex" data-ex="octaves"></div>
+    <div class="tablewrap"><table>
+      <tr><th>Deutsch</th><th>International</th><th>Lage</th></tr>
+      <tr><td>großes C</td><td>C2</td><td>2. Hilfslinie unter dem Bassschlüssel</td></tr>
+      <tr><td>kleines c</td><td>C3</td><td>2. Zwischenraum im Bassschlüssel</td></tr>
+      <tr><td>eingestrichenes c′</td><td>C4</td><td>das mittlere C, Mitte der Klaviatur</td></tr>
+      <tr><td>zweigestrichenes c″</td><td>C5</td><td>3. Zwischenraum im Violinschlüssel</td></tr>
+      <tr><td>dreigestrichenes c‴</td><td>C6</td><td>2. Hilfslinie über dem Violinschlüssel</td></tr>
+    </table></div>
+  </section>
+
+  <section class="ch" id="werte">
+    <h2><small>3</small>Notenwerte und Pausen</h2>
+    <p>Die Form einer Note sagt, wie lange sie klingt. Jeder Wert ist halb so lang wie der vorige. Zu jedem Notenwert gibt es eine gleich lange Pause.</p>
+    <div class="vals" data-ex="values"></div>
+    <ul>
+      <li>Ein <b>Punkt</b> hinter der Note verlängert sie um die Hälfte: Eine punktierte Halbe dauert 3 Schläge.</li>
+      <li>Ein <b>Haltebogen</b> zwischen zwei gleichen Tönen verbindet sie zu einem langen Ton.</li>
+      <li>Achtel und Sechzehntel werden oft mit <b>Balken</b> zu Gruppen zusammengefasst, damit man die Schläge leichter sieht.</li>
+    </ul>
+    <p class="tip"><b>Merkhilfe:</b> Die ganze Pause hängt wie ein schwerer Koffer unter der Linie, die halbe Pause sitzt wie ein Hut auf der Linie.</p>
+  </section>
+
+  <section class="ch" id="takt">
+    <h2><small>4</small>Takt</h2>
+    <p>Taktstriche teilen die Musik in gleich lange Abschnitte. Die <b>Taktangabe</b> am Anfang verrät, wie viele Schläge ein Takt hat (obere Zahl) und welcher Notenwert einen Schlag bekommt (untere Zahl).</p>
+    <ul>
+      <li><b>4/4</b>: vier Viertel pro Takt, der häufigste Takt. Betont: 1 und schwächer 3.</li>
+      <li><b>3/4</b>: drei Viertel, typisch für Walzer. Betont: 1.</li>
+      <li><b>2/4</b>: zwei Viertel, typisch für Märsche.</li>
+      <li><b>6/8</b>: sechs Achtel, gefühlt in zwei Gruppen zu je drei (1-2-3, 4-5-6).</li>
+    </ul>
+    <div class="ex" data-ex="meter"></div>
+    <p>Beginnt ein Stück vor der ersten „Eins“, heißt das <b>Auftakt</b>. Der fehlende Rest steht dann meist im letzten Takt.</p>
+  </section>
+
+  <section class="ch" id="halbton">
+    <h2><small>5</small>Ganz- und Halbtöne</h2>
+    <p>Der kleinste Schritt auf dem Klavier ist der <b>Halbton</b>: von einer Taste zur direkt benachbarten, egal ob weiß oder schwarz. Zwei Halbtöne ergeben einen <b>Ganzton</b>.</p>
+    <p>Zwischen den meisten weißen Tasten liegt eine schwarze, das ist ein Ganzton. Nur zwischen <b>E und F</b> sowie zwischen <b>H und C</b> fehlt die schwarze Taste: Dort ist der Schritt nur ein Halbton.</p>
+    <div class="ex" data-ex="keys"></div>
+  </section>
+
+  <section class="ch" id="vorzeichen">
+    <h2><small>6</small>Vorzeichen</h2>
+    <ul>
+      <li><b>♯ Kreuz</b> erhöht um einen Halbton, der Name bekommt „-is“: F → Fis.</li>
+      <li><b>♭ Be</b> erniedrigt um einen Halbton, der Name bekommt „-es“: D → Des. Ausnahmen: E → <b>Es</b>, A → <b>As</b>, H → <b>B</b>.</li>
+      <li><b>♮ Auflösungszeichen</b> hebt ein Vorzeichen wieder auf.</li>
+    </ul>
+    <p>Ein Vorzeichen vor einer Note gilt bis zum Ende des Taktes, aber nur für diese Tonhöhe. Stehen Vorzeichen direkt hinter dem Schlüssel (<b>Generalvorzeichen</b>), gelten sie im ganzen Stück und in allen Oktaven. Daran erkennt man die Tonart.</p>
+    <div class="ex" data-ex="accidentals"></div>
+    <p class="small">Fis und Ges sind am Klavier dieselbe Taste. Welcher Name richtig ist, hängt von der Tonart ab.</p>
+  </section>
+
+  <section class="ch" id="dur">
+    <h2><small>7</small>Die Dur-Tonleiter</h2>
+    <p>Eine Tonleiter ist eine Folge von acht Tönen vom Grundton bis zu seiner Oktave. Jede Dur-Tonleiter folgt demselben Bauplan aus Ganztönen (G) und Halbtönen (H):</p>
+    <p class="tip"><b>G – G – H – G – G – G – H</b>. Die Halbtöne liegen zwischen dem 3. und 4. sowie dem 7. und 8. Ton.</p>
+    <p>C-Dur kommt ohne schwarze Tasten aus, weil E–F und H–C von Natur aus Halbtöne sind. Startet man auf einem anderen Ton, braucht man Vorzeichen, damit der Bauplan stimmt. So entstehen die Tonarten.</p>
+    <div class="ex" data-ex="cmajor"></div>
+  </section>
+
+  <section class="ch" id="intervalle">
+    <h2><small>8</small>Intervalle</h2>
+    <p>Ein Intervall ist der Abstand zwischen zwei Tönen. Man zählt beide Töne mit: C bis E sind drei Stufen (C, D, E), also eine <b>Terz</b>. Ob es eine große oder kleine Terz ist, entscheiden die Halbtöne.</p>
+    <div class="ex" data-ex="intervals"></div>
+    <div class="tablewrap"><table id="ivtable">
+      <tr><th>Intervall</th><th>Halbtöne</th><th>ab C</th><th>Klang</th><th></th></tr>
+    </table></div>
+    <p class="tip"><b>Im Notenbild:</b> Ungerade Intervalle (Terz, Quinte, Septime) liegen Linie–Linie oder Zwischenraum–Zwischenraum. Gerade (Sekunde, Quarte, Sexte, Oktave) liegen Linie–Zwischenraum.</p>
+  </section>
+
+  <section class="ch" id="dreiklaenge">
+    <h2><small>9</small>Dreiklänge</h2>
+    <p>Ein Dreiklang besteht aus zwei übereinander gestapelten Terzen: Grundton, Terz und Quinte. Im Notenbild sieht er aus wie ein „Schneemann“, alle drei Noten auf Linien oder alle in Zwischenräumen.</p>
+    <ul>
+      <li><b>Dur</b>: große Terz + kleine Terz (4 + 3 Halbtöne), klingt hell.</li>
+      <li><b>Moll</b>: kleine Terz + große Terz (3 + 4), klingt weicher, dunkler.</li>
+      <li><b>Vermindert</b>: zwei kleine Terzen (3 + 3), klingt gespannt.</li>
+      <li><b>Übermäßig</b>: zwei große Terzen (4 + 4), klingt schwebend.</li>
+    </ul>
+    <div class="ex" data-ex="triads"></div>
+  </section>
+
+  <section class="ch" id="umkehrungen">
+    <h2><small>10</small>Umkehrungen</h2>
+    <p>Legt man den untersten Ton eines Dreiklangs eine Oktave höher, bleibt es derselbe Akkord, nur anders geschichtet. Das nennt man <b>Umkehrung</b>. Am Klavier braucht man Umkehrungen, damit die Hand beim Akkordwechsel nicht weit springen muss.</p>
+    <ul>
+      <li><b>Grundstellung</b>: Grundton unten (C–E–G).</li>
+      <li><b>1. Umkehrung, Sextakkord</b>: Terz unten (E–G–C).</li>
+      <li><b>2. Umkehrung, Quartsextakkord</b>: Quinte unten (G–C–E).</li>
+    </ul>
+    <div class="ex" data-ex="inversions"></div>
+    <p class="tip"><b>Erkennen:</b> Bei einer Umkehrung liegen zwei Töne eine Quarte auseinander. Der obere dieser beiden ist der Grundton.</p>
+  </section>
+
+  <p class="part">Fortgeschritten</p>
+
+  <section class="ch" id="quintenzirkel">
+    <h2><small>11</small>Quintenzirkel</h2>
+    <p>Der Quintenzirkel ordnet alle Tonarten im Kreis. Im Uhrzeigersinn geht es jeweils eine Quinte höher, und es kommt ein ♯ dazu. Gegen den Uhrzeigersinn geht es eine Quinte tiefer (oder eine Quarte höher), und es kommt ein ♭ dazu. Außen stehen die Dur-, innen die Moll-Tonarten.</p>
+    <div class="circle-wrap">
+      <svg class="circle" id="circle" viewBox="0 0 360 360" role="group" aria-label="Quintenzirkel: Tonart antippen"></svg>
+      <div class="cinfo" id="cinfo"></div>
+    </div>
+    <p class="small">Tippe eine Tonart an. Unten bei 6 Uhr treffen sich Fis-Dur (6 ♯) und Ges-Dur (6 ♭): Sie klingen gleich und werden nur anders geschrieben.</p>
+  </section>
+
+  <section class="ch" id="parallel">
+    <h2><small>12</small>Paralleltonarten und Merksprüche</h2>
+    <p>Zu jeder Dur-Tonart gehört eine <b>parallele Moll-Tonart</b> mit denselben Vorzeichen. Ihr Grundton liegt eine kleine Terz (drei Halbtöne) tiefer: C-Dur und a-Moll, G-Dur und e-Moll.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Was</th><th>Reihenfolge</th><th>Merkspruch</th></tr>
+      <tr><td>Kreuz-Tonarten (Dur)</td><td>G D A E H Fis</td><td>„<b>G</b>eh <b>D</b>u <b>A</b>lter <b>E</b>sel <b>H</b>ol <b>Fis</b>che“</td></tr>
+      <tr><td>Be-Tonarten (Dur)</td><td>F B Es As Des Ges</td><td>„<b>F</b>rische <b>B</b>rötchen <b>Es</b>sen <b>As</b>se <b>Des</b> <b>Ges</b>angs“</td></tr>
+      <tr><td>Reihenfolge der Kreuze</td><td>Fis Cis Gis Dis Ais Eis</td><td>„<b>F</b>riedrich <b>C</b>hristian <b>G</b>eht <b>D</b>urch <b>A</b>lle <b>E</b>cken“</td></tr>
+      <tr><td>Reihenfolge der Bes</td><td>B Es As Des Ges Ces</td><td>das Wort „<b>BEAD</b>“, dann Ges, Ces</td></tr>
+    </table></div>
+    <p class="tip"><b>Tonart schnell erkennen:</b> Bei Kreuzen ist der Grundton einen Halbton über dem letzten Kreuz (letztes Kreuz Fis → G-Dur). Bei Bes ist das vorletzte B der Grundton (B, Es → B-Dur). Ein einziges B bedeutet F-Dur.</p>
+  </section>
+
+  <section class="ch" id="stufen">
+    <h2><small>13</small>Stufen und Funktionen</h2>
+    <p>Baut man auf jedem Ton einer Dur-Tonleiter einen Dreiklang nur aus Tönen dieser Tonleiter, entstehen sieben <b>Stufenakkorde</b>. Man nummeriert sie mit römischen Zahlen. Großbuchstaben stehen für Dur, kleine für Moll.</p>
+    <div class="ex" data-ex="degrees"></div>
+    <p>Drei Akkorde tragen fast jedes einfache Stück. Man nennt sie nach ihrer <b>Funktion</b>:</p>
+    <ul>
+      <li><b>Tonika (T)</b>, Stufe I: das Zuhause, Ruhe.</li>
+      <li><b>Subdominante (S)</b>, Stufe IV: führt weg vom Zuhause, öffnet.</li>
+      <li><b>Dominante (D)</b>, Stufe V: Spannung, will zurück zur Tonika.</li>
+    </ul>
+    <p>Die Moll-Akkorde ii, iii und vi sind die <b>Parallelen</b> dazu (Sp, Dp, Tp) und können sie vertreten. Der verminderte Akkord auf Stufe vii wirkt wie eine verkürzte Dominante.</p>
+  </section>
+
+  <section class="ch" id="kadenz">
+    <h2><small>14</small>Die Kadenz</h2>
+    <p>Die <b>Kadenz</b> ist die Grundfolge T – S – D – T (I – IV – V – I). Sie bestätigt die Tonart und klingt nach „Schluss“. Am Klavier greift man sie so, dass die rechte Hand kaum springt:</p>
+    <ul>
+      <li>I in Grundstellung, IV als Quartsextakkord, V als Sextakkord, zurück zu I.</li>
+      <li>Der Grundton bleibt bei I und IV liegen, die Finger rutschen nur nach.</li>
+      <li>Die linke Hand spielt jeweils den Grundton im Bass.</li>
+    </ul>
+    <div class="row">
+      <label for="cad-key" class="small">Tonart</label>
+      <select class="select" id="cad-key"></select>
+      <label class="small"><input type="checkbox" id="cad-7"> Dominante mit Septime (V7)</label>
+    </div>
+    <div class="ex" data-ex="cadence"></div>
+    <p class="tip"><b>Übungsidee:</b> Spiel die Kadenz in jeder Tonart des Quintenzirkels. So lernst du nebenbei alle Vorzeichen.</p>
+  </section>
+
+  <section class="ch" id="septakkord">
+    <h2><small>15</small>Der Dominantseptakkord</h2>
+    <p>Setzt man auf den Dominant-Dreiklang noch eine kleine Septime, entsteht der <b>Dominantseptakkord</b> (V7, in C-Dur: G7 = G–H–D–F). Er klingt noch gespannter und drängt deutlich zur Tonika:</p>
+    <ul>
+      <li>Das H (Leitton) will einen Halbton hoch zum C.</li>
+      <li>Das F (Septime) will einen Halbton runter zum E.</li>
+    </ul>
+    <div class="ex" data-ex="v7"></div>
+  </section>
+
+  <section class="ch" id="moll">
+    <h2><small>16</small>Die drei Moll-Tonleitern</h2>
+    <p>Moll gibt es in drei Varianten, hier am Beispiel a-Moll:</p>
+    <ul>
+      <li><b>Natürlich</b>: genau die Töne der parallelen Dur-Tonart (G – H – G – G – H – G – G).</li>
+      <li><b>Harmonisch</b>: die 7. Stufe ist erhöht (Gis). So entsteht ein Leitton zum Grundton und eine Dur-Dominante (E-Dur). Typisch ist der große Schritt zwischen 6. und 7. Ton.</li>
+      <li><b>Melodisch</b>: aufwärts 6. und 7. Stufe erhöht (Fis, Gis), abwärts wie natürlich Moll.</li>
+    </ul>
+    <div class="ex" data-ex="minors"></div>
+  </section>
+
+  <section class="ch" id="septakkorde">
+    <h2><small>17</small>Septakkorde</h2>
+    <p>Ein Septakkord ist ein Dreiklang mit einer weiteren Terz obendrauf. Je nach Mischung aus großen und kleinen Terzen klingt er anders:</p>
+    <div class="ex" data-ex="sevenths"></div>
+    <div class="tablewrap"><table>
+      <tr><th>Name</th><th>Symbol</th><th>Aufbau</th><th>Typisch</th></tr>
+      <tr><td>großer Septakkord</td><td>Cmaj7</td><td>Dur + große Septime</td><td>Stufe I und IV, weich, jazzig</td></tr>
+      <tr><td>Dominantseptakkord</td><td>C7</td><td>Dur + kleine Septime</td><td>Stufe V, drängend</td></tr>
+      <tr><td>Moll-Septakkord</td><td>Cm7</td><td>Moll + kleine Septime</td><td>Stufe ii, iii, vi</td></tr>
+      <tr><td>halbverminderter</td><td>Cm7♭5 / Cø</td><td>vermindert + kleine Septime</td><td>Stufe vii in Dur</td></tr>
+      <tr><td>verminderter</td><td>H°7</td><td>nur kleine Terzen</td><td>Stufe vii in harmonisch Moll</td></tr>
+    </table></div>
+  </section>
+
+  <section class="ch" id="folgen">
+    <h2><small>18</small>Typische Akkordfolgen</h2>
+    <p>Viele Stücke bauen auf wenigen bekannten Folgen auf. Wer sie erkennt, liest und spielt Begleitungen viel schneller.</p>
+    <ul>
+      <li><b>I – V – vi – IV</b>: unzählige Popsongs (in C: C – G – Am – F).</li>
+      <li><b>ii – V – I</b>: die Grundformel im Jazz (Dm7 – G7 – Cmaj7).</li>
+      <li><b>I – vi – IV – V</b>: die „50er-Jahre-Folge“ (C – Am – F – G).</li>
+    </ul>
+    <div class="ex" data-ex="pop"></div>
+    <div class="ex" data-ex="jazz"></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  // ---------- Grundlagen der Darstellung (wie in der Übungs-App) ----------
+  const LET = ['C', 'D', 'E', 'F', 'G', 'A', 'H'];
+  const SEMI = [0, 2, 4, 5, 7, 9, 11];
+  const BOTTOM = { treble: 30, bass: 18 };
+  const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6], FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3];
+  const KEY_SIG_STEPS = { sharp: [38, 35, 39, 36, 33, 37, 34], flat: [34, 37, 33, 36, 32, 35, 31] };
+  const TREBLE_PATH = 'M314 801Q300 854 291.0 906.0Q282 958 282 1012Q282 1059 288.5 1100.5Q295 1142 307 1177Q320 1217 341.0 1252.5Q362 1288 385.5 1311.0Q409 1334 427 1334Q451 1334 493 1249Q514 1206 524.0 1156.0Q534 1106 534 1049Q534 978 515.0 907.5Q496 837 459.5 775.0Q423 713 372 666L407 498Q422 500 432.0 501.0Q442 502 447 502Q508 502 556.0 467.5Q604 433 632.5 377.0Q661 321 661 254Q661 177 621.5 115.5Q582 54 503 25Q508 8 532 -117Q538 -147 541.0 -164.5Q544 -182 545.0 -195.0Q546 -208 546 -225Q546 -275 521.5 -314.5Q497 -354 455.5 -376.0Q414 -398 363 -398Q311 -398 271.0 -378.5Q231 -359 208.0 -324.5Q185 -290 185 -245Q185 -197 211.5 -165.0Q238 -133 287 -133Q329 -133 355.5 -163.5Q382 -194 382 -236Q382 -272 357.0 -299.0Q332 -326 292 -326H282Q308 -365 364 -365Q433 -365 472.0 -320.0Q511 -275 511 -205Q511 -188 507.0 -159.5Q503 -131 493 -91Q483 -51 477.5 -25.0Q472 1 470 12Q436 2 390 2Q304 2 222 52Q142 102 96.0 184.0Q50 266 50 361Q50 451 91 530Q132 609 192.5 675.0Q253 741 314 801ZM341 826Q364 838 390.0 870.5Q416 903 440.0 945.0Q464 987 479.0 1029.5Q494 1072 494 1106Q494 1142 483.0 1163.0Q472 1184 445 1184Q421 1184 398.5 1162.0Q376 1140 358.5 1103.5Q341 1067 331.0 1022.0Q321 977 321 930Q321 898 327.5 872.0Q334 846 341 826ZM398 379Q371 373 347.0 353.5Q323 334 308.5 306.5Q294 279 294 248Q294 223 307.0 196.5Q320 170 339 154Q352 142 365 136Q380 129 380 123Q380 120 370 117Q332 126 301.5 151.0Q271 176 253.5 211.5Q236 247 236 287Q236 330 253.5 370.0Q271 410 302.5 442.0Q334 474 374 490L345 641Q229 547 174.5 456.5Q120 366 120 277Q120 212 154.0 156.0Q188 100 247.0 65.5Q306 31 380 31Q400 31 420.5 35.0Q441 39 464 45ZM495 55Q593 97 593 227Q593 270 571.0 305.5Q549 341 512.0 362.0Q475 383 429 383Z';
+  const BASS_PATH = 'M50 123Q216 231 288 301Q336 348 373.0 408.5Q410 469 431.5 536.0Q453 603 453 669Q453 728 435.0 773.5Q417 819 383.0 845.0Q349 871 302 871Q284 871 264.5 867.0Q245 863 224 855Q181 839 158.0 813.5Q135 788 135 765Q135 756 143.0 752.0Q151 748 158 748Q168 748 183 752Q190 754 196.5 755.0Q203 756 210 756Q248 756 272.0 733.5Q296 711 296 674Q296 638 266.0 612.0Q236 586 195 586Q146 586 111.0 617.0Q76 648 76 697Q76 756 109.0 802.0Q142 848 198.5 874.0Q255 900 324 900Q400 900 460.0 867.0Q520 834 555.5 776.5Q591 719 591 646Q591 551 538 464Q511 419 476.5 379.0Q442 339 389.0 297.5Q336 256 256.0 208.0Q176 160 57 101ZM687 809Q710 809 726.0 793.0Q742 777 742 754Q742 731 726.0 715.5Q710 700 687 700Q664 700 648.0 715.5Q632 731 632 754Q632 777 648.0 793.0Q664 809 687 809ZM687 589Q710 589 726.0 573.0Q742 557 742 534Q742 511 726.0 495.5Q710 480 687 480Q664 480 648.0 495.5Q632 511 632 534Q632 557 648.0 573.0Q664 589 687 589Z';
+  const ACC_GLYPH = {
+    '0':  { d: 'M226 316V-221H195V-9L50 -46V486H83V279ZM197 84V212L81 183V56Z', right: 226, mid: 132 },
+    '1':  { d: 'M97 46V189L50 177V277L97 290V486H128V298L195 314V509H226V322L275 333V234L226 220V77L275 89V-14L226 -26V-214H195V-34L128 -52V-247H97V-59L50 -71V32ZM195 70V214L128 197V54Z', right: 275, mid: 131 },
+    '-1': { d: 'M50 615H81V225Q118 262 165 262Q197 262 223.0 240.5Q249 219 249 178Q249 146 230.0 119.0Q211 92 179 65L110 6Q91 -10 76.0 -25.5Q61 -41 50 -55ZM81 12Q107 40 125.0 63.5Q143 87 153 105Q164 124 169.5 140.0Q175 156 175 170Q175 198 162.0 210.5Q149 223 134 223Q118 223 102.5 211.5Q87 200 81 180Z', right: 249, mid: 95 }
+  };
+  const GLYPHS = {"n1": {"d": "M50 135Q50 172 77.0 200.0Q104 228 150.5 244.0Q197 260 253 260Q310 260 358.0 244.5Q406 229 435.0 201.0Q464 173 464 135Q464 96 436.0 67.5Q408 39 361.5 23.5Q315 8 259 8Q203 8 155.5 23.0Q108 38 79.0 66.5Q50 95 50 135ZM280 28Q314 28 326.5 53.0Q339 78 339 112Q339 147 324.5 176.0Q310 205 286.0 222.5Q262 240 232 240Q198 240 186.5 215.0Q175 190 175 156Q175 122 189.0 93.0Q203 64 226.5 46.0Q250 28 280 28Z", "b": [50, 8, 464, 260]}, "n2": {"d": "M323 1009H347V169Q347 137 330.5 106.5Q314 76 286.0 52.0Q258 28 225.0 13.5Q192 -1 159 -1Q111 -1 80.5 21.5Q50 44 50 90Q50 141 78.5 181.5Q107 222 153.0 245.5Q199 269 251 269Q295 269 323 247ZM77 66Q77 56 84.5 48.0Q92 40 105 40Q140 40 192 69Q227 89 255.5 113.5Q284 138 301.0 162.5Q318 187 318 204Q318 215 312.5 222.5Q307 230 293 230Q274 230 247.0 218.0Q220 206 190.5 187.0Q161 168 135.0 145.5Q109 123 93.0 102.0Q77 81 77 66Z", "b": [50, -1, 347, 1009]}, "n4": {"d": "M350 1009V173Q350 130 321.5 93.0Q293 56 248.0 33.5Q203 11 153 11Q107 11 79.0 34.5Q51 58 51 98Q51 129 69.0 158.0Q87 187 116.5 210.5Q146 234 181.0 247.5Q216 261 250 261Q293 261 324 236V1009Z", "b": [51, 11, 350, 1009]}, "n8": {"d": "M325 1009H351Q357 968 366.0 936.5Q375 905 392.0 875.5Q409 846 437 812Q467 777 487.0 753.5Q507 730 527 704Q564 658 581.5 609.5Q599 561 599 511Q599 407 511 259H495Q523 318 545.5 377.5Q568 437 568 491Q568 545 540 602Q512 659 461.5 698.0Q411 737 351 741V175Q351 132 323.5 94.5Q296 57 251.0 34.0Q206 11 152 11Q109 11 79.5 33.0Q50 55 50 98Q50 130 67.0 159.5Q84 189 112.0 212.0Q140 235 173.5 248.0Q207 261 241 261Q299 261 325 238Z", "b": [50, 11, 599, 1009]}, "n16": {"d": "M321 1009H347Q350 980 356.0 958.0Q362 936 372 919Q389 892 413.0 872.5Q437 853 468 822Q498 793 527.0 757.5Q556 722 575.5 677.0Q595 632 595 576Q595 531 581 478Q607 440 607 368Q607 320 594.0 272.5Q581 225 556 191H540Q587 283 587 351Q587 406 556 452Q536 482 511.5 505.5Q487 529 449.0 554.0Q411 579 347 611V171Q347 128 318.5 91.5Q290 55 245.0 33.0Q200 11 152 11Q110 11 80.0 30.0Q50 49 50 89Q50 137 79.0 176.0Q108 215 154.0 238.5Q200 262 249 262Q294 262 321 238ZM353 823Q353 771 376 727Q384 713 408.5 682.0Q433 651 467 619Q505 583 534.0 550.0Q563 517 568 505Q570 513 571.0 523.5Q572 534 572 547Q572 623 523.0 690.0Q474 757 353 823Z", "b": [50, 11, 607, 1009]}, "r1": {"d": "M50 488V512H733V488H573V378H210V488Z", "b": [50, 378, 733, 512]}, "r2": {"d": "M50 244V268H210V378H573V268H733V244Z", "b": [50, 244, 733, 378]}, "r4": {"d": "M147 878 307 683Q257 624 230.0 581.0Q203 538 203 494Q203 457 227.0 416.5Q251 376 303 314L287 292Q243 320 205 320Q177 320 163.0 301.5Q149 283 149 257Q149 225 162.5 196.5Q176 168 199 142L186 123Q117 173 84.0 214.0Q51 255 51 303Q51 346 78.0 366.0Q105 386 143 386Q173 386 221 363V365L67 570Q168 659 168 736Q168 797 104 878Z", "b": [51, 123, 307, 878]}, "r8": {"d": "M155 269 251 609Q230 590 203.5 582.0Q177 574 151 574Q108 574 79.0 597.0Q50 620 50 663Q50 691 70.0 710.5Q90 730 121 730Q150 730 168.5 711.5Q187 693 187 662Q187 640 177 623Q177 617 189 617Q244 617 294 703H312L191 269Z", "b": [50, 269, 312, 730]}, "r16": {"d": "M155 147 251 487Q230 468 203.5 460.0Q177 452 151 452Q108 452 79.0 475.0Q50 498 50 541Q50 569 69.5 588.5Q89 608 121 608Q150 608 168.5 589.5Q187 571 187 540Q187 518 177 501Q177 495 189 495Q230 495 267 541L319 731Q298 712 271.5 704.0Q245 696 219 696Q176 696 147.0 719.0Q118 742 118 785Q118 813 138.0 832.5Q158 852 189 852Q219 852 237.0 833.0Q255 814 255 784Q255 774 252.0 763.5Q249 753 245 745Q245 739 257 739Q312 739 362 825H380L191 147Z", "b": [50, 147, 380, 852]}, "dot": {"d": "M47 325Q67 325 80.5 310.5Q94 296 94 278Q94 260 80.5 245.5Q67 231 47 231Q27 231 13.5 245.5Q0 260 0 278Q0 296 13.5 310.5Q27 325 47 325Z", "b": [0, 231, 94, 325]}};
+  const SP = 12, K = SP * 4 / 1000;
+  const $ = id => document.getElementById(id);
+  const letterOf = s => ((s % 7) + 7) % 7;
+  const octOf = s => Math.floor(s / 7);
+  const midiOf = n => (octOf(n.step) + 1) * 12 + SEMI[letterOf(n.step)] + n.acc;
+  const yOf = (b, clef, st) => b - (st - BOTTOM[clef]) * SP / 2;
+  function keyAcc(letter, c) {
+    if (c > 0) return SHARP_ORDER.slice(0, c).includes(letter) ? 1 : 0;
+    if (c < 0) return FLAT_ORDER.slice(0, -c).includes(letter) ? -1 : 0;
+    return 0;
+  }
+  function pname(letter, acc, lower) {
+    const L = LET[letter];
+    let n = acc === 1 ? L + 'is' : acc === -1 ? (letter === 6 ? 'B' : letter === 2 ? 'Es' : letter === 5 ? 'As' : L + 'es') : L;
+    return lower ? n.toLowerCase() : n;
+  }
+  const nn = n => pname(letterOf(n.step), n.acc);
+  // "C4", "F#4", "Bb3" → Note (englische Buchstaben, B = H)
+  function N(str, clef) {
+    const m = str.match(/^([A-G])(#|b)?(-?\d)$/);
+    const letter = 'CDEFGAB'.indexOf(m[1]);
+    return { step: +m[3] * 7 + letter, acc: m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0, clef };
+  }
+  const chord = (s, clef) => s.split(' ').map(x => N(x, clef));
+
+  // Eine Note oder ein Akkord auf einem System
+  function noteGroup(clef, notes, x, b, dur, key) {
+    const bot = BOTTOM[clef], top = bot + 8, mid = bot + 4;
+    const steps = notes.map(n => n.step);
+    const lo = Math.min(...steps), hi = Math.max(...steps);
+    const y = s => yOf(b, clef, s);
+    let g = '';
+    const lw = dur === 'w' ? 15 : 13;
+    for (let s = bot - 2; s >= lo; s -= 2) g += `<line class="ledger" x1="${x - lw}" x2="${x + lw}" y1="${y(s)}" y2="${y(s)}"/>`;
+    for (let s = top + 2; s <= hi; s += 2) g += `<line class="ledger" x1="${x - lw}" x2="${x + lw}" y1="${y(s)}" y2="${y(s)}"/>`;
+    const down = hi - mid >= mid - lo;
+    if (dur !== 'w') {
+      const sx = down ? x - 6.6 : x + 6.6;
+      g += down ? `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(hi)}" y2="${y(lo) + 3.5 * SP}"/>`
+        : `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(lo)}" y2="${y(hi) - 3.5 * SP}"/>`;
+    }
+    // Sekunden: ein Kopf rückt zur Seite
+    const sorted = [...steps].sort((a, c) => a - c);
+    const shifted = new Set();
+    for (let k = 1; k < sorted.length; k++) if (sorted[k] - sorted[k - 1] === 1 && !shifted.has(sorted[k - 1])) shifted.add(down || dur === 'w' ? sorted[k - 1] : sorted[k]);
+    const dx = (down || dur === 'w') ? -(dur === 'w' ? 18 : 14.6) : 14.6;
+    // Vorzeichen in Spalten
+    const shown = n => (n.sa !== undefined ? n.sa : n.acc === keyAcc(letterOf(n.step), key) ? null : n.acc);
+    const placed = [];
+    [...notes].filter(n => shown(n) !== null).sort((a, c) => c.step - a.step).forEach(n => {
+      let col = 0;
+      while (placed.some(p => p.col === col && Math.abs(p.step - n.step) < 6)) col++;
+      placed.push({ step: n.step, col, acc: shown(n) });
+    });
+    notes.forEach(n => {
+      const hx = shifted.has(n.step) ? x + dx : x;
+      const p = placed.find(q => q.step === n.step);
+      if (p) {
+        const gl = ACC_GLYPH[String(p.acc)];
+        const right = x - (dur === 'w' ? 14 : 12) - p.col * 11 - (shifted.has(n.step) && dx < 0 ? 16 : 0);
+        g += `<path class="acc" d="${gl.d}" transform="translate(${right - gl.right * K} ${y(n.step) + gl.mid * K}) scale(${K} ${-K})"/>`;
+      }
+      const hollow = dur === 'w' || dur === 'h';
+      g += dur === 'w'
+        ? `<ellipse class="nh hollow" cx="${hx}" cy="${y(n.step)}" rx="8.6" ry="5.6" transform="rotate(-12 ${hx} ${y(n.step)})"/>`
+        : `<ellipse class="nh${hollow ? ' hollow' : ''}" cx="${hx}" cy="${y(n.step)}" rx="7.4" ry="5.2" transform="rotate(-22 ${hx} ${y(n.step)})"/>`;
+    });
+    return g;
+  }
+
+  // Notenbeispiel: items = [{ notes, dur, label, bar, hl }], clef = treble | bass | grand
+  function staff(opts) {
+    const { clef = 'treble', key = 0, items = [], time = null, step = 52, between = null, aria = 'Notenbeispiel' } = opts;
+    const clefs = clef === 'grand' ? ['treble', 'bass'] : [clef];
+    const B = {};
+    clefs.forEach((c, i) => { B[c] = 52 + 4 * SP + i * (4 * SP + 8 * SP); });
+    const lastB = B[clefs[clefs.length - 1]];
+    const labelLines = Math.max(0, ...items.map(it => (it.label ? String(it.label).split('\n').length : 0)));
+    const H = lastB + 44 + labelLines * 14 + (between ? 14 : 0);
+    const kw = key ? Math.abs(key) * (key > 0 ? 11 : 9.5) + 8 : 0;
+    const x0 = 58 + kw + (time ? 26 : 0);
+    const W = x0 + items.length * step + 14;
+    let out = '';
+    clefs.forEach(c => {
+      const b = B[c];
+      for (let i = 0; i < 5; i++) out += `<line class="sl" x1="6" x2="${W - 6}" y1="${b - i * SP}" y2="${b - i * SP}"/>`;
+      out += `<path class="clef" d="${c === 'treble' ? TREBLE_PATH : BASS_PATH}" transform="translate(9 ${c === 'treble' ? b : b - 106 * K}) scale(${K} ${-K})"/>`;
+      const gl = ACC_GLYPH[key > 0 ? '1' : '-1'];
+      KEY_SIG_STEPS[key > 0 ? 'sharp' : 'flat'].slice(0, Math.abs(key)).forEach((st, i) => {
+        const yy = yOf(b, c, c === 'treble' ? st : st - 14);
+        out += `<path class="acc" d="${gl.d}" transform="translate(${50 + i * (key > 0 ? 11 : 9.5) - 50 * K} ${yy + gl.mid * K}) scale(${K} ${-K})"/>`;
+      });
+      if (time) {
+        const [t1, t2] = time.split('/');
+        out += `<text class="ts" x="${52 + kw + 10}" y="${b - 3 * SP}" text-anchor="middle" dominant-baseline="central">${t1}</text>`
+          + `<text class="ts" x="${52 + kw + 10}" y="${b - SP}" text-anchor="middle" dominant-baseline="central">${t2}</text>`;
+      }
+      out += `<line class="bl" x1="${W - 6}" x2="${W - 6}" y1="${b - 4 * SP}" y2="${b}"/>`;
+    });
+    out += `<line class="sl" x1="6" x2="6" y1="${B[clefs[0]] - 4 * SP}" y2="${lastB}"/>`;
+    items.forEach((it, i) => {
+      const x = x0 + step * (i + 0.5);
+      if (it.bar) out += `<line class="sl" x1="${x - step / 2}" x2="${x - step / 2}" y1="${B[clefs[0]] - 4 * SP}" y2="${lastB}"/>`;
+      let g = '';
+      clefs.forEach(c => {
+        const ns = it.notes.filter(n => (n.clef || clefs[0]) === c);
+        if (ns.length) g += noteGroup(c, ns, x, B[c], it.dur || 'w', key);
+      });
+      out += `<g class="${it.hl ? 'hl' : ''}">${g}</g>`;
+      if (it.label) String(it.label).split('\n').forEach((t, k) => {
+        out += `<text class="lbl${k === 0 ? ' strong' : ''}" x="${x}" y="${lastB + 40 + k * 14}" text-anchor="middle">${t}</text>`;
+      });
+    });
+    if (between) between.forEach((t, i) => {
+      if (!t) return;
+      const x = x0 + step * (i + 1);
+      out += `<text class="btw" x="${x}" y="${H - 6}" text-anchor="middle">${t}</text>`;
+    });
+    return `<svg class="staff" viewBox="0 0 ${W} ${H}" style="max-width:${Math.round(W * 1.45)}px" role="img" aria-label="${aria}">${out}</svg>`;
+  }
+
+  // ---------- Klang ----------
+  let actx = null;
+  function tone(midis, delay = 0, len = 1.4) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+      const t = actx.currentTime + delay;
+      const out = actx.createGain();
+      out.gain.setValueAtTime(0.0001, t);
+      out.gain.exponentialRampToValueAtTime(0.26 / Math.sqrt(midis.length), t + 0.012);
+      out.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      out.connect(actx.destination);
+      midis.forEach(m => {
+        const f = 440 * Math.pow(2, (m - 69) / 12);
+        [[1, 'triangle', 1], [2, 'sine', 0.35], [3, 'sine', 0.12]].forEach(([mul, type, amp]) => {
+          const o = actx.createOscillator(), g = actx.createGain();
+          o.type = type; o.frequency.value = f * mul; g.gain.value = amp;
+          o.connect(g); g.connect(out); o.start(t); o.stop(t + len + 0.1);
+        });
+      });
+    } catch (e) {}
+  }
+  // Folge von Gruppen abspielen (gap in Sekunden)
+  const playSeq = (groups, gap = 0.45) => groups.forEach((g, i) => tone(g.map(midiOf), i * gap, Math.max(1.2, gap * 1.6)));
+  const playArp = (notes, gap = 0.4) => notes.forEach((n, i) => tone([midiOf(n)], i * gap));
+
+  // Beispiel einsetzen: SVG + Abspielknöpfe
+  function mount(id, svg, buttons = []) {
+    const el = document.querySelector(`[data-ex="${id}"]`);
+    el.innerHTML = svg + (buttons.length ? `<div class="row">${buttons.map((b, i) => `<button class="play" type="button" data-i="${i}">${b[0]}</button>`).join('')}</div>` : '');
+    el.querySelectorAll('.play').forEach(btn => btn.addEventListener('click', () => buttons[+btn.dataset.i][1]()));
+  }
+
+  // ---------- Kapitel-Beispiele ----------
+  // 1 Schlüssel
+  {
+    const items = [
+      { notes: [N('G4', 'treble')], label: 'g′\n2. Linie' },
+      { notes: [N('C4', 'treble')], label: 'c′\nmittleres C' },
+      { notes: [N('C4', 'bass')], label: 'c′\nmittleres C' },
+      { notes: [N('F3', 'bass')], label: 'f\n4. Linie' }
+    ];
+    mount('clefs', staff({ clef: 'grand', items, step: 70, aria: 'Klaviersystem mit g′, mittlerem C und f' }),
+      [['Alle anhören', () => playSeq(items.map(i => i.notes), 0.6)]]);
+  }
+  // 2 Oktaven
+  {
+    const items = [
+      { notes: [N('C2', 'bass')], label: 'C\nC2' }, { notes: [N('C3', 'bass')], label: 'c\nC3' },
+      { notes: [N('C4', 'treble')], label: 'c′\nC4' }, { notes: [N('C5', 'treble')], label: 'c″\nC5' },
+      { notes: [N('C6', 'treble')], label: 'c‴\nC6' }
+    ];
+    mount('octaves', staff({ clef: 'grand', items, step: 62, aria: 'Fünf C in verschiedenen Oktaven' }),
+      [['Anhören', () => playSeq(items.map(i => i.notes), 0.55)]]);
+  }
+  // 3 Notenwerte und Pausen
+  {
+    const vals = [['1', 'Ganze', '4 Schläge'], ['2', 'Halbe', '2 Schläge'], ['4', 'Viertel', '1 Schlag'], ['8', 'Achtel', '½ Schlag'], ['16', 'Sechzehntel', '¼ Schlag']];
+    // Pausen sitzen an ihrer üblichen Stelle im System (ganze hängt an der 4. Linie, halbe sitzt auf der 3.)
+    const restShift = { '1': 238, '2': 122, '4': 0, '8': 0, '16': 0 };
+    const glyphSvg = (g, shift) => {
+      let s = '';
+      for (let i = 0; i < 5; i++) s += `<line class="sl" x1="0" x2="800" y1="${1400 - i * 250}" y2="${1400 - i * 250}" style="stroke-width:24;opacity:.55"/>`;
+      return `<svg viewBox="0 0 800 1900" role="img">${s}<path class="glyph" d="${g.d}" transform="translate(${400 - (g.b[0] + g.b[2]) / 2} ${1400 - shift}) scale(1 -1)"/></svg>`;
+    };
+    document.querySelector('[data-ex="values"]').innerHTML = vals.map(([v, name, len]) =>
+      `<div class="val">${glyphSvg(GLYPHS['n' + v], 250)}<b>${name} Note</b><span>${len}</span>${glyphSvg(GLYPHS['r' + v], restShift[v])}<span>${name} Pause</span></div>`).join('');
+  }
+  // 4 Takt
+  {
+    const q = (s, extra = {}) => ({ notes: [N(s)], dur: 'q', ...extra });
+    const items = [q('C5', { label: '1', hl: true }), q('G4', { label: '2' }), q('E4', { label: '3' }), q('G4', { label: '4' }),
+      q('D5', { label: '1', bar: true, hl: true }), q('G4', { label: '2' }), q('F4', { label: '3' }), q('G4', { label: '4' })];
+    mount('meter', staff({ items, time: '4/4', step: 40, aria: 'Zwei Takte im 4/4-Takt, die Eins ist markiert' }),
+      [['Anhören', () => { items.forEach((it, i) => tone([midiOf(it.notes[0])], i * 0.5, 0.8)); }]]);
+  }
+  // 5 Klaviatur mit Halbtönen
+  {
+    const W = 36, H = 130;
+    let w = '', bk = '';
+    const names = ['C', 'D', 'E', 'F', 'G', 'A', 'H', 'C'];
+    names.forEach((nm, i) => {
+      w += `<rect class="kw${i === 2 || i === 3 || i === 6 || i === 7 ? ' on' : ''}" x="${i * W}" y="0" width="${W}" height="${H}" rx="3"/><text class="kt" x="${i * W + W / 2}" y="${H - 10}" text-anchor="middle">${nm}</text>`;
+      if ([0, 1, 3, 4, 5].includes(i)) bk += `<rect class="kbk" x="${i * W + W - 11}" y="0" width="22" height="${H * 0.6}" rx="2"/>`;
+    });
+    const labels = `<text class="kt ht" x="${3 * W}" y="${H + 18}" text-anchor="middle">Halbton E–F</text><text class="kt ht" x="${7 * W}" y="${H + 18}" text-anchor="middle">Halbton H–C</text><text class="kt" x="${1 * W}" y="${H + 18}" text-anchor="middle">Ganzton C–D</text>`;
+    document.querySelector('[data-ex="keys"]').innerHTML =
+      `<svg class="kb" viewBox="-2 -2 ${8 * W + 40} ${H + 26}" role="img" aria-label="Klaviatur: E–F und H–C sind Halbtöne">${w}${bk}${labels}</svg>`
+      + `<div class="row"><button class="play" type="button" id="kb-half">Halbton E–F</button><button class="play" type="button" id="kb-whole">Ganzton C–D</button></div>`;
+    $('kb-half').addEventListener('click', () => playArp([N('E4'), N('F4')], 0.5));
+    $('kb-whole').addEventListener('click', () => playArp([N('C4'), N('D4')], 0.5));
+  }
+  // 6 Vorzeichen
+  {
+    const items = [
+      { notes: [N('F4')], label: 'F' }, { notes: [N('F#4')], label: 'Fis\n♯ erhöht' },
+      { notes: [{ ...N('F4'), sa: 0 }], label: 'F\n♮ löst auf' },
+      { notes: [N('B4')], label: 'H', bar: true }, { notes: [N('Bb4')], label: 'B\n♭ erniedrigt' }, { notes: [N('Eb5')], label: 'Es' }
+    ];
+    mount('accidentals', staff({ items, step: 58, aria: 'F, Fis, F mit Auflösungszeichen, H, B, Es' }),
+      [['Anhören', () => playSeq(items.map(i => i.notes), 0.55)]]);
+  }
+  // 7 C-Dur-Tonleiter
+  {
+    const sc = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'].map(s => N(s));
+    const items = sc.map((n, i) => ({ notes: [n], dur: 'q', label: nn(n), hl: i === 2 || i === 3 || i === 6 || i === 7 }));
+    mount('cmajor', staff({ items, step: 46, between: ['G', 'G', 'H', 'G', 'G', 'G', 'H'], aria: 'C-Dur-Tonleiter mit Ganz- und Halbtonschritten' }),
+      [['Tonleiter anhören', () => playArp(sc, 0.38)]]);
+  }
+  // 8 Intervalle
+  {
+    const IV = [['Prime', 0, 'C', 'C4'], ['kleine Sekunde', 1, 'Des', 'Db4'], ['große Sekunde', 2, 'D', 'D4'], ['kleine Terz', 3, 'Es', 'Eb4'],
+      ['große Terz', 4, 'E', 'E4'], ['reine Quarte', 5, 'F', 'F4'], ['Tritonus', 6, 'Fis', 'F#4'], ['reine Quinte', 7, 'G', 'G4'],
+      ['kleine Sexte', 8, 'As', 'Ab4'], ['große Sexte', 9, 'A', 'A4'], ['kleine Septime', 10, 'B', 'Bb4'], ['große Septime', 11, 'H', 'B4'], ['Oktave', 12, 'C', 'C5']];
+    const feel = { 0: 'gleich', 1: 'scharf, reibend', 2: 'Schritt', 3: 'weich, traurig', 4: 'hell, fröhlich', 5: 'offen, fanfarenhaft', 6: 'unruhig', 7: 'leer, stabil', 8: 'weich', 9: 'warm', 10: 'sehnsüchtig', 11: 'scharf', 12: 'verschmilzt' };
+    const tbl = $('ivtable');
+    IV.forEach(([nm, ht, to, s], i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${nm}</td><td>${ht}</td><td>C – ${to}</td><td>${feel[ht]}</td><td><button class="play" type="button">Anhören</button></td>`;
+      tr.querySelector('button').addEventListener('click', () => { const a = N('C4'), b = N(s); tone([midiOf(a)], 0, 0.9); tone([midiOf(b)], 0.55, 0.9); tone([midiOf(a), midiOf(b)], 1.2, 1.4); });
+      tbl.appendChild(tr);
+    });
+    const names = ['Prime', 'Sekunde', 'Terz', 'Quarte', 'Quinte', 'Sexte', 'Septime', 'Oktave'];
+    const tops = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+    const items = tops.map((t, i) => ({ notes: i ? [N('C4'), N(t)] : [N('C4')], label: `${names[i]}\n${i + 1}` }));
+    mount('intervals', staff({ items, step: 52, aria: 'Intervalle von C aus: Prime bis Oktave' }),
+      [['Alle nacheinander', () => playSeq(items.map(i => i.notes), 0.8)]]);
+  }
+  // 9 Dreiklänge
+  {
+    const items = [
+      { notes: chord('C4 E4 G4'), label: 'C\nDur' }, { notes: chord('C4 Eb4 G4'), label: 'Cm\nMoll' },
+      { notes: chord('C4 Eb4 Gb4'), label: 'C°\nvermindert' }, { notes: chord('C4 E4 G#4'), label: 'C+\nübermäßig' }
+    ];
+    mount('triads', staff({ items, step: 74, aria: 'Dur-, Moll-, verminderter und übermäßiger Dreiklang auf C' }),
+      items.map(it => [it.label.split('\n')[1].replace(/^./, c => c.toUpperCase()), () => { playArp(it.notes, 0.25); tone(it.notes.map(midiOf), 0.85, 1.6); }]));
+  }
+  // 10 Umkehrungen
+  {
+    const items = [
+      { notes: chord('C4 E4 G4'), label: 'Grundstellung\nC unten' }, { notes: chord('E4 G4 C5'), label: 'Sextakkord\nE unten' },
+      { notes: chord('G4 C5 E5'), label: 'Quartsextakkord\nG unten' }
+    ];
+    mount('inversions', staff({ items, step: 96, aria: 'C-Dur in Grundstellung und zwei Umkehrungen' }),
+      [['Anhören', () => playSeq(items.map(i => i.notes), 0.9)]]);
+  }
+
+  // ---------- 11 Quintenzirkel ----------
+  const KEY_TONICS = {
+    0: [[0, 0], [5, 0]], 1: [[4, 0], [2, 0]], 2: [[1, 0], [6, 0]], 3: [[5, 0], [3, 1]], 4: [[2, 0], [0, 1]], 5: [[6, 0], [4, 1]], 6: [[3, 1], [1, 1]],
+    '-1': [[3, 0], [1, 0]], '-2': [[6, -1], [4, 0]], '-3': [[2, -1], [0, 0]], '-4': [[5, -1], [3, 0]], '-5': [[1, -1], [6, -1]], '-6': [[4, -1], [2, -1]]
+  };
+  const CIRCLE = [0, 1, 2, 3, 4, 5, 6, -5, -4, -3, -2, -1];   // im Uhrzeigersinn ab 12 Uhr; 6 Uhr = Fis/Ges
+  const keyName = c => `${pname(...KEY_TONICS[c][0])}-Dur`;
+  const minorName = c => `${pname(KEY_TONICS[c][1][0], KEY_TONICS[c][1][1], true)}-Moll`;
+  const sigText = c => (c === 0 ? 'keine Vorzeichen' : c > 0
+    ? `${c} ♯: ${SHARP_ORDER.slice(0, c).map(l => pname(l, 1)).join(', ')}`
+    : `${-c} ♭: ${FLAT_ORDER.slice(0, -c).map(l => pname(l, -1)).join(', ')}`);
+  // Tonleiter einer Tonart: Stammtöne ab Grundton, Vorzeichen aus der Tonart
+  function scaleOf(c, startStep) {
+    const [tl, ta] = KEY_TONICS[c][0];
+    const base = startStep ?? (28 + tl);
+    return Array.from({ length: 8 }, (_, i) => ({ step: base + i, acc: keyAcc(letterOf(base + i), c) }));
+  }
+  function arc(cx, cy, r1, r2, a0, a1) {
+    const p = (r, a) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+    const [x1, y1] = p(r2, a0), [x2, y2] = p(r2, a1), [x3, y3] = p(r1, a1), [x4, y4] = p(r1, a0);
+    return `M${x1} ${y1}A${r2} ${r2} 0 0 1 ${x2} ${y2}L${x3} ${y3}A${r1} ${r1} 0 0 0 ${x4} ${y4}Z`;
+  }
+  let selKey = 1;
+  function renderCircle() {
+    let s = '';
+    CIRCLE.forEach((c, i) => {
+      const a0 = (i - 0.5) * Math.PI / 6, a1 = (i + 0.5) * Math.PI / 6, am = i * Math.PI / 6;
+      const lab = i === 6 ? 'Fis/Ges' : keyName(c).replace('-Dur', '');
+      const mlab = i === 6 ? 'dis/es' : minorName(c).replace('-Moll', '');
+      const sig = c === 0 ? '' : c > 0 ? `${c}♯` : `${-c}♭`;
+      const on = c === selKey || (i === 6 && Math.abs(selKey) === 6);
+      s += `<g class="seg${on ? ' on' : ''}" data-c="${c}" tabindex="0" role="button" aria-label="${keyName(c)}, ${minorName(c)}, ${sigText(c)}">`
+        + `<path d="${arc(180, 180, 112, 172, a0, a1)}"/>`
+        + `<text x="${180 + 146 * Math.sin(am)}" y="${180 - 146 * Math.cos(am)}" text-anchor="middle" dominant-baseline="central">${lab}</text>`
+        + `<text x="${180 + 124 * Math.sin(am)}" y="${180 - 124 * Math.cos(am) + 1}" text-anchor="middle" dominant-baseline="central" style="font-size:9px;opacity:.75">${sig}</text></g>`;
+      s += `<g class="seg minor${on ? ' on' : ''}" data-c="${c}"><path d="${arc(180, 180, 66, 108, a0, a1)}"/>`
+        + `<text x="${180 + 87 * Math.sin(am)}" y="${180 - 87 * Math.cos(am)}" text-anchor="middle" dominant-baseline="central">${mlab}</text></g>`;
+    });
+    s += `<text x="180" y="172" text-anchor="middle" style="font:600 11px var(--font-body);fill:var(--muted)">außen Dur</text><text x="180" y="190" text-anchor="middle" style="font:600 11px var(--font-body);fill:var(--muted)">innen Moll</text>`;
+    $('circle').innerHTML = s;
+    $('circle').querySelectorAll('.seg').forEach(g => {
+      const pick = () => { selKey = +g.dataset.c; renderCircle(); renderInfo(); };
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    });
+  }
+  function renderInfo() {
+    const c = selKey;
+    const i = CIRCLE.indexOf(c);
+    const left = CIRCLE[(i + 11) % 12], right = CIRCLE[(i + 1) % 12];
+    const sc = scaleOf(c);
+    const items = sc.map(n => ({ notes: [n], dur: 'q', label: nn(n) }));
+    const enh = Math.abs(c) === 6 ? `<p class="small">Klingt genauso wie ${c > 0 ? 'Ges-Dur (6 ♭)' : 'Fis-Dur (6 ♯)'}.</p><div class="row"><button class="play" type="button" id="ci-enh">${c > 0 ? 'Als Ges-Dur zeigen' : 'Als Fis-Dur zeigen'}</button></div>` : '';
+    $('cinfo').innerHTML = `<h3>${keyName(c)}</h3>
+      <div class="chips"><span class="chip">${sigText(c)}</span><span class="chip">Parallele: ${minorName(c)}</span></div>
+      <p class="small">Nachbarn im Zirkel: ${keyName(left)} (Subdominante, eine Quinte tiefer) und ${keyName(right)} (Dominante, eine Quinte höher).</p>
+      <div class="ex">${staff({ key: c, items, step: 34, aria: `${keyName(c)}-Tonleiter` })}</div>
+      <div class="row"><button class="play" type="button" id="ci-scale">Tonleiter</button><button class="play" type="button" id="ci-cad">Kadenz</button></div>${enh}`;
+    $('ci-scale').addEventListener('click', () => playArp(sc, 0.32));
+    $('ci-cad').addEventListener('click', () => playSeq(cadence(c, false).map(x => x.notes), 0.75));
+    if ($('ci-enh')) $('ci-enh').addEventListener('click', () => { selKey = -c; renderCircle(); renderInfo(); });
+  }
+
+  // ---------- 13 Stufen ----------
+  {
+    const sc = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'].map(s => N(s));
+    const ROM = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+    const FN = ['T', 'Sp', 'Dp', 'S', 'D', 'Tp', '(D)'];
+    const items = sc.map((n, i) => ({ notes: [0, 2, 4].map(k => ({ step: n.step + k, acc: 0 })), label: `${ROM[i]}\n${FN[i]}`, hl: [0, 3, 4].includes(i) }));
+    mount('degrees', staff({ items, step: 48, aria: 'Dreiklänge auf allen Stufen von C-Dur' }),
+      [['Alle anhören', () => playSeq(items.map(i => i.notes), 0.7)], ['Nur T – S – D – T', () => playSeq([items[0], items[3], items[4], items[0]].map(i => i.notes), 0.8)]]);
+  }
+
+  // ---------- 14 Kadenz ----------
+  // Rechte Hand: I Grundstellung, IV Quartsextakkord, V Sextakkord; linke Hand: Grundton
+  function cadence(c, seven) {
+    const [tl] = KEY_TONICS[c][0];
+    const t = 28 + tl;                                // Grundton rechts zwischen C4 und H4
+    const n = (st, clef) => ({ step: st, acc: keyAcc(letterOf(st), c), clef });
+    const bassT = t - 7 - (t - 7 > 22 ? 7 : 0);       // Bass im Bassschlüssel
+    const I = { notes: [n(t, 'treble'), n(t + 2, 'treble'), n(t + 4, 'treble'), n(bassT, 'bass')], label: 'I\nT' };
+    const IV = { notes: [n(t, 'treble'), n(t + 3, 'treble'), n(t + 5, 'treble'), n(bassT + 3, 'bass')], label: 'IV\nS' };
+    const V = seven
+      ? { notes: [n(t - 1, 'treble'), n(t + 3, 'treble'), n(t + 4, 'treble'), n(bassT - 3, 'bass')], label: 'V7\nD7' }
+      : { notes: [n(t - 1, 'treble'), n(t + 1, 'treble'), n(t + 4, 'treble'), n(bassT - 3, 'bass')], label: 'V\nD' };
+    return [I, IV, V, { ...I, label: 'I\nT' }];
+  }
+  function renderCadence() {
+    const c = +$('cad-key').value, seven = $('cad-7').checked;
+    const items = cadence(c, seven);
+    mount('cadence', staff({ clef: 'grand', key: c, items, step: 70, aria: `Kadenz in ${keyName(c)}` }),
+      [['Anhören', () => playSeq(items.map(i => i.notes), 0.9)]]);
+  }
+  $('cad-key').innerHTML = [0, 1, 2, 3, 4, 5, 6, -1, -2, -3, -4, -5, -6].map(c => `<option value="${c}">${keyName(c)}</option>`).join('');
+  $('cad-key').addEventListener('change', renderCadence);
+  $('cad-7').addEventListener('change', renderCadence);
+
+  // ---------- 15 Dominantseptakkord ----------
+  {
+    const items = [{ notes: chord('G4 B4 D5 F5'), label: 'G7\nV7' }, { notes: chord('G4 C5 E5'), label: 'C\nI' }];
+    mount('v7', staff({ items, step: 90, aria: 'G7 löst sich nach C-Dur auf' }),
+      [['Auflösung anhören', () => playSeq(items.map(i => i.notes), 1.1)]]);
+  }
+  // ---------- 16 Moll ----------
+  {
+    const kinds = [
+      ['natürlich', ['A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'A5']],
+      ['harmonisch', ['A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G#5', 'A5']],
+      ['melodisch (aufwärts)', ['A4', 'B4', 'C5', 'D5', 'E5', 'F#5', 'G#5', 'A5']]
+    ];
+    const el = document.querySelector('[data-ex="minors"]');
+    el.innerHTML = kinds.map(([nm, ns], k) => {
+      const notes = ns.map(s => N(s));
+      return `<p class="small"><b>${nm}</b></p>${staff({ items: notes.map((n, i) => ({ notes: [n], dur: 'q', label: nn(n), hl: n.acc !== 0 })), step: 40, aria: `a-Moll ${nm}` })}<div class="row"><button class="play" type="button" data-k="${k}">a-Moll ${nm}</button></div>`;
+    }).join('');
+    el.querySelectorAll('.play').forEach(b => b.addEventListener('click', () => playArp(kinds[+b.dataset.k][1].map(s => N(s)), 0.32)));
+  }
+  // ---------- 17 Septakkorde ----------
+  {
+    const items = [
+      { notes: chord('C4 E4 G4 B4'), label: 'Cmaj7' }, { notes: chord('C4 E4 G4 Bb4'), label: 'C7' },
+      { notes: chord('C4 Eb4 G4 Bb4'), label: 'Cm7' }, { notes: chord('C4 Eb4 Gb4 Bb4'), label: 'Cø7' }, { notes: chord('B3 D4 F4 Ab4'), label: 'H°7' }
+    ];
+    mount('sevenths', staff({ items, step: 66, aria: 'Fünf Septakkorde' }),
+      items.map(it => [it.label, () => { playArp(it.notes, 0.2); tone(it.notes.map(midiOf), 0.9, 1.6); }]));
+  }
+  // ---------- 18 Akkordfolgen ----------
+  {
+    const pop = [
+      { notes: [...chord('C4 E4 G4'), N('C3', 'bass')], label: 'C\nI' }, { notes: [...chord('B3 D4 G4'), N('G2', 'bass')], label: 'G\nV' },
+      { notes: [...chord('C4 E4 A4'), N('A2', 'bass')], label: 'Am\nvi' }, { notes: [...chord('C4 F4 A4'), N('F2', 'bass')], label: 'F\nIV' }
+    ];
+    mount('pop', staff({ clef: 'grand', items: pop, step: 70, aria: 'Pop-Folge C G Am F' }),
+      [['I – V – vi – IV anhören', () => playSeq(pop.map(i => i.notes), 0.9)]]);
+    const jazz = [
+      { notes: [...chord('C4 F4 A4'), N('D3', 'bass')], label: 'Dm7\nii' }, { notes: [...chord('B3 D4 F4'), N('G2', 'bass')], label: 'G7\nV' },
+      { notes: [...chord('B3 E4 G4'), N('C3', 'bass')], label: 'Cmaj7\nI' }
+    ];
+    mount('jazz', staff({ clef: 'grand', items: jazz, step: 80, aria: 'Jazz-Folge Dm7 G7 Cmaj7' }),
+      [['ii – V – I anhören', () => playSeq(jazz.map(i => i.notes), 1.1)]]);
+  }
+
+  // Darstellung wie in der App (hell/dunkel), falls dort gewählt
+  try {
+    const st = JSON.parse(localStorage.getItem('notenleser-v1') || '{}');
+    const th = st.settings && st.settings.theme;
+    if (th === 'light' || th === 'dark') document.documentElement.setAttribute('data-theme', th);
+  } catch (e) {}
+
+  renderCircle();
+  renderInfo();
+  renderCadence();
+})();
+</script>
