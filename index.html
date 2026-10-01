@@ -38,6 +38,10 @@
   color-scheme: dark;
 }
 
+/* Eigene Wahl (Hell/Dunkel) hat Vorrang vor Gerät und Umgebung: höhere Spezifität als [data-theme] */
+:root[data-nl="light"][data-nl] { --paper: #f3f5f9; --card: #ffffff; --ink: #161a2c; --muted: #5c627c; --line: #d8dce8; --accent: #2d4bd0; --accent-soft: #e4e9fc; --good: #1d8549; --good-soft: #dcf2e4; --bad: #c3302d; --bad-soft: #fbe2e1; --warn: #a8660c; --key-white: #ffffff; --key-black: #1b1f33; color-scheme: light; }
+:root[data-nl="dark"][data-nl] { --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252; --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526; --bad: #ff6f69; --bad-soft: #3d1c1f; --warn: #f2b14a; --key-white: #e9ebf3; --key-black: #0a0c16; color-scheme: dark; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {
@@ -2200,15 +2204,14 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     };
     $('more-sum').textContent = [pick('answer'), pick('names'), pick('help', 'Hilfe'), pick('sound', 'Ton'), pick('theme')].join(' · ');
   }
-  const hostTheme = document.documentElement.getAttribute('data-theme');
   // Darstellung gilt für alle Seiten (App und Theorie): gemeinsamer Speicher "notenleser-theme"
   const THEME_KEY = 'notenleser-theme';
   function applyTheme(share = true) {
+    // Nur das eigene Merkmal data-nl setzen; data-theme gehört der Umgebung (z. B. claude.ai)
     const r = document.documentElement;
-    if (settings.theme === 'light' || settings.theme === 'dark') r.setAttribute('data-theme', settings.theme);
-    else if (hostTheme) r.setAttribute('data-theme', hostTheme);
-    else r.removeAttribute('data-theme');
-    if (share) { try { localStorage.setItem(THEME_KEY, JSON.stringify({ choice: settings.theme, host: hostTheme })); } catch (e) {} }
+    if (settings.theme === 'light' || settings.theme === 'dark') r.setAttribute('data-nl', settings.theme);
+    else r.removeAttribute('data-nl');
+    if (share) { try { localStorage.setItem(THEME_KEY, JSON.stringify({ choice: settings.theme })); } catch (e) {} }
   }
   function adoptSharedTheme() {
     try {

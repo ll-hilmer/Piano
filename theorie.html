@@ -5,8 +5,7 @@
     try {
       var t = JSON.parse(localStorage.getItem('notenleser-theme') || 'null');
       if (!t) { var st = JSON.parse(localStorage.getItem('notenleser-v1') || '{}'); t = { choice: st.settings && st.settings.theme }; }
-      var v = t.choice === 'light' || t.choice === 'dark' ? t.choice : t.choice === 'auto' && t.host ? t.host : null;
-      if (v) document.documentElement.setAttribute('data-theme', v);
+      if (t.choice === 'light' || t.choice === 'dark') document.documentElement.setAttribute('data-nl', t.choice);
     } catch (e) {}
   })();
 </script>
@@ -44,6 +43,10 @@
   --key-white: #e9ebf3; --key-black: #0a0c16;
   color-scheme: dark;
 }
+/* Eigene Wahl (Hell/Dunkel) hat Vorrang vor Gerät und Umgebung: höhere Spezifität als [data-theme] */
+:root[data-nl="light"][data-nl] { --paper: #f3f5f9; --card: #ffffff; --ink: #161a2c; --muted: #5c627c; --line: #d8dce8; --accent: #2d4bd0; --accent-soft: #e4e9fc; --good: #1d8549; --good-soft: #dcf2e4; --key-white: #ffffff; --key-black: #1b1f33; color-scheme: light; }
+:root[data-nl="dark"][data-nl] { --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252; --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526; --key-white: #e9ebf3; --key-black: #0a0c16; color-scheme: dark; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
@@ -835,19 +838,17 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 
   // ---------- Darstellung: gemeinsam mit der Übungs-App ----------
   const THEME_KEY = 'notenleser-theme';
-  // Im Claude-Fenster gibt die Hauptseite ein eventuell gewähltes Hell/Dunkel mit
   const readTheme = () => {
     try {
       const t = JSON.parse(localStorage.getItem(THEME_KEY) || 'null');
       if (t) return t;
       const st = JSON.parse(localStorage.getItem('notenleser-v1') || '{}');
-      return { choice: (st.settings && st.settings.theme) || 'auto', host: null };
-    } catch (e) { return { choice: 'auto', host: null }; }
+      return { choice: (st.settings && st.settings.theme) || 'auto' };
+    } catch (e) { return { choice: 'auto' }; }
   };
   function applyTheme(t) {
     const r = document.documentElement;
-    const v = t.choice === 'light' || t.choice === 'dark' ? t.choice : t.host;
-    if (v) r.setAttribute('data-theme', v); else r.removeAttribute('data-theme');
+    if (t.choice === 'light' || t.choice === 'dark') r.setAttribute('data-nl', t.choice); else r.removeAttribute('data-nl');
     const radio = document.getElementById('th-' + (t.choice || 'auto'));
     if (radio) radio.checked = true;
   }
