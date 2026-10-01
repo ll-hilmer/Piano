@@ -247,6 +247,28 @@ legend { font-size: 0.85rem; font-weight: 600; padding: 0; margin-bottom: 6px; }
 kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--ink); }
 
 .answer { display: grid; gap: 10px; }
+.goal { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; display: grid; gap: 6px; transition: box-shadow .3s; }
+.goal-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.goal-text { font-weight: 600; }
+.goal-bar { flex: 1 1 120px; height: 8px; border-radius: 99px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; min-width: 80px; }
+.goal-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+.goal.done .goal-bar i { background: var(--good); }
+.goal.done .goal-text { color: var(--good); }
+.goal.pop { box-shadow: 0 0 0 3px var(--good-soft); }
+.goal-streak { color: var(--muted); font-size: 0.85rem; }
+.goal-more summary { cursor: pointer; font-size: 0.85rem; color: var(--accent); width: max-content; }
+.goal-body { display: flex; flex-wrap: wrap; gap: 16px 28px; padding-top: 10px; }
+.cal { display: grid; grid-template-columns: repeat(7, 30px); gap: 4px; font-variant-numeric: tabular-nums; }
+.cal-wd { font-size: 0.68rem; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.cal-d { height: 30px; border-radius: 6px; display: grid; place-items: center; font-size: 0.72rem; color: var(--muted); background: var(--paper); border: 1px solid var(--line); }
+.cal-d.l1 { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft); }
+.cal-d.l2 { background: var(--good); color: var(--card); border-color: var(--good); font-weight: 600; }
+.cal-d.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cal-d.future { opacity: 0.35; }
+.goal-side { display: grid; gap: 6px; align-content: start; min-width: 0; flex: 1 1 200px; font-size: 0.88rem; }
+.goal-side label { font-weight: 600; }
+.goal-side .select { max-width: 200px; }
+.goal-side p { margin: 0; }
 .pathbar { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; display: grid; gap: 8px; }
 .pathbar h2 { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
 .plinks { display: flex; gap: 14px; }
@@ -373,6 +395,32 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     </div>
   </header>
 
+  <section class="goal" id="goal" aria-label="Tagesziel">
+    <div class="goal-row">
+      <span class="goal-text" id="goal-text">Heute: 0:00 von 10:00 Min</span>
+      <span class="goal-bar"><i id="goal-fill"></i></span>
+      <span class="goal-streak" id="goal-streak"></span>
+    </div>
+    <details class="goal-more" id="goal-more">
+      <summary>Kalender und Tagesziel</summary>
+      <div class="goal-body">
+        <div class="cal" id="cal"></div>
+        <div class="goal-side">
+          <label for="goal-select">Tagesziel</label>
+          <select class="select" id="goal-select">
+            <option value="5">5 Minuten</option>
+            <option value="10">10 Minuten</option>
+            <option value="15">15 Minuten</option>
+            <option value="20">20 Minuten</option>
+            <option value="30">30 Minuten</option>
+          </select>
+          <p class="muted" id="cal-sum"></p>
+          <p class="muted">Gezählt wird aktive Übungszeit. Pausen über einer Minute zählen nicht mit.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
   <section class="score" aria-label="Notenzeile">
     <div class="timerbar" id="timerbar" hidden><i id="timerfill"></i></div>
     <svg id="staff" viewBox="0 0 360 200" role="img" aria-label="Note auf dem Notensystem"></svg>
@@ -440,7 +488,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   <section class="panel" aria-labelledby="h-tips">
     <h2 id="h-tips">So übst du am besten</h2>
     <ul class="tips">
-      <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende.</li>
+      <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende. Setz dir oben ein <b>Tagesziel</b>; der Kalender zeigt, an welchen Tagen du es geschafft hast.</li>
       <li>Beginne mit <b>Im System</b> und einem Schlüssel. Wechsle zu <b>Mit Hilfslinien</b>, wenn du fast immer richtig liegst.</li>
       <li><b>Intervalle</b>: Ungerade Abstände (Terz, Quinte, Septime) liegen Linie–Linie oder Zwischenraum–Zwischenraum, gerade (Sekunde, Quarte, Sexte, Oktave) Linie–Zwischenraum. Den Grundton zählst du immer mit: C–D–E ist eine Terz. Am Computer kannst du die Zahlen 1–8 tippen.</li>
       <li><b>Lernpfad</b> (Einzelnoten → Lernpfad An): Du startest mit drei Ankernoten. Kannst du alle sicher (dreimal hintereinander richtig), kommt automatisch die nächste Note dazu. Neue Noten kommen anfangs öfter dran.</li>
@@ -549,7 +597,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off', path: 'off', ivmode: 'mel', ivmax: '5' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off', path: 'off', ivmode: 'mel', ivmax: '5', goal: '10' },
     store.settings
   );
 
@@ -995,7 +1043,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const st = store.notes[item.id] || (store.notes[item.id] = { seen: 0, wrong: 0 });
     st.seen++; st.label = item.label; st.kind = 'interval'; st.clef = item.clef;
     if (!ok) st.wrong++;
-    state.total++;
+    state.total++; dayCount(ok);
     if (ok) { state.correct++; state.streak++; state.times.push(ms); if (state.streak > (store.best || 0)) store.best = state.streak; }
     else state.streak = 0;
     if (state.timed.running) { state.timed.tries++; if (ok) state.timed.score++; }
@@ -1709,7 +1757,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     st.kind = isChord() ? 'chord' : 'note';
     st.clef = item.clef;
     if (!ok) st.wrong++;
-    state.total++;
+    state.total++; dayCount(ok);
     if (ok) {
       state.correct++; state.streak++; state.times.push(ms);
       if (state.streak > (store.best || 0)) store.best = state.streak;
@@ -1769,7 +1817,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       const st = store.notes[id] || (store.notes[id] = { seen: 0, wrong: 0 });
       st.seen++; st.label = fullName(n); st.kind = 'note'; st.clef = n.clef;
       if (!hits[k]) st.wrong++;
-      state.total++;
+      state.total++; dayCount(hits[k]);
       if (hits[k]) { state.correct++; state.streak++; if (state.streak > (store.best || 0)) store.best = state.streak; }
       else state.streak = 0;
     });
@@ -1923,6 +1971,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function rhythmTick() {
     const run = state.run;
     if (!run || !run.active) return;
+    trackActivity();
     const mel = state.melody;
     const now = actx.currentTime - run.lat;
     const bp = (now - run.t0) / run.beat;
@@ -2028,7 +2077,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         st.seen++; st.label = fullName(n); st.kind = 'note'; st.clef = clef;
         if (!r.pitch) st.wrong++;
       }
-      state.total++;
+      state.total++; dayCount(rOk(r));
       if (rOk(r)) {
         state.correct++; state.streak++;
         if (state.streak > (store.best || 0)) store.best = state.streak;
@@ -2378,7 +2427,92 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     navigator.permissions?.query({ name: 'midi' }).then(r => { if (r.state === 'granted') connectMidi(true); }).catch(() => {});
   } catch (e) {}
 
+  // ---------- Tagesziel und Übungskalender ----------
+  // Gezählt wird aktive Zeit: Abstände zwischen Aktionen bis 60 s; längere Pausen zählen nicht
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = () => {
+    store.days = store.days || {};
+    const k = dayKey();
+    return store.days[k] || (store.days[k] = { sec: 0, n: 0, ok: 0 });
+  };
+  let lastAct = 0, lastSave = 0, lastGoalUi = 0;
+  function trackActivity() {
+    const now = performance.now();
+    const gap = (now - lastAct) / 1000;
+    lastAct = now;
+    const d = today();
+    const before = d.sec;
+    d.sec += gap > 0 && gap <= 60 ? gap : 3;
+    const goal = +settings.goal * 60;
+    if (before < goal && d.sec >= goal && !d.done) { d.done = true; celebrate(); }
+    if (now - lastSave > 5000) { lastSave = now; save(); }
+    if (now - lastGoalUi > 1000) { lastGoalUi = now; renderGoal(); }
+  }
+  function dayCount(ok) {
+    trackActivity();
+    const d = today();
+    d.n++;
+    if (ok) d.ok++;
+  }
+  const fmtMin = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  const reached = d => d && d.sec >= +settings.goal * 60;
+  function dayStreak() {
+    store.days = store.days || {};
+    const d = new Date();
+    if (!reached(store.days[dayKey(d)])) d.setDate(d.getDate() - 1);   // heute zählt erst, wenn erreicht
+    let n = 0;
+    while (reached(store.days[dayKey(d)])) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+  const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  function renderGoal() {
+    const d = today();
+    const goal = +settings.goal * 60;
+    const frac = Math.min(1, d.sec / goal);
+    $('goal-text').textContent = reached(d) ? `Heute: ${fmtMin(d.sec)} Min, Ziel erreicht` : `Heute: ${fmtMin(d.sec)} von ${settings.goal}:00 Min`;
+    $('goal-fill').style.width = (frac * 100) + '%';
+    $('goal').classList.toggle('done', reached(d));
+    const streak = dayStreak();
+    $('goal-streak').textContent = streak ? `${streak} ${streak === 1 ? 'Tag' : 'Tage'} in Folge` : 'Noch keine Tagesserie';
+    // Kalender: sechs Wochen, Montag zuerst, endet mit der aktuellen Woche
+    const end = new Date();
+    end.setDate(end.getDate() + (7 - ((end.getDay() + 6) % 7) - 1));
+    const start = new Date(end); start.setDate(end.getDate() - 41);
+    const todayK = dayKey();
+    let cells = WD.map(w => `<span class="cal-wd">${w}</span>`).join('');
+    let practiced = 0, done = 0;
+    for (let i = 0; i < 42; i++) {
+      const c = new Date(start); c.setDate(start.getDate() + i);
+      const k = dayKey(c), v = store.days[k];
+      const future = k > todayK;
+      const lvl = !v || !v.sec ? 0 : reached(v) ? 2 : 1;
+      if (!future && lvl) practiced++;
+      if (!future && lvl === 2) done++;
+      const tip = `${WD[(c.getDay() + 6) % 7]} ${c.getDate()}.${c.getMonth() + 1}.: ` + (v && v.sec ? `${Math.round(v.sec / 60)} Min, ${v.n} Antworten` : 'nicht geübt');
+      cells += `<span class="cal-d l${lvl}${k === todayK ? ' today' : ''}${future ? ' future' : ''}" title="${tip}">${c.getDate()}</span>`;
+    }
+    $('cal').innerHTML = cells;
+    $('cal-sum').textContent = `Letzte 6 Wochen: an ${practiced} Tagen geübt, ${done}× Ziel erreicht.`;
+  }
+  function celebrate() {
+    setFeedback('good', `Tagesziel erreicht: ${settings.goal} Minuten geübt. Stark! Du kannst gern weitermachen.`);
+    $('goal').classList.add('pop');
+    setTimeout(() => $('goal').classList.remove('pop'), 1200);
+  }
+  $('goal-select').addEventListener('change', e => {
+    settings.goal = e.target.value; store.settings = settings;
+    const d = today(); d.done = reached(d);
+    save(); renderGoal();
+  });
+  $('goal-more').addEventListener('toggle', () => { store.calOpen = $('goal-more').open; save(); });
+  if (store.calOpen) $('goal-more').open = true;
+  $('goal-select').value = settings.goal;
+  // Klicks und Tasten zählen als Aktivität (z. B. Einstellungen ausprobieren zählt nicht: nur Antwortbereiche)
+  ['names', 'ivbtns', 'piano-wrap', 'tap', 'mods'].forEach(id => $(id).addEventListener('pointerdown', () => trackActivity()));
+  setInterval(renderGoal, 30000);   // Tageswechsel um Mitternacht
+
   // ---------- Start ----------
+  renderGoal();
   applyTheme();
   renderSettings();
   updateStats();
