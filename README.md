@@ -13,7 +13,8 @@ Ein E-Piano per USB funktioniert dort direkt in Chrome und Edge.
 ## Musiktheorie
 
 `theorie.html` (im Internet: https://ll-hilmer.github.io/Piano/theorie.html): Grundlagen von Notensystem bis Umkehrungen,
-dazu Quintenzirkel (interaktiv), Stufen und Funktionen, Kadenz in jeder Tonart, Moll-Tonleitern, Septakkorde und typische Akkordfolgen,
+Rhythmus (Punkte, Bögen, Triolen, Synkopen), Dynamik und Artikulation, Wiederholungen mit Ablaufplänen,
+dazu Quintenzirkel (interaktiv, mit Fingersätzen je Tonleiter), Stufen und Funktionen, Kadenz in jeder Tonart, Moll-Tonleitern, Septakkorde und typische Akkordfolgen,
 jeweils mit Notenbeispielen zum Anhören.
 
 ## Veröffentlichung
