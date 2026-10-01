@@ -260,6 +260,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 .playhead { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
 .notelabel.warn { fill: var(--warn); }
 .notelabel.small { font-size: 9px; font-weight: 500; }
+.finger { font: 600 11px var(--font-body); fill: var(--accent); }
 .hint { border-top: 1px solid var(--line); padding: 12px 16px 14px; display: grid; gap: 10px; background: var(--paper); }
 .hint p { margin: 0; font-size: 0.92rem; max-width: 70ch; }
 .hint svg { width: 100%; max-width: 420px; height: auto; display: block; }
@@ -402,6 +403,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <li>Ein ♮ (Auflösungszeichen) hebt ein Vorzeichen bis zum Taktende auf.</li>
       <li>Vorzeichen: ♯ erhöht und hängt <b>-is</b> an (Fis), ♭ erniedrigt und hängt <b>-es</b> an (Des). Ausnahmen: <b>Es</b>, <b>As</b> und <b>B</b> (das erniedrigte H).</li>
       <li>Akkorde liest du am schnellsten von unten: Liegen die Noten alle auf Linien oder alle in Zwischenräumen, ist es ein Dreiklang in Grundstellung. Mit <b>Mit Hilfslinien</b> kommen auch Umkehrungen dazu.</li>
+      <li>Bei <b>Schwierigkeit Leicht</b> bleibt die Hand in einer Lage: Die fünf Finger liegen auf fünf Tasten nebeneinander, die Zahlen über den Noten zeigen den Finger (1 = Daumen). So kannst du dich ganz auf Lesen und Rhythmus konzentrieren. Bei Mittel und Schwer musst du die Hand auch umsetzen.</li>
       <li>Mit <b>Rhythmus</b> zählt das Metronom einen Takt ein (4 Klicks), danach spielst du im Takt. Eine halbe Note (hohl) dauert zwei Schläge, eine Viertel einen, zwei Achtel mit Balken teilen sich einen Schlag. Grün heißt richtig und pünktlich, Orange richtiger Ton, aber zu früh oder zu spät, Rot falscher oder fehlender Ton.</li>
       <li><b>Ohne Stopp</b> ist wie echtes Vom-Blatt-Spielen: Nicht anhalten, auch wenn ein Ton danebengeht. Mit <b>Vorauslesen</b> wird die Note abgedeckt, sobald sie dran ist. Lies sie also schon, während du die vorige spielst.</li>
       <li>Bei <b>Melodie</b> liest du acht Noten in zwei Takten nacheinander. Schau schon auf die nächste Note, während du die aktuelle spielst. Ein Vorzeichen gilt bis zum Taktstrich.</li>
@@ -495,7 +497,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy' },
     store.settings
   );
 
@@ -505,6 +507,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
+    { key: 'diff',   label: 'Schwierigkeit (Leicht = feste Handlage)', show: () => isMelody(), opts: [['easy','Leicht'],['mid','Mittel'],['hard','Schwer']] },
     { key: 'rhythm', label: 'Rhythmus', show: () => isMelody(), opts: [['off','Aus'],['simple','Halbe & Viertel'],['eighths','Mit Achteln']] },
     { key: 'tempo',  label: 'Tempo (Schläge pro Minute)', show: () => isRhythm(), opts: [['50','50'],['70','70'],['90','90'],['110','110']] },
     { key: 'flow',   label: 'Melodie-Ablauf', show: () => isMelody() && !isRhythm(), opts: [['stop','Mit Rückmeldung'],['flow','Ohne Stopp']] },
@@ -593,6 +596,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   // Kurze Melodie: zwei Takte mit je vier Vierteln, meist Schritte, manchmal Sprünge
   const MOVES = [[-1, 6], [1, 6], [-2, 3], [2, 3], [0, 1], [-3, 1], [3, 1], [-4, 1], [4, 1]];
+  // Schwierigkeit: Leicht = fünf Töne in einer Handlage (kein Umsetzen), Mittel = höchstens eine Oktave
+  const MOVE_SETS = {
+    easy: [[-1, 6], [1, 6], [0, 2], [-2, 2], [2, 2]],
+    mid: [[-1, 6], [1, 6], [-2, 3], [2, 3], [0, 1], [-3, 1], [3, 1]],
+    hard: MOVES
+  };
   // Rhythmus-Bausteine für einen 4/4-Takt (in Schlägen); Achtel immer paarweise auf dem Schlag
   const RHYTHMS = {
     simple: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2], [2, 2], [1, 2, 1]],
@@ -603,15 +612,21 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function makeMelody() {
     const clefs = activeClefs();
     const clef = clefs[Math.floor(Math.random() * clefs.length)];
-    const [lo, hi] = RANGES[clef][settings.level];
-    let step = Math.round((lo + hi) / 2) + Math.floor(Math.random() * 5) - 2;
+    let [lo, hi] = RANGES[clef][settings.level];
+    const diff = MOVE_SETS[settings.diff] ? settings.diff : 'hard';
+    const span = diff === 'easy' ? 4 : diff === 'mid' ? 7 : hi - lo;
+    if (span < hi - lo) {
+      const w = lo + Math.floor(Math.random() * (hi - lo - span + 1));
+      lo = w; hi = w + span;
+    }
+    let step = Math.min(hi, Math.max(lo, Math.round((lo + hi) / 2) + Math.floor(Math.random() * 5) - 2));
     const rhythm = isRhythm();
     const durs = rhythm ? [...pickOne(RHYTHMS[settings.rhythm]), ...pickOne(RHYTHMS[settings.rhythm])] : Array(8).fill(1);
     const notes = [];
     let beat = 0;
     for (let i = 0; i < durs.length; i++) {
       if (i > 0) {
-        const opts = MOVES.filter(([d]) => step + d >= lo && step + d <= hi);
+        const opts = MOVE_SETS[diff].filter(([d]) => step + d >= lo && step + d <= hi);
         let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0);
         for (const [d, w] of opts) { r -= w; if (r <= 0) { step += d; break; } }
       }
@@ -627,7 +642,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       notes.push({ step, acc, dur: durs[i], beat });
       beat += durs[i];
     }
-    return { clef, notes, idx: 0, results: [], key: state.key, rhythm };
+    return { clef, notes, idx: 0, results: [], key: state.key, rhythm, hand: diff === 'easy' ? { lo, hi } : null };
   }
 
   // ---------- Ankernoten ----------
@@ -879,6 +894,15 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     return 'bad';
   }
 
+  // Handlage bei "Leicht": rechte Hand im Violin-, linke im Bassschlüssel; Daumen = Finger 1
+  const fingerOf = (mel, step) => (mel.clef === 'treble' ? step - mel.hand.lo + 1 : mel.hand.hi - step + 1);
+  function handText(mel) {
+    if (!mel.hand) return '';
+    const right = mel.clef === 'treble';
+    const thumb = right ? mel.hand.lo : mel.hand.hi;
+    return `${right ? 'Rechte' : 'Linke'} Hand, Daumen auf ${fullName({ step: thumb, acc: keyAcc(letterOf(thumb)) })}. Die Zahlen über den Noten sind die Finger. `;
+  }
+
   function drawMelody() {
     const mel = state.melody;
     const L = layout([mel.clef]);
@@ -944,6 +968,16 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
           + `<text x="${x - 5}" y="${b - 2 * SP + 6}" text-anchor="middle">?</text></g>`;
       }
     });
+    if (mel.hand) {
+      // Fingersatz über den Noten, oberhalb von Hälsen und Hilfslinien
+      const top = Math.min(b - 4 * SP - 10, ...mel.notes.map((n, i) => {
+        const down = beamOpts[i] ? beamOpts[i].down : n.step >= mid;
+        return down ? y(n.step) - 14 : Math.min(y(n.step), beamOpts[i] ? beamOpts[i].stemEnd : y(n.step) - 3.5 * SP) - 8;
+      }));
+      mel.notes.forEach((n, i) => {
+        out += `<text class="finger" x="${lay.xs[i]}" y="${top}" text-anchor="middle">${fingerOf(mel, n.step)}</text>`;
+      });
+    }
     out += beams + covers;
     if (mel.rhythm && state.run && state.run.active) {
       out += `<line id="playhead" class="playhead" x1="0" x2="0" y1="${b - 4 * SP - 22}" y2="${b + 22}" opacity="0"/>`;
@@ -1104,7 +1138,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       setFeedback('', mel.idx === 0 && !state.timed.running
         ? (settings.ahead !== '0'
           ? `Lies die Melodie von links nach rechts. Ab der zweiten Note ${settings.ahead === '1' ? 'ist die Note, die dran ist,' : 'sind die nächsten zwei Noten'} abgedeckt: Lies immer voraus.`
-          : 'Lies die Melodie von links nach rechts. Die markierte Note ist dran.')
+          : handText(mel) + 'Lies die Melodie von links nach rechts. Die markierte Note ist dran.')
         : isFlow() ? `Weiterspielen … Note ${mel.idx + 1} von ${mel.notes.length}`
         : `Note ${mel.idx + 1} von ${mel.notes.length}`);
       renderSel();
@@ -1326,7 +1360,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function prepareRhythm() {
     stopRun();
     drawMelody();
-    setFeedback('', 'Drück „Start“. Nach vier Klicks zum Einzählen spielst du die Melodie im Takt mit.');
+    setFeedback('', handText(state.melody) + 'Drück „Start“. Nach vier Klicks zum Einzählen spielst du die Melodie im Takt mit.');
     showActions(['fb-start', 'fb-listen']);
   }
   function startRhythm() {
