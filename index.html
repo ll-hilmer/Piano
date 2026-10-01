@@ -2400,11 +2400,42 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     navigator.permissions?.query({ name: 'midi' }).then(r => { if (r.state === 'granted') connectMidi(true); }).catch(() => {});
   } catch (e) {}
 
+  // ---------- Übung direkt aus der Theorie-Seite starten (Link mit #ueben-…) ----------
+  const BASE = { task: 'notes', path: 'off', nrhythm: 'off', mode: 'free' };
+  const PRESETS = {
+    'ueben-noten': ['Noten in beiden Schlüsseln', { ...BASE, clef: 'both' }],
+    'ueben-lernpfad': ['Lernpfad', { ...BASE, path: 'on' }],
+    'ueben-rhythmus': ['Rhythmus tippen (Halbe und Viertel)', { ...BASE, nrhythm: 'simple' }],
+    'ueben-rhythmus-achtel': ['Rhythmus tippen mit Achteln', { ...BASE, nrhythm: 'eighths' }],
+    'ueben-vorzeichen': ['Noten mit Vorzeichen', { ...BASE, acc: 'on' }],
+    'ueben-tonarten': ['Noten in wechselnden Tonarten', { ...BASE, key: 'rand' }],
+    'ueben-melodie': ['Melodie lesen', { task: 'melody', hands: 'one', rhythm: 'off', mode: 'free' }],
+    'ueben-intervalle': ['Intervalle erkennen', { task: 'intervals', mode: 'free' }],
+    'ueben-akkorde': ['Dreiklänge lesen', { task: 'chords', level: '1', mode: 'free' }],
+    'ueben-umkehrungen': ['Dreiklänge mit Umkehrungen', { task: 'chords', level: '2', mode: 'free' }],
+    'ueben-anker': ['Ankernoten', { task: 'anchors', mode: 'free' }],
+    'ueben-beidehaende': ['Melodie mit beiden Händen', { task: 'melody', hands: 'two', mode: 'free' }]
+  };
+  let presetName = null;
+  const presetKey = (location.hash || '').slice(1);
+  if (PRESETS[presetKey]) {
+    presetName = PRESETS[presetKey][0];
+    // Tonart und Vorzeichen zurücksetzen, außer die Übung bringt eigene mit
+    Object.assign(settings, { key: '0', acc: 'off' }, PRESETS[presetKey][1]);
+    store.settings = settings; save();
+    // Hash entfernen, damit ein Neuladen nicht erneut umstellt
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  }
+
   // ---------- Start ----------
   try { const t = JSON.parse(localStorage.getItem('notenleser-theme') || 'null'); if (t && ['auto', 'light', 'dark'].includes(t.choice)) settings.theme = t.choice; } catch (e) {}
   applyTheme();
   renderSettings();
   updateStats();
   applySettings();
+  if (presetName) {
+    const msg = $('msg');
+    msg.textContent = `Aus der Theorie gestartet: ${presetName}. ` + msg.textContent;
+  }
 })();
 </script>

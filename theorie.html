@@ -152,6 +152,16 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font-size: 0.8rem; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .small { font-size: 0.88rem; color: var(--muted); }
+.blues-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-width: 520px; }
+.bcell { border: 1px solid var(--line); border-radius: 8px; padding: 8px 6px; text-align: center; background: var(--paper); transition: background .15s; }
+.bcell b { display: block; font-size: 1.05rem; }
+.bcell span { font-size: 0.75rem; color: var(--muted); }
+.bcell.on { background: var(--accent); border-color: var(--accent); }
+.bcell.on b, .bcell.on span { color: var(--card); }
+.play.stop::before { content: "■ "; }
+.practice { justify-self: start; display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--card); text-decoration: none; font-weight: 600; font-size: 0.9rem; border-radius: 10px; padding: 7px 14px; }
+.practice::after { content: "→"; }
+.practice:hover { filter: brightness(1.08); }
 .acc-patterns { display: grid; gap: 18px; }
 .pattern { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
 .pattern h3 { margin: 0; }
@@ -183,7 +193,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
         <input type="radio" name="theme" id="th-light" value="light"><label for="th-light">Hell</label>
         <input type="radio" name="theme" id="th-dark" value="dark"><label for="th-dark">Dunkel</label>
       </div>
-      <a class="back" href="index.html">Zum Üben</a>
+      <a class="back" href="./">Zum Üben</a>
     </div>
   </header>
 
@@ -218,6 +228,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
         <li><a href="#septakkorde">Septakkorde</a></li>
         <li><a href="#folgen">Typische Akkordfolgen</a></li>
         <li><a href="#begleitung">Begleitmuster für die linke Hand</a></li>
+        <li><a href="#blues">Pentatonik und Blues</a></li>
       </ol>
     </div>
   </nav>
@@ -234,6 +245,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <li>Das <b>mittlere C</b> (c′) liegt genau dazwischen, auf einer Hilfslinie: unter dem Violin- und über dem Basssystem.</li>
     </ul>
     <div class="ex" data-ex="clefs"></div>
+    <a class="practice" href="./#ueben-noten">Jetzt üben: Noten in beiden Schlüsseln lesen</a>
   </section>
 
   <section class="ch" id="namen">
@@ -249,6 +261,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><td>zweigestrichenes c″</td><td>C5</td><td>3. Zwischenraum im Violinschlüssel</td></tr>
       <tr><td>dreigestrichenes c‴</td><td>C6</td><td>2. Hilfslinie über dem Violinschlüssel</td></tr>
     </table></div>
+    <a class="practice" href="./#ueben-lernpfad">Jetzt üben: Lernpfad: Noten Schritt für Schritt</a>
   </section>
 
   <section class="ch" id="werte">
@@ -261,6 +274,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <li>Achtel und Sechzehntel werden oft mit <b>Balken</b> zu Gruppen zusammengefasst, damit man die Schläge leichter sieht.</li>
     </ul>
     <p class="tip"><b>Merkhilfe:</b> Die ganze Pause hängt wie ein schwerer Koffer unter der Linie, die halbe Pause sitzt wie ein Hut auf der Linie.</p>
+    <a class="practice" href="./#ueben-rhythmus">Jetzt üben: Rhythmus tippen</a>
   </section>
 
   <section class="ch" id="takt">
@@ -292,6 +306,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p>Bei einer <b>Synkope</b> fällt ein betonter Ton zwischen die Schläge, also auf ein „und“, und wird über den nächsten Schlag gehalten. Das klingt nach vorne drängend und ist typisch für Pop, Jazz und Ragtime.</p>
     <div class="ex" data-ex="syncope"></div>
     <p class="tip"><b>Zählen:</b> Viertel zählt man „1, 2, 3, 4“, Achtel „1 und 2 und …“ (geschrieben 1 + 2 +), Triolen „1-Tri-o-le“. Zähl anfangs laut mit, dann leise im Kopf.</p>
+    <a class="practice" href="./#ueben-rhythmus-achtel">Jetzt üben: Rhythmus mit Achteln tippen</a>
   </section>
 
   <section class="ch" id="halbton">
@@ -311,6 +326,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p>Ein Vorzeichen vor einer Note gilt bis zum Ende des Taktes, aber nur für diese Tonhöhe. Stehen Vorzeichen direkt hinter dem Schlüssel (<b>Generalvorzeichen</b>), gelten sie im ganzen Stück und in allen Oktaven. Daran erkennt man die Tonart.</p>
     <div class="ex" data-ex="accidentals"></div>
     <p class="small">Fis und Ges sind am Klavier dieselbe Taste. Welcher Name richtig ist, hängt von der Tonart ab.</p>
+    <a class="practice" href="./#ueben-vorzeichen">Jetzt üben: Noten mit Vorzeichen lesen</a>
   </section>
 
   <section class="ch" id="dur">
@@ -319,6 +335,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p class="tip"><b>G – G – H – G – G – G – H</b>. Die Halbtöne liegen zwischen dem 3. und 4. sowie dem 7. und 8. Ton.</p>
     <p>C-Dur kommt ohne schwarze Tasten aus, weil E–F und H–C von Natur aus Halbtöne sind. Startet man auf einem anderen Ton, braucht man Vorzeichen, damit der Bauplan stimmt. So entstehen die Tonarten.</p>
     <div class="ex" data-ex="cmajor"></div>
+    <a class="practice" href="./#ueben-melodie">Jetzt üben: Melodien lesen</a>
   </section>
 
   <section class="ch" id="intervalle">
@@ -329,6 +346,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><th>Intervall</th><th>Halbtöne</th><th>ab C</th><th>Klang</th><th></th></tr>
     </table></div>
     <p class="tip"><b>Im Notenbild:</b> Ungerade Intervalle (Terz, Quinte, Septime) liegen Linie–Linie oder Zwischenraum–Zwischenraum. Gerade (Sekunde, Quarte, Sexte, Oktave) liegen Linie–Zwischenraum.</p>
+    <a class="practice" href="./#ueben-intervalle">Jetzt üben: Intervalle erkennen</a>
   </section>
 
   <section class="ch" id="dreiklaenge">
@@ -341,6 +359,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <li><b>Übermäßig</b>: zwei große Terzen (4 + 4), klingt schwebend.</li>
     </ul>
     <div class="ex" data-ex="triads"></div>
+    <a class="practice" href="./#ueben-akkorde">Jetzt üben: Dreiklänge lesen</a>
   </section>
 
   <section class="ch" id="umkehrungen">
@@ -353,6 +372,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     </ul>
     <div class="ex" data-ex="inversions"></div>
     <p class="tip"><b>Erkennen:</b> Bei einer Umkehrung liegen zwei Töne eine Quarte auseinander. Der obere dieser beiden ist der Grundton.</p>
+    <a class="practice" href="./#ueben-umkehrungen">Jetzt üben: Dreiklänge mit Umkehrungen lesen</a>
   </section>
 
   <section class="ch" id="vortrag">
@@ -401,6 +421,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <div class="cinfo" id="cinfo"></div>
     </div>
     <p class="small">Tippe eine Tonart an. Unten bei 6 Uhr treffen sich Fis-Dur (6 ♯) und Ges-Dur (6 ♭): Sie klingen gleich und werden nur anders geschrieben.</p>
+    <a class="practice" href="./#ueben-tonarten">Jetzt üben: Noten in wechselnden Tonarten lesen</a>
   </section>
 
   <section class="ch" id="parallel">
@@ -414,6 +435,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><td>Reihenfolge der Bes</td><td>B Es As Des Ges Ces</td><td>das Wort „<b>BEAD</b>“, dann Ges, Ces</td></tr>
     </table></div>
     <p class="tip"><b>Tonart schnell erkennen:</b> Bei Kreuzen ist der Grundton einen Halbton über dem letzten Kreuz (letztes Kreuz Fis → G-Dur). Bei Bes ist das vorletzte B der Grundton (B, Es → B-Dur). Ein einziges B bedeutet F-Dur.</p>
+    <a class="practice" href="./#ueben-tonarten">Jetzt üben: Tonarten an den Vorzeichen erkennen</a>
   </section>
 
   <section class="ch" id="stufen">
@@ -444,6 +466,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     </div>
     <div class="ex" data-ex="cadence"></div>
     <p class="tip"><b>Übungsidee:</b> Spiel die Kadenz in jeder Tonart des Quintenzirkels. So lernst du nebenbei alle Vorzeichen.</p>
+    <a class="practice" href="./#ueben-akkorde">Jetzt üben: Akkorde lesen</a>
   </section>
 
   <section class="ch" id="septakkord">
@@ -498,6 +521,31 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p>Die linke Hand spielt meist nicht die Melodie, sondern eine <b>Begleitung</b> aus den Tönen des jeweiligen Akkords. Ein paar Muster reichen für sehr viele Stücke. Alle Beispiele nutzen die Folge <b>C – Am – F – G</b> (I – vi – IV – V) aus dem vorigen Kapitel.</p>
     <p class="tip"><b>So übst du ein Muster:</b> erst die linke Hand allein und langsam, bis sie von selbst läuft. Dann die rechte Hand mit langen Akkorden dazu, zuletzt eine Melodie. Unter den Noten steht jeweils der Akkord.</p>
     <div class="acc-patterns" id="patterns"></div>
+    <a class="practice" href="./#ueben-beidehaende">Jetzt üben: Mit beiden Händen spielen</a>
+  </section>
+
+  <section class="ch" id="blues">
+    <h2><small>23</small>Pentatonik und Blues</h2>
+    <h3>Pentatonik</h3>
+    <p>Die <b>Pentatonik</b> ist eine Tonleiter aus nur fünf Tönen. Sie lässt die Töne weg, die Halbtonschritte bilden. Deshalb reibt sich nichts, und beim freien Spielen klingt praktisch jede Tonfolge gut. Sie ist eine der ältesten Tonleitern der Welt und steckt in Volksliedern, Pop, Rock und Blues.</p>
+    <ul>
+      <li><b>Dur-Pentatonik</b> (C): C – D – E – G – A, also C-Dur ohne F und H.</li>
+      <li><b>Moll-Pentatonik</b> (a): A – C – D – E – G. Dieselben Töne, nur ab A, also die Parallele.</li>
+    </ul>
+    <div class="ex" data-ex="penta"></div>
+    <p class="tip"><b>Ausprobieren:</b> Die fünf schwarzen Tasten bilden zusammen schon eine Pentatonik (Fis-Dur bzw. dis-Moll). Spiel einfach drauflos, nur auf schwarzen Tasten: Es klingt immer stimmig.</p>
+    <h3>Bluestonleiter</h3>
+    <p>Nimmt man zur Moll-Pentatonik noch einen Ton zwischen Quarte und Quinte dazu, entsteht die <b>Bluestonleiter</b>. Dieser Zusatzton heißt <b>Blue Note</b> und gibt dem Blues seinen rauen, sehnsüchtigen Klang. In C: C – Es – F – <b>Fis</b> – G – B – C.</p>
+    <div class="ex" data-ex="bluesscale"></div>
+    <h3>Das 12-Takt-Blues-Schema</h3>
+    <p>Fast jeder Blues folgt demselben Plan aus 12 Takten und nur drei Akkorden: I, IV und V, meist als Septakkorde. In C sind das C7, F7 und G7. Die Reihen lesen sich wie drei Zeilen eines Liedtextes: Aussage, Wiederholung, Antwort.</p>
+    <div class="blues-grid" id="bluesgrid"></div>
+    <div class="row">
+      <button class="play" type="button" id="blues-play">Blues spielen</button>
+      <button class="play stop" type="button" id="blues-stop" hidden>Stopp</button>
+      <span class="small" id="blues-info"></span>
+    </div>
+    <p class="tip"><b>Improvisieren:</b> Lass die Begleitung laufen und spiel mit der rechten Hand Töne der C-Bluestonleiter dazu, erst wenige Töne, dann kleine Motive, die du wiederholst. Falsch gibt es hier kaum.</p>
   </section>
 </div>
 
@@ -1047,6 +1095,44 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       };
       mount('pat-' + pt.id, staff({ clef: 'bass', items, time: pt.time || '4/4', step: pt.step, aria: `Begleitmuster ${pt.title}` }),
         [['Anhören', () => playPattern(false)], ['Mit rechter Hand', () => playPattern(true)]]);
+    });
+  }
+
+  // ---------- Pentatonik und Blues ----------
+  {
+    const dp = ['C4', 'D4', 'E4', 'G4', 'A4', 'C5'].map(x => N(x));
+    const mp = ['A4', 'C5', 'D5', 'E5', 'G5', 'A5'].map(x => N(x));
+    const it = arr => arr.map(n => ({ notes: [n], dur: 'q', label: nn(n) }));
+    mount('penta', staff({ items: [...it(dp), ...it(mp).map((x, k) => (k === 0 ? { ...x, bar: true } : x))], step: 38, aria: 'C-Dur-Pentatonik und a-Moll-Pentatonik' }),
+      [['C-Dur-Pentatonik', () => playArp(dp, 0.32)], ['a-Moll-Pentatonik', () => playArp(mp, 0.32)]]);
+    const bs = ['C4', 'Eb4', 'F4', 'F#4', 'G4', 'Bb4', 'C5'].map(x => N(x));
+    mount('bluesscale', staff({ items: bs.map((n, k) => ({ notes: [n], dur: 'q', label: nn(n), hl: k === 3 })), step: 44, aria: 'C-Bluestonleiter, die Blue Note Fis ist markiert' }),
+      [['Bluestonleiter', () => playArp(bs, 0.3)], ['Kleines Blues-Motiv', () => playArp(['C5', 'Eb5', 'C5', 'F5', 'F#5', 'G5', 'Bb4', 'C5'].map(x => N(x)), 0.24)]]);
+
+    // 12-Takt-Schema mit Begleitung: Bass auf 1 und 3, Akkord auf 2 und 4
+    const SCHEME = ['I', 'I', 'I', 'I', 'IV', 'IV', 'I', 'I', 'V', 'IV', 'I', 'V'];
+    const CH = { I: ['C7', 'C3', 'E4 G4 Bb4'], IV: ['F7', 'F2', 'Eb4 F4 A4'], V: ['G7', 'G2', 'D4 F4 B4'] };
+    $('bluesgrid').innerHTML = SCHEME.map((d, k) => `<div class="bcell" data-k="${k}"><b>${CH[d][0]}</b><span>${d} · Takt ${k + 1}</span></div>`).join('');
+    let timers = [];
+    const stop = () => { timers.forEach(clearTimeout); timers = []; document.querySelectorAll('.bcell').forEach(c => c.classList.remove('on')); $('blues-stop').hidden = true; $('blues-play').hidden = false; $('blues-info').textContent = ''; };
+    $('blues-stop').addEventListener('click', stop);
+    $('blues-play').addEventListener('click', () => {
+      stop();
+      const bpm = 96, beat = 60 / bpm, rounds = 2;
+      $('blues-play').hidden = true; $('blues-stop').hidden = false;
+      // Takt für Takt planen, damit "Stopp" sofort wirkt
+      for (let r = 0; r < rounds; r++) SCHEME.forEach((d, k) => {
+        const idx = r * 12 + k;
+        timers.push(setTimeout(() => {
+          document.querySelectorAll('.bcell').forEach(c => c.classList.toggle('on', +c.dataset.k === k));
+          $('blues-info').textContent = `Runde ${r + 1} von ${rounds}`;
+          const [, bass, ch] = CH[d];
+          const bm = midiOf(N(bass)), cm = chord(ch).map(midiOf);
+          tone([bm], 0, beat * 1.8, 1.2); tone(cm, beat, beat * 0.7, 0.55);
+          tone([bm + 7], 2 * beat, beat * 1.8, 1); tone(cm, 3 * beat, beat * 0.7, 0.55);
+        }, idx * 4 * beat * 1000));
+      });
+      timers.push(setTimeout(stop, rounds * 12 * 4 * beat * 1000 + 200));
     });
   }
 

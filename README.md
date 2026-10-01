@@ -14,8 +14,8 @@ Ein E-Piano per USB funktioniert dort direkt in Chrome und Edge.
 
 `theorie.html` (im Internet: https://ll-hilmer.github.io/Piano/theorie.html): Grundlagen von Notensystem bis Umkehrungen,
 Rhythmus (Punkte, Bögen, Triolen, Synkopen), Dynamik und Artikulation, Wiederholungen mit Ablaufplänen,
-dazu Quintenzirkel (interaktiv, mit Fingersätzen je Tonleiter), Stufen und Funktionen, Kadenz in jeder Tonart, Moll-Tonleitern, Septakkorde, typische Akkordfolgen und sechs Begleitmuster für die linke Hand,
-jeweils mit Notenbeispielen zum Anhören.
+dazu Quintenzirkel (interaktiv, mit Fingersätzen je Tonleiter), Stufen und Funktionen, Kadenz in jeder Tonart, Moll-Tonleitern, Septakkorde, typische Akkordfolgen sechs Begleitmuster für die linke Hand sowie Pentatonik und 12-Takt-Blues zum Mitspielen,
+jeweils mit Notenbeispielen zum Anhören. „Jetzt üben“-Knöpfe öffnen die App direkt mit der passenden Übung (Adresse mit `#ueben-…`).
 
 ## Veröffentlichung
 
