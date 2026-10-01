@@ -8,7 +8,7 @@ Eine kleine Web-App zum Üben des Notenlesens am Klavier.
 
 ## Funktionen
 
-- Einzelnoten oder Akkorde (Dur- und Moll-Dreiklänge, mit Hilfslinien auch Umkehrungen)
+- Einzelnoten, kurze Melodien (zwei Takte) oder Akkorde (Dur- und Moll-Dreiklänge, mit Hilfslinien auch Umkehrungen)
 - Violinschlüssel, Bassschlüssel oder beide (Klaviersystem)
 - Mit oder ohne Vorzeichen (♯ und ♭)
 - Tonumfang „Im System“ oder „Mit Hilfslinien“
@@ -16,3 +16,4 @@ Eine kleine Web-App zum Üben des Notenlesens am Klavier.
 - 60-Sekunden-Test mit Rekord
 - Statistik der schwierigsten Noten und Akkorde; diese kommen häufiger dran
 - Tastatur-Kürzel C D E F G A H (# für ♯, - für ♭) und MIDI-Keyboard (Chrome/Edge)
+- Darstellung automatisch, hell oder dunkel
