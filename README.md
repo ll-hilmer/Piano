@@ -4,7 +4,16 @@ Eine kleine Web-App zum Üben des Notenlesens am Klavier.
 
 ## Benutzen
 
-`index.html` im Browser öffnen (Doppelklick genügt). Es wird nichts installiert.
+**Im Internet:** https://ll-hilmer.github.io/Piano/
+Auf dem Handy oder Tablet über das Browser-Menü „Zum Startbildschirm hinzufügen“ wie eine App ablegen.
+Ein E-Piano per USB funktioniert dort direkt in Chrome und Edge.
+
+**Ohne Internet:** `index.html` im Browser öffnen (Doppelklick genügt).
+
+## Veröffentlichung
+
+Jede Änderung auf `main` wird automatisch als Webseite veröffentlicht
+(`.github/workflows/pages.yml`, baut mit `site/build.sh`).
 
 ## Funktionen
 
