@@ -247,6 +247,16 @@ legend { font-size: 0.85rem; font-weight: 600; padding: 0; margin-bottom: 6px; }
 kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--ink); }
 
 .answer { display: grid; gap: 10px; }
+.pathbar { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; display: grid; gap: 8px; }
+.pathbar h2 { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+.plinks { display: flex; gap: 14px; }
+.prow { display: grid; gap: 4px; }
+.plabel { font-size: 0.8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.pchip { font-size: 0.72rem; font-weight: 600; min-width: 30px; text-align: center; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.pchip.sure { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.pchip.learn { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.pchip.locked { opacity: 0.6; }
 .cursor { fill: var(--accent-soft); }
 .notehead.hollow { fill: var(--card) !important; stroke: var(--ink); stroke-width: 2; }
 .is-good .notehead.hollow { stroke: var(--good); }
@@ -373,6 +383,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     <div class="overlay" id="overlay" hidden></div>
   </section>
 
+  <section class="pathbar" id="pathbar" aria-label="Lernpfad" hidden>
+    <div class="row">
+      <h2>Dein Lernpfad</h2>
+      <span class="plinks">
+        <button class="link" id="path-more" type="button">Eine Note mehr</button>
+        <button class="link danger" id="path-reset" type="button">Zurücksetzen</button>
+      </span>
+    </div>
+    <div id="path-rows"></div>
+    <p class="muted">Grün = sicher (3× richtig in Folge), blau = in Arbeit. Sind alle freigeschalteten Noten sicher, kommt die nächste dazu.</p>
+  </section>
+
   <section class="answer" aria-label="Antwort">
     <div class="mods" id="mods" hidden></div>
     <div class="names" id="names"></div>
@@ -410,6 +432,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     <ul class="tips">
       <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende.</li>
       <li>Beginne mit <b>Im System</b> und einem Schlüssel. Wechsle zu <b>Mit Hilfslinien</b>, wenn du fast immer richtig liegst.</li>
+      <li><b>Lernpfad</b> (Einzelnoten → Lernpfad An): Du startest mit drei Ankernoten. Kannst du alle sicher (dreimal hintereinander richtig), kommt automatisch die nächste Note dazu. Neue Noten kommen anfangs öfter dran.</li>
       <li><b>Ankernoten</b>: Präge dir zuerst diese Noten ein. Im Violinschlüssel: mittleres C, G (2. Linie), C (3. Zwischenraum) und hohes C. Im Bassschlüssel: tiefes C, C (2. Zwischenraum), F (4. Linie) und mittleres C. Alle anderen Noten zählst du von dort ab.</li>
       <li>Mit <b>Hilfe bei Fehlern</b> zeigt dir die App nach einem Fehler die richtige Taste und eine Merkhilfe. Weiter geht es, wenn du die richtige Note gespielt oder getippt hast.</li>
       <li>Merkhilfen: Linien im Violinschlüssel von unten <b>E G H D F</b>, im Bassschlüssel <b>G H D F A</b>.</li>
@@ -515,18 +538,19 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off', path: 'off' },
     store.settings
   );
 
   const SETTINGS_UI = [
     { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde'],['melody','Melodie'],['anchors','Ankernoten']] },
     { key: 'clef',   label: 'Schlüssel', show: () => !isTwoHands(), opts: [['treble','Violin'],['bass','Bass'],['both','Beide']] },
-    { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
+    { key: 'level',  label: 'Tonumfang', show: () => !isPath(), opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
-    { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
+    { key: 'acc',    label: 'Zusätzliche Vorzeichen', show: () => !isPath(), opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
     { key: 'endless', label: 'Endlos spielen', show: () => isMelody() || isRhythmOnly(), opts: [['off','Aus'],['on','An']] },
     { key: 'hands',  label: 'Hände', show: () => isMelody(), opts: [['one','Eine Hand'],['two','Beide Hände']] },
+    { key: 'path',   label: 'Lernpfad (Noten kommen nach und nach dazu)', show: () => settings.task === 'notes' && settings.nrhythm === 'off', opts: [['off','Aus'],['on','An']] },
     { key: 'nrhythm', label: 'Rhythmus (gleicher Ton, nur tippen)', show: () => settings.task === 'notes', opts: [['off','Aus'],['simple','Halbe & Viertel'],['eighths','Mit Achteln']] },
     { key: 'diff',   label: 'Schwierigkeit (Leicht = feste Handlage)', show: () => isMelody(), opts: [['easy','Leicht'],['mid','Mittel'],['hard','Schwer']] },
     { key: 'rhythm', label: 'Rhythmus', show: () => isMelody(), opts: [['off','Aus'],['simple','Halbe & Viertel'],['eighths','Mit Achteln']] },
@@ -544,7 +568,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   // ---------- Zustand ----------
   const state = {
-    current: null, prevId: null, melody: null, key: 0, fix: null, holds: [], locked: false, shownAt: 0, nextTimer: null,
+    current: null, prevId: null, melody: null, key: 0, fix: null, holds: [], forceNext: null, pathIntro: null, locked: false, shownAt: 0, nextTimer: null,
     mod: 0,          // gewähltes Vorzeichen für die nächste Namens-Antwort
     sel: [],         // Auswahl bei Akkorden (Namen "l:acc" oder MIDI-Nummern)
     correct: 0, total: 0, streak: 0, times: [],
@@ -559,6 +583,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const helpOn = () => settings.help === 'on';
   // Ohne Stopp: während der Melodie keine Rückmeldung, Auswertung erst am Ende
   // Rhythmus läuft bei Melodien oder als reines Rhythmus-Training bei Einzelnoten (immer derselbe Ton)
+  const isPath = () => settings.task === 'notes' && settings.path === 'on' && settings.nrhythm === 'off';
   const isEndless = () => settings.endless === 'on' && (isMelody() || isRhythmOnly());
   const isTwoHands = () => isMelody() && settings.hands === 'two';
   const isRhythmOnly = () => settings.task === 'notes' && settings.nrhythm !== 'off';
@@ -817,8 +842,73 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     setFeedback('bad', `Das war ${name}, du hattest ${given}. ${verb} jetzt ${name}, dann geht es weiter.`);
   }
 
+  // ---------- Lernpfad ----------
+  // Reihenfolge: erst drei Ankernoten, dann Nachbarn nach außen, zuletzt Hilfslinien
+  const PATH = {
+    treble: [32, 28, 35, 30, 34, 33, 31, 29, 36, 37, 38, 39, 40, 41, 42, 27, 26, 25],
+    bass: [24, 28, 21, 22, 26, 20, 23, 25, 18, 19, 27, 17, 16, 14, 15, 13]
+  };
+  const PATH_START = 3;
+  const pathState = clef => {
+    store.path = store.path || {};
+    return store.path[clef] || (store.path[clef] = { n: PATH_START, hist: {} });
+  };
+  const pathNotes = clef => PATH[clef].slice(0, pathState(clef).n);
+  // "Sicher" = die letzten drei Antworten zu dieser Note waren richtig
+  const isSure = (clef, st) => { const h = pathState(clef).hist[st] || []; return h.length >= 3 && h.slice(-3).every(Boolean); };
+  function pathCandidates() {
+    const list = [];
+    for (const clef of activeClefs()) {
+      const ps = pathState(clef);
+      for (const st of pathNotes(clef)) {
+        const n = { step: st, acc: keyAcc(letterOf(st)) };
+        // Neue und unsichere Noten kommen öfter dran
+        const base = (ps.hist[st] || []).length < 3 ? 3 : isSure(clef, st) ? 0.8 : 2;
+        list.push({ clef, notes: [n], id: `${clef}:${st}:${n.acc}`, label: fullName(n), base });
+      }
+    }
+    return list;
+  }
+  function unlockNext(clef) {
+    const ps = pathState(clef);
+    if (ps.n >= PATH[clef].length) return null;
+    ps.n++;
+    const st = PATH[clef][ps.n - 1];
+    const n = { step: st, acc: keyAcc(letterOf(st)) };
+    state.forceNext = { clef, notes: [n], id: `${clef}:${st}:${n.acc}`, label: fullName(n), base: 1 };
+    state.pathIntro = `Neue Note freigeschaltet: ${noteName(n)} im ${CLEF_NAME[clef]}. ${noteName(n)} liegt ${posDesc(clef, st)}.`;
+    return n;
+  }
+  // Nach jeder Antwort im Lernpfad: Verlauf merken, ggf. nächste Note freischalten
+  function pathRecord(item, ok) {
+    const clef = item.clef, st = item.notes[0].step;
+    const ps = pathState(clef);
+    const h = ps.hist[st] || (ps.hist[st] = []);
+    h.push(ok);
+    if (h.length > 6) h.shift();
+    if (pathNotes(clef).every(x => isSure(clef, x))) unlockNext(clef);
+    save();
+    renderPath();
+  }
+  function renderPath() {
+    const bar = $('pathbar');
+    bar.hidden = !isPath();
+    if (!isPath()) return;
+    $('path-rows').innerHTML = activeClefs().map(clef => {
+      const ps = pathState(clef);
+      const chips = PATH[clef].map((st, i) => {
+        const n = { step: st, acc: keyAcc(letterOf(st)) };
+        const cls = i >= ps.n ? 'locked' : isSure(clef, st) ? 'sure' : 'learn';
+        const title = i >= ps.n ? 'noch gesperrt' : isSure(clef, st) ? 'sicher' : 'in Arbeit';
+        return `<span class="pchip ${cls}" title="${fullName(n)}: ${title}">${i >= ps.n ? '·' : fullName(n)}</span>`;
+      }).join('');
+      return `<div class="prow"><span class="plabel">${clef === 'treble' ? 'Violin' : 'Bass'} · Stufe ${ps.n - PATH_START + 1} von ${PATH[clef].length - PATH_START + 1}</span><div class="pchips">${chips}</div></div>`;
+    }).join('');
+  }
+
   function pickItem() {
-    const all = isChord() ? chordCandidates() : isAnchors() ? anchorCandidates() : noteCandidates();
+    if (state.forceNext) { const f = state.forceNext; state.forceNext = null; return f; }
+    const all = isChord() ? chordCandidates() : isAnchors() ? anchorCandidates() : isPath() ? pathCandidates() : noteCandidates();
     const list = all.length > 1 ? all.filter(n => n.id !== state.prevId) : all;
     const weights = list.map(n => {
       const st = store.notes[n.id];
@@ -1375,7 +1465,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     drawStaff(state.current);
     document.querySelectorAll('.names button, .wk, .bk').forEach(el => el.classList.remove('good', 'bad', 'sel'));
     const q = isChord() ? 'Welche Noten hat dieser Akkord?' : 'Welche Note ist das?';
-    setFeedback('', state.timed.running ? 'Weiter so!' : q);
+    if (state.pathIntro) { setFeedback('good', state.pathIntro); state.pathIntro = null; }
+    else setFeedback('', state.timed.running ? 'Weiter so!' : q);
     renderSel();
   }
 
@@ -1496,6 +1587,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (state.timed.running) { state.timed.tries++; if (ok) state.timed.score++; }
     save();
     if (isMelody()) { resolveMelody(ok, given); return; }
+    if (isPath()) pathRecord(item, ok);
     play(item.notes.map(noteMidi));
     drawStaff(item, isChord() && !ok ? hits.map(h => (h ? 'is-good' : 'is-bad')) : (ok ? 'is-good' : 'is-bad'));
     const piano = settings.answer === 'piano';
@@ -2004,7 +2096,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       if (f) f.hidden = !s.show();
     });
     state.melody = null;
-    $('tagline').textContent = isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
+    state.forceNext = null;
+    state.pathIntro = null;
+    renderPath();
+    $('tagline').textContent = isPath() ? 'Lernpfad: Neue Noten kommen dazu, sobald du die bisherigen sicher kannst.' : isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
       : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.'
       : isAnchors() ? 'Lerne die Ankernoten. Von ihnen aus findest du jede andere Note.'
       : isRhythmOnly() ? 'Rhythmus üben: immer derselbe Ton, du tippst im Takt.' : 'Erkenne die Note, so schnell du kannst.';
@@ -2014,6 +2109,25 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     else { state.prevId = null; nextItem(); }
     renderHard();
   }
+
+  $('path-more').addEventListener('click', () => {
+    // Für jeden aktiven Schlüssel eine Note vorziehen, wenn du sie schon kennst
+    let n = null;
+    activeClefs().forEach(c => { n = unlockNext(c) || n; });
+    save(); renderPath();
+    if (n) nextItem();
+  });
+  let pathResetArmed = false;
+  $('path-reset').addEventListener('click', e => {
+    if (!pathResetArmed) {
+      pathResetArmed = true; e.target.textContent = 'Wirklich? Nochmal klicken';
+      setTimeout(() => { pathResetArmed = false; e.target.textContent = 'Zurücksetzen'; }, 3500);
+      return;
+    }
+    pathResetArmed = false; e.target.textContent = 'Zurücksetzen';
+    activeClefs().forEach(c => { store.path[c] = { n: PATH_START, hist: {} }; });
+    save(); renderPath(); nextItem();
+  });
 
   // ---------- Schwierigste Noten und Akkorde ----------
   function renderHard() {
