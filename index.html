@@ -2201,12 +2201,29 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     $('more-sum').textContent = [pick('answer'), pick('names'), pick('help', 'Hilfe'), pick('sound', 'Ton'), pick('theme')].join(' · ');
   }
   const hostTheme = document.documentElement.getAttribute('data-theme');
-  function applyTheme() {
+  // Darstellung gilt für alle Seiten (App und Theorie): gemeinsamer Speicher "notenleser-theme"
+  const THEME_KEY = 'notenleser-theme';
+  function applyTheme(share = true) {
     const r = document.documentElement;
     if (settings.theme === 'light' || settings.theme === 'dark') r.setAttribute('data-theme', settings.theme);
     else if (hostTheme) r.setAttribute('data-theme', hostTheme);
     else r.removeAttribute('data-theme');
+    if (share) { try { localStorage.setItem(THEME_KEY, JSON.stringify({ choice: settings.theme, host: hostTheme })); } catch (e) {} }
   }
+  function adoptSharedTheme() {
+    try {
+      const t = JSON.parse(localStorage.getItem(THEME_KEY) || 'null');
+      if (t && ['auto', 'light', 'dark'].includes(t.choice) && t.choice !== settings.theme) {
+        settings.theme = t.choice; store.settings = settings; save();
+        const radio = document.getElementById('set-theme-' + t.choice);
+        if (radio) radio.checked = true;
+        if (typeof renderMoreSummary === 'function' && $('more-sum')) renderMoreSummary();
+        applyTheme(false);
+      }
+    } catch (e) {}
+  }
+  // Wechsel auf einer anderen offenen Seite sofort übernehmen
+  window.addEventListener('storage', e => { if (e.key === THEME_KEY) adoptSharedTheme(); });
   function renderKeySelect() {
     const sel = $('set-key');
     sel.innerHTML = KEY_ORDER.map(c => `<option value="${c}">${keyLabel(c)}</option>`).join('')
@@ -2381,6 +2398,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   } catch (e) {}
 
   // ---------- Start ----------
+  try { const t = JSON.parse(localStorage.getItem('notenleser-theme') || 'null'); if (t && ['auto', 'light', 'dark'].includes(t.choice)) settings.theme = t.choice; } catch (e) {}
   applyTheme();
   renderSettings();
   updateStats();
