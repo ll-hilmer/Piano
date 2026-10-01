@@ -17,6 +17,7 @@
   --good-soft: #dcf2e4;
   --bad: #c3302d;
   --bad-soft: #fbe2e1;
+  --warn: #a8660c;
   --key-white: #ffffff;
   --key-black: #1b1f33;
   --font-display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
@@ -26,14 +27,14 @@
   :root:not([data-theme="light"]) {
     --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
     --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
-    --bad: #ff6f69; --bad-soft: #3d1c1f; --key-white: #e9ebf3; --key-black: #0a0c16;
+    --bad: #ff6f69; --bad-soft: #3d1c1f; --warn: #f2b14a; --key-white: #e9ebf3; --key-black: #0a0c16;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
   --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
-  --bad: #ff6f69; --bad-soft: #3d1c1f; --key-white: #e9ebf3; --key-black: #0a0c16;
+  --bad: #ff6f69; --bad-soft: #3d1c1f; --warn: #f2b14a; --key-white: #e9ebf3; --key-black: #0a0c16;
   color-scheme: dark;
 }
 
@@ -247,6 +248,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
 .answer { display: grid; gap: 10px; }
 .cursor { fill: var(--accent-soft); }
+.notehead.hollow { fill: var(--card) !important; stroke: var(--ink); stroke-width: 2; }
+.is-good .notehead.hollow { stroke: var(--good); }
+.is-bad .notehead.hollow { stroke: var(--bad); }
+.is-warn .notehead.hollow { stroke: var(--warn); }
+.is-played .notehead.hollow { stroke: var(--muted); }
+.is-warn .notehead, .is-warn .acc { fill: var(--warn); }
+.is-warn .stem, .is-warn .ledger { stroke: var(--warn); }
+.beam { stroke: currentColor; stroke-width: 5; }
+.timesig { font: 600 31px var(--font-display); fill: currentColor; }
+.playhead { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.notelabel.warn { fill: var(--warn); }
+.notelabel.small { font-size: 9px; font-weight: 500; }
 .hint { border-top: 1px solid var(--line); padding: 12px 16px 14px; display: grid; gap: 10px; background: var(--paper); }
 .hint p { margin: 0; font-size: 0.92rem; max-width: 70ch; }
 .hint svg { width: 100%; max-width: 420px; height: auto; display: block; }
@@ -334,7 +347,9 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     <div class="feedback" id="feedback">
       <span class="msg" id="msg">Welche Note ist das?</span>
       <span class="fbactions" id="fbactions" hidden>
+        <button class="primary small" id="fb-start" type="button" hidden>Start</button>
         <button class="ghost" id="fb-listen" type="button">Anhören</button>
+        <button class="ghost" id="fb-again" type="button" hidden>Nochmal</button>
         <button class="primary small" id="fb-next" type="button">Nächste Melodie</button>
       </span>
       <span class="chip" id="key-chip" hidden></span>
@@ -387,6 +402,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <li>Ein ♮ (Auflösungszeichen) hebt ein Vorzeichen bis zum Taktende auf.</li>
       <li>Vorzeichen: ♯ erhöht und hängt <b>-is</b> an (Fis), ♭ erniedrigt und hängt <b>-es</b> an (Des). Ausnahmen: <b>Es</b>, <b>As</b> und <b>B</b> (das erniedrigte H).</li>
       <li>Akkorde liest du am schnellsten von unten: Liegen die Noten alle auf Linien oder alle in Zwischenräumen, ist es ein Dreiklang in Grundstellung. Mit <b>Mit Hilfslinien</b> kommen auch Umkehrungen dazu.</li>
+      <li>Mit <b>Rhythmus</b> zählt das Metronom einen Takt ein (4 Klicks), danach spielst du im Takt. Eine halbe Note (hohl) dauert zwei Schläge, eine Viertel einen, zwei Achtel mit Balken teilen sich einen Schlag. Grün heißt richtig und pünktlich, Orange richtiger Ton, aber zu früh oder zu spät, Rot falscher oder fehlender Ton.</li>
       <li><b>Ohne Stopp</b> ist wie echtes Vom-Blatt-Spielen: Nicht anhalten, auch wenn ein Ton danebengeht. Mit <b>Vorauslesen</b> wird die Note abgedeckt, sobald sie dran ist. Lies sie also schon, während du die vorige spielst.</li>
       <li>Bei <b>Melodie</b> liest du acht Noten in zwei Takten nacheinander. Schau schon auf die nächste Note, während du die aktuelle spielst. Ein Vorzeichen gilt bis zum Taktstrich.</li>
       <li>Mit <b>Klaviertaste</b> übst du, die Noten auf der Tastatur zu finden. Dann zählt die richtige Oktave, und Cis und Des sind dieselbe Taste.</li>
@@ -479,7 +495,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70' },
     store.settings
   );
 
@@ -489,11 +505,13 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
-    { key: 'flow',   label: 'Melodie-Ablauf', only: 'melody', opts: [['stop','Mit Rückmeldung'],['flow','Ohne Stopp']] },
-    { key: 'ahead',  label: 'Vorauslesen', only: 'melody', opts: [['0','Aus'],['1','1 Note'],['2','2 Noten']] },
+    { key: 'rhythm', label: 'Rhythmus', show: () => isMelody(), opts: [['off','Aus'],['simple','Halbe & Viertel'],['eighths','Mit Achteln']] },
+    { key: 'tempo',  label: 'Tempo (Schläge pro Minute)', show: () => isRhythm(), opts: [['50','50'],['70','70'],['90','90'],['110','110']] },
+    { key: 'flow',   label: 'Melodie-Ablauf', show: () => isMelody() && !isRhythm(), opts: [['stop','Mit Rückmeldung'],['flow','Ohne Stopp']] },
+    { key: 'ahead',  label: 'Vorauslesen', show: () => isMelody() && !isRhythm(), opts: [['0','Aus'],['1','1 Note'],['2','2 Noten']] },
     { key: 'help',   more: true, label: 'Hilfe bei Fehlern', opts: [['on','An'],['off','Aus']] },
     { key: 'answer', more: true, label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
-    { key: 'mode',   label: 'Modus', opts: [['free','Frei üben'],['timed','60 Sekunden']] },
+    { key: 'mode',   label: 'Modus', show: () => !isRhythm(), opts: [['free','Frei üben'],['timed','60 Sekunden']] },
     { key: 'names',  more: true, label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
     { key: 'sound',  more: true, label: 'Ton', opts: [['on','An'],['off','Aus']] },
     { key: 'theme',  more: true, label: 'Darstellung', opts: [['auto','Automatisch'],['light','Hell'],['dark','Dunkel']] }
@@ -515,7 +533,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const isAnchors = () => settings.task === 'anchors';
   const helpOn = () => settings.help === 'on';
   // Ohne Stopp: während der Melodie keine Rückmeldung, Auswertung erst am Ende
-  const isFlow = () => isMelody() && settings.flow === 'flow';
+  const isRhythm = () => isMelody() && settings.rhythm !== 'off';
+  const isFlow = () => isMelody() && settings.flow === 'flow' && !isRhythm();
   const activeClefs = () => settings.clef === 'both' ? ['treble', 'bass'] : [settings.clef];
 
   // ---------- Aufgaben erzeugen ----------
@@ -574,20 +593,30 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   // Kurze Melodie: zwei Takte mit je vier Vierteln, meist Schritte, manchmal Sprünge
   const MOVES = [[-1, 6], [1, 6], [-2, 3], [2, 3], [0, 1], [-3, 1], [3, 1], [-4, 1], [4, 1]];
+  // Rhythmus-Bausteine für einen 4/4-Takt (in Schlägen); Achtel immer paarweise auf dem Schlag
+  const RHYTHMS = {
+    simple: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2], [2, 2], [1, 2, 1]],
+    eighths: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2], [1, 2, 1], [.5, .5, 1, 1, 1], [1, .5, .5, 1, 1], [1, 1, .5, .5, 1],
+      [1, 1, 1, .5, .5], [.5, .5, .5, .5, 1, 1], [2, .5, .5, 1], [1, .5, .5, 2], [.5, .5, 1, .5, .5, 1]]
+  };
+  const pickOne = a => a[Math.floor(Math.random() * a.length)];
   function makeMelody() {
     const clefs = activeClefs();
     const clef = clefs[Math.floor(Math.random() * clefs.length)];
     const [lo, hi] = RANGES[clef][settings.level];
     let step = Math.round((lo + hi) / 2) + Math.floor(Math.random() * 5) - 2;
+    const rhythm = isRhythm();
+    const durs = rhythm ? [...pickOne(RHYTHMS[settings.rhythm]), ...pickOne(RHYTHMS[settings.rhythm])] : Array(8).fill(1);
     const notes = [];
-    for (let i = 0; i < 8; i++) {
+    let beat = 0;
+    for (let i = 0; i < durs.length; i++) {
       if (i > 0) {
         const opts = MOVES.filter(([d]) => step + d >= lo && step + d <= hi);
         let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0);
         for (const [d, w] of opts) { r -= w; if (r <= 0) { step += d; break; } }
       }
       // Ein Vorzeichen gilt bis zum Taktende: dieselbe Stufe im Takt behält es
-      const bar = i < 4 ? notes.slice(0, i) : notes.slice(4, i);
+      const bar = notes.filter(n => (n.beat < 4) === (beat < 4));
       const earlier = [...bar].reverse().find(n => n.step === step);
       let acc = keyAcc(letterOf(step));
       if (earlier) acc = earlier.acc;
@@ -595,9 +624,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         const opts = accOptions(letterOf(step)).filter(a => a !== acc);
         if (opts.length) acc = opts[Math.floor(Math.random() * opts.length)];
       }
-      notes.push({ step, acc });
+      notes.push({ step, acc, dur: durs[i], beat });
+      beat += durs[i];
     }
-    return { clef, notes, idx: 0, results: [], key: state.key };
+    return { clef, notes, idx: 0, results: [], key: state.key, rhythm };
   }
 
   // ---------- Ankernoten ----------
@@ -770,7 +800,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
 
   // Eine Note oder ein Akkord an Position x. marks: Klasse für alles oder ein Array pro Note
-  function noteSvg(item, x, b, marks, cls) {
+  // opts: hollow (halbe Note), down / stemEnd (für Achtel mit Balken)
+  function noteSvg(item, x, b, marks, cls, opts = {}) {
     const bot = BOTTOM[item.clef], top = bot + 8, mid = bot + 4;
     const steps = item.notes.map(n => n.step);
     const lo = Math.min(...steps), hi = Math.max(...steps);
@@ -779,11 +810,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     let g = '';
     for (let s = bot - 2; s >= lo; s -= 2) g += `<line class="ledger" x1="${x - 14}" x2="${x + 14}" y1="${y(s)}" y2="${y(s)}"/>`;
     for (let s = top + 2; s <= hi; s += 2) g += `<line class="ledger" x1="${x - 14}" x2="${x + 14}" y1="${y(s)}" y2="${y(s)}"/>`;
-    const down = hi - mid >= mid - lo;
+    const down = opts.down ?? (hi - mid >= mid - lo);
     const sx = down ? x - 7.6 : x + 7.6;
     g += down
-      ? `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(hi)}" y2="${y(lo) + 3.5 * SP}"/>`
-      : `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(lo)}" y2="${y(hi) - 3.5 * SP}"/>`;
+      ? `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(hi)}" y2="${opts.stemEnd ?? y(lo) + 3.5 * SP}"/>`
+      : `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(lo)}" y2="${opts.stemEnd ?? y(hi) - 3.5 * SP}"/>`;
     // Vorzeichen von oben nach unten in Spalten, damit sie sich nicht überlappen
     const placed = [];
     [...item.notes].filter(n => shownAcc(n) !== null).sort((a, b2) => b2.step - a.step).forEach(n => {
@@ -800,7 +831,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         const right = x - 13.5 - p.col * 13;
         acc = `<path class="acc" d="${gl.d}" transform="translate(${right - gl.right * K} ${y(n.step) + gl.mid * K}) scale(${K} ${-K})"/>`;
       }
-      g += `<g class="${noteCls(i)}">${acc}<ellipse class="notehead" cx="${x}" cy="${y(n.step)}" rx="8.6" ry="6.1" transform="rotate(-22 ${x} ${y(n.step)})"/></g>`;
+      g += `<g class="${noteCls(i)}">${acc}<ellipse class="notehead${opts.hollow ? ' hollow' : ''}" cx="${x}" cy="${y(n.step)}" rx="8.6" ry="6.1" transform="rotate(-22 ${x} ${y(n.step)})"/></g>`;
     });
     return `<g class="note ${all} ${cls || ''}">${g}</g>`;
   }
@@ -816,44 +847,111 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
 
   // Melodie: zwei Takte, die aktuelle Note ist hervorgehoben, gelesene Noten tragen ihren Namen
-  const melW = () => 400 + keyWidth();
-  const melX = i => 86 + keyWidth() + i * 38 + (i >= 4 ? 14 : 0);
+  // Platz je Notenwert; ohne Rhythmus haben alle Noten dieselbe Breite
+  const DUR_W = { 0.5: 34, 1: 42, 2: 60 };
+  function melLayout(mel) {
+    const start = 67 + keyWidth() + (mel.rhythm ? 36 : 0);
+    let cur = start, barX = 0;
+    const xs = [];
+    mel.notes.forEach((n, i) => {
+      if (n.beat >= 4 && (i === 0 || mel.notes[i - 1].beat < 4)) { barX = cur + 5; cur += 14; }
+      const w = mel.rhythm ? DUR_W[n.dur] : 38;
+      xs.push(cur + w / 2);
+      cur += w;
+    });
+    return { xs, barX, W: Math.max(400, cur + 30), tsX: 84 + keyWidth() };
+  }
+  // Schlag (ab Melodiebeginn) → x-Position der Lauflinie
+  function beatToX(bp) {
+    const mel = state.melody, lay = mel.lay;
+    const pts = mel.notes.map((n, i) => [n.beat, lay.xs[i] - 10]).concat([[8, lay.W - 22]]);
+    if (bp <= 0) return pts[0][1];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [b0, x0] = pts[i], [b1, x1] = pts[i + 1];
+      if (bp < b1) return x0 + (x1 - x0) * (bp - b0) / (b1 - b0);
+    }
+    return pts[pts.length - 1][1];
+  }
+  const TIMING_WORD = { ok: '', early: 'zu früh', late: 'zu spät', miss: 'fehlt' };
+  function rhythmClass(r) {
+    if (r.pitch && r.timing === 'ok') return 'good';
+    if (r.pitch) return 'warn';
+    return 'bad';
+  }
+
   function drawMelody() {
     const mel = state.melody;
     const L = layout([mel.clef]);
     const b = L.staves[mel.clef];
-    svg.setAttribute('viewBox', `0 0 ${melW()} ${L.h}`);
+    const lay = mel.lay = melLayout(mel);
+    svg.setAttribute('viewBox', `0 0 ${lay.W} ${L.h}`);
     let out = '';
-    if (mel.idx < mel.notes.length) {
-      const x = melX(mel.idx);
+    if (!mel.rhythm && mel.idx < mel.notes.length) {
+      const x = lay.xs[mel.idx];
       out += `<rect class="cursor" x="${x - 15}" y="${b - 4 * SP - 30}" width="30" height="${4 * SP + 60}" rx="6"/>`;
     }
-    out += frameSvg(L, melW());
-    out += `<line class="staffline" x1="${(melX(3) + melX(4)) / 2 - 2}" x2="${(melX(3) + melX(4)) / 2 - 2}" y1="${b - 4 * SP}" y2="${b}"/>`;
+    out += frameSvg(L, lay.W);
+    out += `<line class="staffline" x1="${lay.barX}" x2="${lay.barX}" y1="${b - 4 * SP}" y2="${b}"/>`;
+    if (mel.rhythm) {
+      out += `<text class="timesig" x="${lay.tsX}" y="${b - 3 * SP}" text-anchor="middle" dominant-baseline="central">4</text>`
+        + `<text class="timesig" x="${lay.tsX}" y="${b - SP}" text-anchor="middle" dominant-baseline="central">4</text>`;
+    }
     // Namen unter dem System, tief genug für Hilfslinien und Notenhälse
     const lowest = Math.min(...mel.notes.map(n => n.step));
     const labelY = Math.max(b + 34, yOf(b, mel.clef, lowest) + 22);
     const done = mel.idx >= mel.notes.length;
     const reveal = !isFlow() || done;              // bei "Ohne Stopp" erst am Ende auswerten
-    const ahead = +settings.ahead;
+    const ahead = mel.rhythm ? 0 : +settings.ahead;
+    const y = st => yOf(b, mel.clef, st);
+    const mid = BOTTOM[mel.clef] + 4;
+    // Achtelpaare: gemeinsame Halsrichtung, waagrechter Balken
+    const beamOpts = [];
+    let beams = '';
+    mel.notes.forEach((n, i) => {
+      const m = mel.notes[i + 1];
+      if (n.dur !== 0.5 || n.beat % 1 !== 0 || !m) return;
+      const down = (n.step + m.step) / 2 >= mid;
+      const end = down ? Math.max(y(n.step), y(m.step)) + 3.5 * SP : Math.min(y(n.step), y(m.step)) - 3.5 * SP;
+      beamOpts[i] = beamOpts[i + 1] = { down, stemEnd: end };
+      const x1 = lay.xs[i] + (down ? -7.6 : 7.6), x2 = lay.xs[i + 1] + (down ? -7.6 : 7.6);
+      const by = down ? end - 2.5 : end + 2.5;
+      beams += `<line class="beam" x1="${x1 - 0.8}" x2="${x2 + 0.8}" y1="${by}" y2="${by}"/>`;
+    });
     let covers = '';
     mel.notes.forEach((n, i) => {
       const item = { clef: mel.clef, notes: [n] };
-      const r = mel.results[i];
-      let cls = i === mel.idx ? 'is-current' : '';
-      if (r !== undefined) cls = reveal ? (r ? 'is-good' : 'is-bad') : 'is-played';
-      out += noteSvg(item, melX(i), b, cls);
-      if (r !== undefined && reveal) out += `<text class="notelabel ${r ? 'good' : 'bad'}" x="${melX(i)}" y="${labelY}" text-anchor="middle">${noteName(n)}</text>`;
+      const opts = { hollow: n.dur === 2, ...(beamOpts[i] || {}) };
+      let cls = '', label = '';
+      if (mel.rhythm) {
+        const r = mel.rres && mel.rres[i];
+        if (r && mel.finished) {
+          const c = rhythmClass(r);
+          cls = 'is-' + c;
+          label = `<text class="notelabel ${c}" x="${lay.xs[i]}" y="${labelY}" text-anchor="middle">${noteName(n)}</text>`;
+          if (TIMING_WORD[r.timing]) label += `<text class="notelabel small ${c}" x="${lay.xs[i]}" y="${labelY + 12}" text-anchor="middle">${TIMING_WORD[r.timing]}</text>`;
+        } else if (r) cls = 'is-played';
+      } else {
+        const r = mel.results[i];
+        cls = i === mel.idx ? 'is-current' : '';
+        if (r !== undefined) cls = reveal ? (r ? 'is-good' : 'is-bad') : 'is-played';
+        if (r !== undefined && reveal) label = `<text class="notelabel ${r ? 'good' : 'bad'}" x="${lay.xs[i]}" y="${labelY}" text-anchor="middle">${noteName(n)}</text>`;
+      }
+      out += noteSvg(item, lay.xs[i], b, cls, '', opts) + label;
       // Vorauslesen: sobald die Melodie läuft, ist die Note, die dran ist (und ggf. die nächste), abgedeckt
       if (ahead && mel.idx >= 1 && i >= mel.idx && i < mel.idx + ahead) {
-        const x = melX(i);
+        const x = lay.xs[i];
         covers += `<g class="cover"><rect x="${x - 25}" y="${b - 4 * SP - 30}" width="40" height="${4 * SP + 60}" rx="6"/>`
           + `<text x="${x - 5}" y="${b - 2 * SP + 6}" text-anchor="middle">?</text></g>`;
       }
     });
-    out += covers;
+    out += beams + covers;
+    if (mel.rhythm && state.run && state.run.active) {
+      out += `<line id="playhead" class="playhead" x1="0" x2="0" y1="${b - 4 * SP - 22}" y2="${b + 22}" opacity="0"/>`;
+    }
     svg.innerHTML = out;
-    svg.setAttribute('aria-label', `Melodie im ${CLEF_NAME[mel.clef]}, Note ${Math.min(mel.idx + 1, mel.notes.length)} von ${mel.notes.length}`);
+    svg.setAttribute('aria-label', mel.rhythm
+      ? `Melodie im ${CLEF_NAME[mel.clef]} mit ${mel.notes.length} Noten im 4/4-Takt`
+      : `Melodie im ${CLEF_NAME[mel.clef]}, Note ${Math.min(mel.idx + 1, mel.notes.length)} von ${mel.notes.length}`);
   }
 
   // ---------- Antwort-Tasten ----------
@@ -986,6 +1084,14 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     clearTimeout(state.nextTimer);
     state.fix = null;
     hideHint();
+    stopRun();
+    if (isRhythm()) {
+      chooseKey();
+      state.melody = makeMelody();
+      state.current = null;
+      prepareRhythm();
+      return;
+    }
     if (isMelody()) {
       if (!state.melody || state.melody.idx >= state.melody.notes.length) { chooseKey(); state.melody = makeMelody(); }
       const mel = state.melody, n = mel.notes[mel.idx];
@@ -1035,9 +1141,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const keyFor = midi => document.querySelector(`#piano [data-midi="${midi}"]`);
 
   function answerLetter(letter) {
-    if (!ready()) return;
+    if (!isRhythm() && !ready()) return;
     const acc = state.mod;
     if (state.mod) setMod(0);
+    if (isRhythm()) { rhythmInput(n => letter === letterOf(n.step) && acc === n.acc); return; }
     if (state.fix) { const f = state.fix.note; tryFix(letter === letterOf(f.step) && acc === f.acc); return; }
     const item = state.current;
     if (isChord()) {
@@ -1072,6 +1179,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
 
   function answerMidi(midi, source = 'screen') {
+    if (isRhythm()) { rhythmInput(n => noteMidi(n) === midi, source === 'screen' ? midi : null); return; }
     if (!ready()) return;
     if (state.fix) {
       const ok = midi === noteMidi(state.fix.note);
@@ -1191,6 +1299,127 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (state.timed.running) { state.nextTimer = setTimeout(nextItem, 700); return; }
     finishMelody(isFlow() ? 300 : ok ? 400 : 1000);
   }
+  // ---------- Rhythmus: Metronom, Lauflinie, Auswertung ----------
+  function showActions(ids) {
+    ['fb-start', 'fb-listen', 'fb-again', 'fb-next'].forEach(id => { $(id).hidden = !ids.includes(id); });
+    $('fbactions').hidden = !ids.length;
+  }
+  function metronomeClick(t, accent) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square';
+    o.frequency.value = accent ? 1760 : 1320;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(accent ? 0.22 : 0.12, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + 0.06);
+    state.run.nodes.push(o);
+  }
+  function stopRun() {
+    const run = state.run;
+    if (!run) return;
+    run.active = false;
+    cancelAnimationFrame(run.raf);
+    run.nodes.forEach(o => { try { o.stop(0); } catch (e) {} });
+    state.run = null;
+  }
+  function prepareRhythm() {
+    stopRun();
+    drawMelody();
+    setFeedback('', 'Drück „Start“. Nach vier Klicks zum Einzählen spielst du die Melodie im Takt mit.');
+    showActions(['fb-start', 'fb-listen']);
+  }
+  function startRhythm() {
+    const mel = state.melody;
+    stopRun();
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { setFeedback('bad', 'Das Metronom konnte nicht starten. Lade die Seite neu und versuch es noch einmal.'); return; }
+    const beat = 60 / +settings.tempo;
+    // Klicks werden mit Verzögerung gehört; gespielt wird zum gehörten Klick
+    const lat = (actx.outputLatency || 0) + (actx.baseLatency || 0);
+    const t0 = actx.currentTime + 0.2;
+    mel.rres = [];
+    mel.finished = false;
+    mel.notes.forEach((n, i) => {
+      n.t = t0 + (4 + n.beat) * beat;
+      n.win = 0.5 * beat * Math.min(n.dur, i ? mel.notes[i - 1].dur : n.dur);
+    });
+    state.run = { active: true, t0, beat, lat, nodes: [], raf: 0, count: 0 };
+    for (let k = 0; k < 12; k++) metronomeClick(t0 + k * beat, k % 4 === 0);
+    drawMelody();
+    setFeedback('', 'Einzählen …');
+    rhythmTick();
+  }
+  function rhythmTick() {
+    const run = state.run;
+    if (!run || !run.active) return;
+    const mel = state.melody;
+    const now = actx.currentTime - run.lat;
+    const bp = (now - run.t0) / run.beat;
+    if (bp >= 0 && bp < 4) {
+      const c = Math.floor(bp) + 1;
+      if (c !== run.count) { run.count = c; setFeedback('', `Einzählen: ${[1, 2, 3, 4].slice(0, c).join(' … ')}`); }
+    } else if (bp >= 4 && run.count !== 9) { run.count = 9; setFeedback('', 'Spiel im Takt mit!'); }
+    let changed = false;
+    mel.notes.forEach((n, i) => {
+      if (!mel.rres[i] && now > n.t + n.win) { mel.rres[i] = { pitch: false, timing: 'miss' }; changed = true; }
+    });
+    if (changed) drawMelody();
+    const ph = document.getElementById('playhead');
+    if (ph) {
+      const x = beatToX(bp - 4);
+      ph.setAttribute('x1', x); ph.setAttribute('x2', x);
+      ph.setAttribute('opacity', bp >= 4 ? 1 : 0);
+    }
+    if (mel.rres.length === mel.notes.length && mel.rres.every(Boolean) && bp > 4 + 8) finishRhythm();
+    else run.raf = requestAnimationFrame(rhythmTick);
+  }
+  // Eingabe während der Melodie: der nächstliegenden offenen Note zuordnen
+  function rhythmInput(isRight, screenMidi) {
+    const run = state.run;
+    if (!run || !run.active) return;
+    const mel = state.melody;
+    const now = actx.currentTime - run.lat;
+    let best = -1, bd = Infinity;
+    mel.notes.forEach((n, i) => {
+      if (mel.rres[i]) return;
+      const d = Math.abs(now - n.t);
+      if (d <= n.win && d < bd) { bd = d; best = i; }
+    });
+    if (screenMidi != null) play([screenMidi]);
+    if (best < 0) return;
+    const n = mel.notes[best], dt = now - n.t;
+    const tol = Math.max(0.08, 0.16 * run.beat);
+    mel.rres[best] = { pitch: isRight(n), timing: Math.abs(dt) <= tol ? 'ok' : dt < 0 ? 'early' : 'late' };
+    drawMelody();
+  }
+  function finishRhythm() {
+    const mel = state.melody;
+    stopRun();
+    mel.finished = true;
+    mel.notes.forEach((n, i) => {
+      const r = mel.rres[i];
+      const id = `${mel.clef}:${n.step}:${n.acc}`;
+      const st = store.notes[id] || (store.notes[id] = { seen: 0, wrong: 0 });
+      st.seen++; st.label = fullName(n); st.kind = 'note'; st.clef = mel.clef;
+      if (!r.pitch) st.wrong++;
+      state.total++;
+      if (r.pitch && r.timing === 'ok') {
+        state.correct++; state.streak++;
+        if (state.streak > (store.best || 0)) store.best = state.streak;
+      } else state.streak = 0;
+    });
+    save(); updateStats(); renderHard();
+    drawMelody();
+    const len = mel.notes.length;
+    const pitchOk = mel.rres.filter(r => r.pitch).length;
+    const timeOk = mel.rres.filter(r => r.pitch && r.timing === 'ok').length;
+    setFeedback(timeOk === len ? 'good' : '', `Töne richtig: ${pitchOk} von ${len}, davon im Takt: ${timeOk}.`);
+    showActions(['fb-listen', 'fb-again', 'fb-next']);
+  }
+
   function finishMelody(delay) {
     const mel = state.melody;
     state.locked = true;
@@ -1199,15 +1428,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       drawMelody();
       setFeedback(right === mel.notes.length ? 'good' : '',
         `Melodie fertig: ${right} von ${mel.notes.length} richtig.`);
-      $('fbactions').hidden = false;
+      showActions(['fb-listen', 'fb-next']);
       playMelody();
     }, delay);
   }
   function playMelody() {
     if (!state.melody) return;
-    state.melody.notes.forEach((n, i) => play([noteMidi(n)], i * 0.42));
+    const beat = state.melody.rhythm ? 60 / +settings.tempo : 0.42;
+    state.melody.notes.forEach(n => play([noteMidi(n)], n.beat * beat));
   }
   $('fb-listen').addEventListener('click', playMelody);
+  $('fb-start').addEventListener('click', startRhythm);
+  $('fb-again').addEventListener('click', startRhythm);
   $('fb-next').addEventListener('click', () => { state.melody = null; nextItem(); });
 
   function updateStats() {
@@ -1341,14 +1573,17 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function applySettings() {
     clearTimeout(state.nextTimer);
     renderKeySelect();
-    document.querySelectorAll('#settings [data-only]').forEach(f => { f.hidden = f.dataset.only !== settings.task; });
+    SETTINGS_UI.forEach(s => {
+      const f = s.show && document.querySelector(`#settings [data-key="${s.key}"]`);
+      if (f) f.hidden = !s.show();
+    });
     state.melody = null;
     $('tagline').textContent = isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
       : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.'
       : isAnchors() ? 'Lerne die Ankernoten. Von ihnen aus findest du jede andere Note.' : 'Erkenne die Note, so schnell du kannst.';
     renderAnswerArea();
     stopTimed();
-    if (settings.mode === 'timed') showStart();
+    if (settings.mode === 'timed' && !isRhythm()) showStart();
     else { state.prevId = null; nextItem(); }
     renderHard();
   }
@@ -1393,7 +1628,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target.matches('input, textarea')) return;
     const k = e.key.toLowerCase();
-    if (k === 'enter' && isMelody() && !$('fbactions').hidden) { e.preventDefault(); $('fb-next').click(); return; }
+    if ((k === 'enter' || k === ' ') && isMelody() && !$('fbactions').hidden) {
+      const btn = ['fb-start', 'fb-again', 'fb-next'].map($).find(x => !x.hidden);
+      if (btn) { e.preventDefault(); btn.click(); return; }
+    }
     if ((settings.acc === 'on' || settings.key !== '0') && (k === '#' || k === '+' || k === '-')) {
       if (settings.answer === 'names') setMod(k === '-' ? -1 : 1);
       else state.mod = k === '-' ? -1 : 1;
