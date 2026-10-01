@@ -363,6 +363,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         <button class="primary small" id="fb-start" type="button" hidden>Start</button>
         <button class="ghost" id="fb-listen" type="button">Anhören</button>
         <button class="ghost" id="fb-again" type="button" hidden>Nochmal</button>
+        <button class="primary small" id="fb-stop" type="button" hidden>Stopp</button>
         <button class="primary small" id="fb-next" type="button">Nächste Melodie</button>
       </span>
       <span class="chip" id="key-chip" hidden></span>
@@ -420,6 +421,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <li><b>Notenlänge</b>: Viertel und halbe Noten musst du halten, bis sie fast vorbei sind. Auf der Tippfläche zeigt ein Balken, wie lange noch; wird er grün, darfst du loslassen. Achtel sind kurz und werden nicht auf Länge geprüft.</li>
       <li><b>Nur Rhythmus</b> (Einzelnoten → Rhythmus): Alle Noten haben denselben Ton, du tippst auf die große Fläche, die Leertaste oder irgendeine Taste am E-Piano. Ideal zum Üben unterwegs auf dem Handy.</li>
       <li>Mit <b>Rhythmus</b> zählt das Metronom einen Takt ein (4 Klicks), danach spielst du im Takt. Eine halbe Note (hohl) dauert zwei Schläge, eine Viertel einen, zwei Achtel mit Balken teilen sich einen Schlag. Grün heißt richtig und pünktlich, Orange richtiger Ton, aber zu früh oder zu spät, Rot falscher oder fehlender Ton.</li>
+      <li><b>Endlos spielen</b>: Mit Rhythmus läuft das Metronom ohne Pause weiter. Du siehst immer den aktuellen und den nächsten Takt; ist der rechte Takt dran, rückt er nach links. Ohne Rhythmus kommt nach jeder Melodie direkt die nächste. Beenden mit „Stopp“ (oder Esc).</li>
       <li><b>Beide Hände</b> (Melodie → Hände): oben spielt die rechte Hand die Melodie, unten die linke Hand Basstöne. Am besten mit dem E-Piano. Mit Notennamen tippst du bei gemeinsamen Einsätzen beide Töne nacheinander.</li>
       <li><b>Ohne Stopp</b> ist wie echtes Vom-Blatt-Spielen: Nicht anhalten, auch wenn ein Ton danebengeht. Mit <b>Vorauslesen</b> wird die Note abgedeckt, sobald sie dran ist. Lies sie also schon, während du die vorige spielst.</li>
       <li>Bei <b>Melodie</b> liest du acht Noten in zwei Takten nacheinander. Schau schon auf die nächste Note, während du die aktuelle spielst. Ein Vorzeichen gilt bis zum Taktstrich.</li>
@@ -513,7 +515,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0', help: 'on', rhythm: 'off', tempo: '70', diff: 'easy', nrhythm: 'off', hold: 'on', hands: 'one', endless: 'off' },
     store.settings
   );
 
@@ -523,6 +525,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
+    { key: 'endless', label: 'Endlos spielen', show: () => isMelody() || isRhythmOnly(), opts: [['off','Aus'],['on','An']] },
     { key: 'hands',  label: 'Hände', show: () => isMelody(), opts: [['one','Eine Hand'],['two','Beide Hände']] },
     { key: 'nrhythm', label: 'Rhythmus (gleicher Ton, nur tippen)', show: () => settings.task === 'notes', opts: [['off','Aus'],['simple','Halbe & Viertel'],['eighths','Mit Achteln']] },
     { key: 'diff',   label: 'Schwierigkeit (Leicht = feste Handlage)', show: () => isMelody(), opts: [['easy','Leicht'],['mid','Mittel'],['hard','Schwer']] },
@@ -556,6 +559,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const helpOn = () => settings.help === 'on';
   // Ohne Stopp: während der Melodie keine Rückmeldung, Auswertung erst am Ende
   // Rhythmus läuft bei Melodien oder als reines Rhythmus-Training bei Einzelnoten (immer derselbe Ton)
+  const isEndless = () => settings.endless === 'on' && (isMelody() || isRhythmOnly());
   const isTwoHands = () => isMelody() && settings.hands === 'two';
   const isRhythmOnly = () => settings.task === 'notes' && settings.nrhythm !== 'off';
   const isRhythm = () => (isMelody() && settings.rhythm !== 'off') || isRhythmOnly();
@@ -633,12 +637,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   };
   const pickOne = a => a[Math.floor(Math.random() * a.length)];
   // Eine Stimme: Zufallsweg mit erlaubten Schritten, Vorzeichen gelten bis zum Taktende
-  function genLine(clef, lo, hi, diff, durs, extra = {}) {
-    let step = Math.min(hi, Math.max(lo, Math.round((lo + hi) / 2) + Math.floor(Math.random() * 5) - 2));
+  function genLine(clef, lo, hi, diff, durs, extra = {}, from = null) {
+    let step = from ?? Math.min(hi, Math.max(lo, Math.round((lo + hi) / 2) + Math.floor(Math.random() * 5) - 2));
     const notes = [];
     let beat = 0;
     durs.forEach((dur, i) => {
-      if (i > 0) {
+      if (i > 0 || from != null) {
         const opts = MOVE_SETS[diff].filter(([d]) => step + d >= lo && step + d <= hi);
         let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0);
         for (const [d, w] of opts) { r -= w; if (r <= 0) { step += d; break; } }
@@ -669,63 +673,45 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     mid: [[2, 2], [1, 1, 2], [2, 1, 1]],
     hard: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2], [2, 2]]
   };
-  function makeTwoHands() {
+  function makeTwoHands(fixed) {
     const diff = MOVE_SETS[settings.diff] ? settings.diff : 'hard';
     const rhythm = isRhythm();
     // Keine Hilfslinien zur Mitte hin, damit sich die Systeme nicht in die Quere kommen
-    const [rlo, rhi] = handWindow(29, settings.level === '2' ? 43 : 39, diff);
-    const [llo, lhi] = handWindow(settings.level === '2' ? 13 : 17, 27, diff);
+    const [rlo, rhi] = fixed ? fixed.r : handWindow(29, settings.level === '2' ? 43 : 39, diff);
+    const [llo, lhi] = fixed ? fixed.l : handWindow(settings.level === '2' ? 13 : 17, 27, diff);
     const rdurs = rhythm ? [...pickOne(RHYTHMS[rhythmKind()]), ...pickOne(RHYTHMS[rhythmKind()])] : Array(8).fill(1);
     const ldurs = [...pickOne(LEFT_RHYTHMS[diff]), ...pickOne(LEFT_RHYTHMS[diff])];
-    const notes = [...genLine('treble', rlo, rhi, diff, rdurs, { hand: 'r' }), ...genLine('bass', llo, lhi, diff, ldurs, { hand: 'l' })];
+    const right = genLine('treble', rlo, rhi, diff, rdurs, { hand: 'r' }, fixed ? fixed.lastR : null);
+    const left = genLine('bass', llo, lhi, diff, ldurs, { hand: 'l' }, fixed ? fixed.lastL : null);
+    const notes = [...right, ...left];
     const beats = [...new Set(notes.map(n => n.beat))].sort((a, b) => a - b);
     const events = beats.map(bt => ({ beat: bt, idx: notes.map((n, i) => (n.beat === bt ? i : -1)).filter(i => i >= 0) }));
     return {
       two: true, clef: 'treble', notes, events, ei: 0, idx: 0, results: [], key: state.key, rhythm,
-      hands: diff === 'easy' ? { r: { lo: rlo, hi: rhi }, l: { lo: llo, hi: lhi } } : null
+      hands: diff === 'easy' ? { r: { lo: rlo, hi: rhi }, l: { lo: llo, hi: lhi } } : null,
+      fixed: { r: [rlo, rhi], l: [llo, lhi], lastR: right[right.length - 1].step, lastL: left[left.length - 1].step }
     };
   }
-  function makeMelody() {
-    if (isTwoHands()) return makeTwoHands();
+  function makeMelody(fixed) {
+    if (isTwoHands()) return makeTwoHands(fixed);
     const clefs = activeClefs();
-    const clef = clefs[Math.floor(Math.random() * clefs.length)];
-    let [lo, hi] = RANGES[clef][settings.level];
+    const clef = fixed ? fixed.clef : clefs[Math.floor(Math.random() * clefs.length)];
     const diff = MOVE_SETS[settings.diff] ? settings.diff : 'hard';
-    const span = diff === 'easy' ? 4 : diff === 'mid' ? 7 : hi - lo;
-    if (span < hi - lo) {
-      const w = lo + Math.floor(Math.random() * (hi - lo - span + 1));
-      lo = w; hi = w + span;
-    }
-    let step = Math.min(hi, Math.max(lo, Math.round((lo + hi) / 2) + Math.floor(Math.random() * 5) - 2));
     const rhythm = isRhythm();
     const durs = rhythm ? [...pickOne(RHYTHMS[rhythmKind()]), ...pickOne(RHYTHMS[rhythmKind()])] : Array(8).fill(1);
-    const notes = [];
-    let beat = 0;
     if (isRhythmOnly()) {
       // Ein Ton aus dem gewählten Bereich, passend zur Tonart, für alle Noten
-      const n0 = pickOne(noteCandidates().filter(c => c.clef === clef && c.notes[0].acc === keyAcc(letterOf(c.notes[0].step)))).notes[0];
+      const n0 = fixed ? fixed.tone : pickOne(noteCandidates().filter(c => c.clef === clef && c.notes[0].acc === keyAcc(letterOf(c.notes[0].step)))).notes[0];
+      const notes = [];
+      let beat = 0;
       durs.forEach(d => { notes.push({ step: n0.step, acc: n0.acc, dur: d, beat }); beat += d; });
-      return { clef, notes, idx: 0, results: [], key: state.key, rhythm: true, rhythmOnly: true, hand: null };
+      return { clef, notes, idx: 0, results: [], key: state.key, rhythm: true, rhythmOnly: true, hand: null, fixed: { clef, tone: n0 } };
     }
-    for (let i = 0; i < durs.length; i++) {
-      if (i > 0) {
-        const opts = MOVE_SETS[diff].filter(([d]) => step + d >= lo && step + d <= hi);
-        let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0);
-        for (const [d, w] of opts) { r -= w; if (r <= 0) { step += d; break; } }
-      }
-      // Ein Vorzeichen gilt bis zum Taktende: dieselbe Stufe im Takt behält es
-      const bar = notes.filter(n => (n.beat < 4) === (beat < 4));
-      const earlier = [...bar].reverse().find(n => n.step === step);
-      let acc = keyAcc(letterOf(step));
-      if (earlier) acc = earlier.acc;
-      else if (settings.acc === 'on' && Math.random() < 0.2) {
-        const opts = accOptions(letterOf(step)).filter(a => a !== acc);
-        if (opts.length) acc = opts[Math.floor(Math.random() * opts.length)];
-      }
-      notes.push({ step, acc, dur: durs[i], beat });
-      beat += durs[i];
-    }
-    return { clef, notes, idx: 0, results: [], key: state.key, rhythm, hand: diff === 'easy' ? { lo, hi } : null };
+    const [rlo, rhi] = RANGES[clef][settings.level];
+    const [lo, hi] = fixed ? [fixed.lo, fixed.hi] : handWindow(rlo, rhi, diff);
+    const notes = genLine(clef, lo, hi, diff, durs, {}, fixed ? fixed.last : null);
+    return { clef, notes, idx: 0, results: [], key: state.key, rhythm, hand: diff === 'easy' ? { lo, hi } : null,
+      fixed: { clef, lo, hi, last: notes[notes.length - 1].step } };
   }
 
   // ---------- Ankernoten ----------
@@ -979,7 +965,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
   // Schlag (ab Melodiebeginn) → x-Position der Lauflinie
   function beatToX(bp) {
-    const mel = state.melody, lay = mel.lay;
+    const mel = state.view || state.melody, lay = mel.lay;
     const pts = lay.pts || mel.notes.map((n, i) => [n.beat, lay.xs[i] - 10]).concat([[8, lay.W - 22]]);
     if (bp <= 0) return pts[0][1];
     for (let i = 0; i < pts.length - 1; i++) {
@@ -1012,8 +998,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const n = st => fullName({ step: st, acc: keyAcc(letterOf(st)) });
     return `Rechte Hand: Daumen auf ${n(mel.hands.r.lo)}. Linke Hand: Daumen auf ${n(mel.hands.l.hi)}. Die Zahlen sind die Finger. `;
   }
-  function drawTwoHands() {
-    const mel = state.melody;
+  function drawTwoHands(mel) {
     const L = { h: 330, staves: { treble: 120, bass: 250 } };
     const lay = mel.lay = twoLayout(mel);
     const tb = L.staves.treble, bb = L.staves.bass;
@@ -1100,9 +1085,23 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     svg.setAttribute('aria-label', `Klaviersatz für beide Hände, ${mel.notes.length} Noten`);
   }
 
-  function drawMelody() {
+  // Endlos: sichtbar sind immer zwei Takte, der aktuelle links und der nächste rechts
+  function viewMel() {
     const mel = state.melody;
-    if (mel.two) return drawTwoHands();
+    if (!mel || !mel.endless) return mel;
+    const lo = (mel.viewBar || 0) * 4;
+    const ids = mel.notes.map((n, i) => (n.beat >= lo && n.beat < lo + 8 ? i : -1)).filter(i => i >= 0);
+    const notes = ids.map(i => ({ ...mel.notes[i], beat: mel.notes[i].beat - lo }));
+    const v = { ...mel, notes, rres: ids.map(i => mel.rres[i]), finished: true };
+    if (mel.two) {
+      const beats = [...new Set(notes.map(n => n.beat))].sort((x, y) => x - y);
+      v.events = beats.map(bt => ({ beat: bt, idx: notes.map((n, i) => (n.beat === bt ? i : -1)).filter(i => i >= 0) }));
+    }
+    return v;
+  }
+  function drawMelody(mel = viewMel()) {
+    state.view = mel;
+    if (mel.two) return drawTwoHands(mel);
     const L = layout([mel.clef]);
     const b = L.staves[mel.clef];
     const lay = mel.lay = melLayout(mel);
@@ -1604,7 +1603,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
   // ---------- Rhythmus: Metronom, Lauflinie, Auswertung ----------
   function showActions(ids) {
-    ['fb-start', 'fb-listen', 'fb-again', 'fb-next'].forEach(id => { $(id).hidden = !ids.includes(id); });
+    ['fb-start', 'fb-listen', 'fb-again', 'fb-next', 'fb-stop'].forEach(id => { $(id).hidden = !ids.includes(id); });
     $('fbactions').hidden = !ids.length;
   }
   function metronomeClick(t, accent) {
@@ -1637,6 +1636,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       setFeedback('', `Alle Noten sind ${fullName(state.melody.notes[0])}. Drück „Start“ oder tippe unten, nach vier Klicks zum Einzählen tippst du den Rhythmus.`);
       setTap('Hier tippen zum Starten');
     } else setFeedback('', (state.melody.two ? handTextTwo(state.melody) : handText(state.melody)) + 'Drück „Start“. Nach vier Klicks zum Einzählen spielst du im Takt mit.');
+    if (isEndless()) $('msg').textContent += ' Endlos: Rechts siehst du immer schon den nächsten Takt. Beenden mit „Stopp“.';
     showActions(['fb-start', 'fb-listen']);
   }
   function setTap(text) { $('taplabel').textContent = text; }
@@ -1645,7 +1645,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (state.run && state.run.active) {
       $('tap').classList.remove('hit'); void $('tap').offsetWidth; $('tap').classList.add('hit');
       rhythmInput(() => true, noteMidi(state.melody.notes[0]), src);
-    } else startRhythm();
+    } else if (state.melody.endless && state.melody.finished) nextItem();
+    else startRhythm();
   }
   $('tap').addEventListener('pointerdown', e => { e.preventDefault(); tapPad('pointer'); });
   $('tap').addEventListener('keydown', e => {
@@ -1670,23 +1671,51 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       const prev = mel.notes.slice(0, i).reverse().find(m => m.hand === n.hand);
       n.win = 0.5 * beat * Math.min(n.dur, prev ? prev.dur : n.dur);
     });
-    state.run = { active: true, t0, beat, lat, nodes: [], raf: 0, count: 0 };
+    state.run = { active: true, t0, beat, lat, nodes: [], raf: 0, count: 0, msg: '' };
     for (let k = 0; k < 12; k++) metronomeClick(t0 + k * beat, k % 4 === 0);
+    mel.endless = isEndless();
+    mel.viewBar = 0;
+    mel.bars = 2;
     drawMelody();
     setFeedback('', 'Einzählen …');
+    if (mel.endless) showActions(['fb-stop']);
     rhythmTick();
   }
+  // Endlos: zwei neue Takte anhängen, die nahtlos an die Lage und den letzten Ton anschließen
+  function appendBars() {
+    const mel = state.melody, run = state.run;
+    const chunk = makeMelody(mel.fixed);
+    mel.fixed = chunk.fixed;
+    const off = mel.bars * 4;
+    chunk.notes.forEach(n => {
+      const m = { ...n, beat: n.beat + off };
+      m.t = run.t0 + (4 + m.beat) * run.beat;
+      const prev = [...mel.notes].reverse().find(x => x.hand === m.hand);
+      m.win = 0.5 * run.beat * Math.min(m.dur, prev ? prev.dur : m.dur);
+      mel.notes.push(m);
+    });
+    for (let k = 0; k < 8; k++) metronomeClick(run.t0 + (4 + off + k) * run.beat, k % 4 === 0);
+    mel.bars += 2;
+  }
+  const setMsg = t => { if (state.run && state.run.msg !== t) { state.run.msg = t; $('msg').textContent = t; } };
   function rhythmTick() {
     const run = state.run;
     if (!run || !run.active) return;
     const mel = state.melody;
     const now = actx.currentTime - run.lat;
     const bp = (now - run.t0) / run.beat;
-    if (bp >= 0 && bp < 4) {
-      const c = Math.floor(bp) + 1;
-      if (c !== run.count) { run.count = c; setFeedback('', `Einzählen: ${[1, 2, 3, 4].slice(0, c).join(' … ')}`); }
-    } else if (bp >= 4 && run.count !== 9) { run.count = 9; setFeedback('', 'Spiel im Takt mit!'); }
+    if (bp >= 0 && bp < 4) setMsg(`Einzählen: ${[1, 2, 3, 4].slice(0, Math.floor(bp) + 1).join(' … ')}`);
+    else if (bp >= 4 && !mel.endless) setMsg('Spiel im Takt mit!');
     let changed = false;
+    if (mel.endless && bp >= 4) {
+      // Ansicht weiterrücken, sobald der rechte Takt beginnt; rechtzeitig neue Takte erzeugen
+      const bar = Math.floor((bp - 4) / 4);
+      if (bar + 3 > mel.bars) appendBars();
+      if (bar !== mel.viewBar) { mel.viewBar = bar; changed = true; }
+      const judged = mel.rres.filter(Boolean);
+      const good = judged.filter(rOk).length;
+      setMsg(`Takt ${bar + 1} · richtig: ${good} von ${judged.length}${judged.length ? ` (${Math.round(100 * good / judged.length)} %)` : ''}`);
+    }
     mel.notes.forEach((n, i) => {
       if (!mel.rres[i] && now > n.t + n.win) { mel.rres[i] = { pitch: false, timing: 'miss' }; changed = true; }
     });
@@ -1699,11 +1728,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     });
     const ph = document.getElementById('playhead');
     if (ph) {
-      const x = beatToX(bp - 4);
+      const x = beatToX(bp - 4 - (mel.endless ? mel.viewBar * 4 : 0));
       ph.setAttribute('x1', x); ph.setAttribute('x2', x);
       ph.setAttribute('opacity', bp >= 4 ? 1 : 0);
     }
-    if (mel.rres.length === mel.notes.length && mel.rres.every(Boolean) && bp > 4 + 8) finishRhythm();
+    if (!mel.endless && mel.rres.length === mel.notes.length && mel.rres.every(Boolean) && bp > 4 + 8) finishRhythm();
     else run.raf = requestAnimationFrame(rhythmTick);
   }
   // Eingabe während der Melodie: der nächstliegenden offenen Note zuordnen
@@ -1741,6 +1770,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     state.holds = state.holds.filter(x => x !== h);
     const r = state.melody.rres[h.i];
     if (r && r.len !== 'ok') r.len = now - h.start >= h.need ? 'ok' : 'short';
+    if (state.melody.endless) drawMelody();
     if (!state.holds.length) { $('tapfill').style.width = '0'; $('tap').classList.remove('enough'); }
   }
   function rhythmRelease(src, midi = null) {
@@ -1754,8 +1784,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function finishRhythm() {
     const mel = state.melody;
     const tEnd = actx.currentTime - state.run.lat;
+    // Bei "Stopp" mitten in einer gehaltenen Note: nicht als "zu kurz" werten
+    if (mel.endless) state.holds.forEach(h => { const r = mel.rres[h.i]; if (r) r.len = 'ok'; });
     [...state.holds].forEach(h => releaseHold(h, tEnd));
     stopRun();
+    if (mel.endless) {
+      // Nur bereits fällige Noten werten; spätere fallen weg
+      const keep = mel.notes.map((n, i) => (mel.rres[i] || n.t + n.win < tEnd ? i : -1)).filter(i => i >= 0);
+      mel.rres = keep.map(i => mel.rres[i] || { pitch: false, timing: 'miss' });
+      mel.notes = keep.map(i => mel.notes[i]);
+      if (!mel.notes.length) { nextItem(); return; }      // gestoppt, bevor die erste Note dran war
+      mel.viewBar = Math.max(0, Math.floor(mel.notes[mel.notes.length - 1].beat / 4) - 1);
+    }
     mel.finished = true;
     mel.notes.forEach((n, i) => {
       const r = mel.rres[i];
@@ -1779,6 +1819,14 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const timeOk = mel.rres.filter(rOk).length;
     const short = mel.rres.filter(r => r.len === 'short').length;
     const shortText = short ? `, ${short} zu kurz gehalten` : '';
+    if (mel.endless) {
+      const pct = len ? Math.round(100 * timeOk / len) : 0;
+      setFeedback(pct >= 90 ? 'good' : '', `Endlos-Runde beendet: ${len} Noten in ${Math.ceil((mel.notes.length ? mel.notes[mel.notes.length - 1].beat + 1 : 0) / 4)} Takten, richtig: ${timeOk} (${pct} %)${shortText}.`);
+      $('fb-next').textContent = 'Neue Runde';
+      if (mel.rhythmOnly) setTap('Neue Runde: hier tippen');
+      showActions(['fb-next']);
+      return;
+    }
     if (mel.rhythmOnly) {
       const missed = mel.rres.filter(r => r.timing === 'miss').length;
       setFeedback(timeOk === len ? 'good' : '', `Richtig: ${timeOk} von ${len}${missed ? `, ${missed} ausgelassen` : ''}${shortText}.`);
@@ -1792,6 +1840,15 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const mel = state.melody;
     state.locked = true;
     const right = mel.results.filter(Boolean).length;
+    if (isEndless()) {
+      // Endlos: kurz das Ergebnis zeigen, dann sofort die nächste Melodie
+      state.nextTimer = setTimeout(() => {
+        drawMelody();
+        setFeedback(right === mel.notes.length ? 'good' : '', `${right} von ${mel.notes.length} richtig. Weiter geht’s …`);
+        state.nextTimer = setTimeout(() => { state.melody = null; nextItem(); }, 1300);
+      }, Math.min(delay, 400));
+      return;
+    }
     state.nextTimer = setTimeout(() => {
       drawMelody();
       setFeedback(right === mel.notes.length ? 'good' : '',
@@ -1808,6 +1865,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   $('fb-listen').addEventListener('click', playMelody);
   $('fb-start').addEventListener('click', startRhythm);
   $('fb-again').addEventListener('click', startRhythm);
+  $('fb-stop').addEventListener('click', () => { if (state.run && state.run.active) finishRhythm(); });
   $('fb-next').addEventListener('click', () => { state.melody = null; nextItem(); });
 
   function updateStats() {
@@ -1998,6 +2056,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (e.target.matches('input, textarea')) return;
     const k = e.key.toLowerCase();
     if (e.repeat && state.run && state.run.active) { e.preventDefault(); return; }   // gehaltene Taste nicht wiederholen
+    if (k === 'escape' && state.run && state.run.active && state.melody.endless) { finishRhythm(); return; }
     if ((k === 'enter' || k === ' ') && isRhythmOnly() && state.run && state.run.active) { e.preventDefault(); tapPad('key'); return; }
     if ((k === 'enter' || k === ' ') && (isMelody() || isRhythm()) && !$('fbactions').hidden) {
       const btn = ['fb-start', 'fb-again', 'fb-next'].map($).find(x => !x.hidden);
