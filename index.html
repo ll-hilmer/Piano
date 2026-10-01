@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Notenleser</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -255,6 +256,9 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 .fbactions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ghost { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 14px; font-weight: 600; color: var(--ink); }
 .primary.small { padding: 6px 14px; }
+.midi-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+.midi-text { min-width: 0; flex: 1 1 260px; display: grid; gap: 2px; }
+#midi-status.ok { color: var(--good); }
 .acc, .keysig { fill: currentColor; }
 .select {
   font: inherit; font-size: 0.88rem; color: var(--ink); background: var(--paper);
@@ -325,6 +329,13 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   <section class="panel" aria-labelledby="h-settings">
     <h2 id="h-settings">Einstellungen</h2>
     <div class="settings" id="settings"></div>
+    <div class="midi-row">
+      <div class="midi-text">
+        <b>E-Piano (MIDI)</b>
+        <p class="muted" id="midi-status">Schließ dein E-Piano per USB an und klicke auf „E-Piano verbinden“.</p>
+      </div>
+      <button class="ghost" id="midi-connect" type="button">E-Piano verbinden</button>
+    </div>
   </section>
 
   <section class="panel" aria-labelledby="h-hard">
@@ -1187,36 +1198,58 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     }
   });
 
-  // ---------- MIDI-Keyboard (falls verfügbar) ----------
-  try {
-    if (navigator.requestMIDIAccess) {
-      navigator.requestMIDIAccess().then(access => {
-        const hook = () => {
-          let any = false;
-          access.inputs.forEach(inp => {
-            any = true;
-            inp.onmidimessage = ev => {
-              const [st, note, vel] = ev.data;
-              if ((st & 0xf0) !== 0x90 || vel === 0) return;
-              if (isChord() && settings.answer !== 'piano') {
-                // Ohne Bildschirm-Klavier: gedrückte Tasten direkt sammeln
-                if (!ready()) return;
-                if (!state.sel.includes(note)) state.sel.push(note);
-                const want = state.current.notes.map(noteMidi);
-                renderSel();
-                if (state.sel.length === want.length) {
-                  const hits = want.map(m => state.sel.includes(m));
-                  resolve(hits.every(Boolean) && state.sel.every(m => want.includes(m)), hits, state.sel.map(midiName).join(' '));
-                }
-              } else answerMidi(note);
-            };
-          });
-          $('midi-chip').hidden = !any;
-        };
-        hook();
-        access.onstatechange = hook;
-      }).catch(() => {});
+  // ---------- E-Piano per MIDI ----------
+  function onMidiNote(note) {
+    if (isChord() && settings.answer !== 'piano') {
+      // Ohne Bildschirm-Klavier: gedrückte Tasten direkt sammeln
+      if (!ready()) return;
+      if (!state.sel.includes(note)) state.sel.push(note);
+      const want = state.current.notes.map(noteMidi);
+      renderSel();
+      if (state.sel.length === want.length) {
+        const hits = want.map(m => state.sel.includes(m));
+        resolve(hits.every(Boolean) && state.sel.every(m => want.includes(m)), hits, state.sel.map(midiName).join(' '));
+      }
+    } else answerMidi(note);
+  }
+  function midiStatus(text, ok) {
+    $('midi-status').textContent = text;
+    $('midi-status').classList.toggle('ok', !!ok);
+    $('midi-chip').hidden = !ok;
+  }
+  let midiAccess = null;
+  function hookMidi() {
+    const names = [];
+    midiAccess.inputs.forEach(inp => {
+      names.push(inp.name || 'MIDI-Gerät');
+      inp.onmidimessage = ev => {
+        const [st, note, vel] = ev.data;
+        if ((st & 0xf0) === 0x90 && vel > 0) onMidiNote(note);
+      };
+    });
+    if (names.length) midiStatus(`Verbunden: ${names.join(', ')}. Spiel einfach die markierte Note auf deinem E-Piano.`, true);
+    else midiStatus('Kein E-Piano gefunden. Ist es eingeschaltet und per USB-Kabel mit dem Computer verbunden? Danach erneut auf „E-Piano verbinden“ klicken.');
+  }
+  function connectMidi(silent) {
+    if (!navigator.requestMIDIAccess) {
+      if (!silent) midiStatus('Dieser Browser kann kein MIDI. Nutze Chrome oder Edge am Computer.');
+      return;
     }
+    if (midiAccess) { hookMidi(); return; }
+    let req;
+    try { req = navigator.requestMIDIAccess(); } catch (e) { req = Promise.reject(e); }
+    req.then(access => {
+      midiAccess = access;
+      access.onstatechange = hookMidi;
+      hookMidi();
+    }).catch(() => {
+      if (!silent) midiStatus('Der Zugriff auf MIDI wurde blockiert. Entweder wurde die Nachfrage des Browsers abgelehnt, oder diese Ansicht erlaubt kein MIDI. Öffne die App als Datei direkt in Chrome oder Edge und klicke dort auf „Zulassen“.');
+    });
+  }
+  $('midi-connect').addEventListener('click', () => connectMidi(false));
+  // Falls der Zugriff schon erlaubt wurde, gleich verbinden
+  try {
+    navigator.permissions?.query({ name: 'midi' }).then(r => { if (r.state === 'granted') connectMidi(true); }).catch(() => {});
   } catch (e) {}
 
   // ---------- Start ----------
