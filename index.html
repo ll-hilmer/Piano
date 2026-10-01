@@ -247,6 +247,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
 .answer { display: grid; gap: 10px; }
 .cursor { fill: var(--accent-soft); }
+.is-played .notehead, .is-played .acc { fill: var(--muted); }
+.is-played .stem, .is-played .ledger { stroke: var(--muted); }
+.cover rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
+.cover text { fill: var(--accent); font: 600 18px var(--font-body); }
 .is-current .notehead, .is-current .acc { fill: var(--accent); }
 .is-current .stem, .is-current .ledger { stroke: var(--accent); }
 .notelabel { font: 600 11px var(--font-body); }
@@ -357,6 +361,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <li>Ein ♮ (Auflösungszeichen) hebt ein Vorzeichen bis zum Taktende auf.</li>
       <li>Vorzeichen: ♯ erhöht und hängt <b>-is</b> an (Fis), ♭ erniedrigt und hängt <b>-es</b> an (Des). Ausnahmen: <b>Es</b>, <b>As</b> und <b>B</b> (das erniedrigte H).</li>
       <li>Akkorde liest du am schnellsten von unten: Liegen die Noten alle auf Linien oder alle in Zwischenräumen, ist es ein Dreiklang in Grundstellung. Mit <b>Mit Hilfslinien</b> kommen auch Umkehrungen dazu.</li>
+      <li><b>Ohne Stopp</b> ist wie echtes Vom-Blatt-Spielen: Nicht anhalten, auch wenn ein Ton danebengeht. Mit <b>Vorauslesen</b> wird die Note abgedeckt, sobald sie dran ist. Lies sie also schon, während du die vorige spielst.</li>
       <li>Bei <b>Melodie</b> liest du acht Noten in zwei Takten nacheinander. Schau schon auf die nächste Note, während du die aktuelle spielst. Ein Vorzeichen gilt bis zum Taktstrich.</li>
       <li>Mit <b>Klaviertaste</b> übst du, die Noten auf der Tastatur zu finden. Dann zählt die richtige Oktave, und Cis und Des sind dieselbe Taste.</li>
       <li>Am Computer kannst du <kbd>C</kbd> <kbd>D</kbd> <kbd>E</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>A</kbd> <kbd>H</kbd> tippen, vorher <kbd>#</kbd> für ♯ oder <kbd>-</kbd> für ♭. Ein angeschlossenes MIDI-Keyboard funktioniert in Chrome und Edge.</li>
@@ -448,7 +453,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0', flow: 'stop', ahead: '0' },
     store.settings
   );
 
@@ -458,6 +463,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
     { key: 'key',    label: 'Tonart', select: true },
     { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
+    { key: 'flow',   label: 'Melodie-Ablauf', only: 'melody', opts: [['stop','Mit Rückmeldung'],['flow','Ohne Stopp']] },
+    { key: 'ahead',  label: 'Vorauslesen', only: 'melody', opts: [['0','Aus'],['1','1 Note'],['2','2 Noten']] },
     { key: 'answer', label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
     { key: 'mode',   label: 'Modus', opts: [['free','Frei üben'],['timed','60 Sekunden']] },
     { key: 'names',  label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
@@ -478,6 +485,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const svg = $('staff');
   const isChord = () => settings.task === 'chords';
   const isMelody = () => settings.task === 'melody';
+  // Ohne Stopp: während der Melodie keine Rückmeldung, Auswertung erst am Ende
+  const isFlow = () => isMelody() && settings.flow === 'flow';
   const activeClefs = () => settings.clef === 'both' ? ['treble', 'bass'] : [settings.clef];
 
   // ---------- Aufgaben erzeugen ----------
@@ -692,13 +701,25 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     // Namen unter dem System, tief genug für Hilfslinien und Notenhälse
     const lowest = Math.min(...mel.notes.map(n => n.step));
     const labelY = Math.max(b + 34, yOf(b, mel.clef, lowest) + 22);
+    const done = mel.idx >= mel.notes.length;
+    const reveal = !isFlow() || done;              // bei "Ohne Stopp" erst am Ende auswerten
+    const ahead = +settings.ahead;
+    let covers = '';
     mel.notes.forEach((n, i) => {
       const item = { clef: mel.clef, notes: [n] };
       const r = mel.results[i];
-      const cls = r === undefined ? (i === mel.idx ? 'is-current' : '') : (r ? 'is-good' : 'is-bad');
+      let cls = i === mel.idx ? 'is-current' : '';
+      if (r !== undefined) cls = reveal ? (r ? 'is-good' : 'is-bad') : 'is-played';
       out += noteSvg(item, melX(i), b, cls);
-      if (r !== undefined) out += `<text class="notelabel ${r ? 'good' : 'bad'}" x="${melX(i)}" y="${labelY}" text-anchor="middle">${noteName(n)}</text>`;
+      if (r !== undefined && reveal) out += `<text class="notelabel ${r ? 'good' : 'bad'}" x="${melX(i)}" y="${labelY}" text-anchor="middle">${noteName(n)}</text>`;
+      // Vorauslesen: sobald die Melodie läuft, ist die Note, die dran ist (und ggf. die nächste), abgedeckt
+      if (ahead && mel.idx >= 1 && i >= mel.idx && i < mel.idx + ahead) {
+        const x = melX(i);
+        covers += `<g class="cover"><rect x="${x - 25}" y="${b - 4 * SP - 30}" width="40" height="${4 * SP + 60}" rx="6"/>`
+          + `<text x="${x - 5}" y="${b - 2 * SP + 6}" text-anchor="middle">?</text></g>`;
+      }
     });
+    out += covers;
     svg.innerHTML = out;
     svg.setAttribute('aria-label', `Melodie im ${CLEF_NAME[mel.clef]}, Note ${Math.min(mel.idx + 1, mel.notes.length)} von ${mel.notes.length}`);
   }
@@ -841,7 +862,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       drawMelody();
       document.querySelectorAll('.names button, .wk, .bk').forEach(el => el.classList.remove('good', 'bad', 'sel'));
       setFeedback('', mel.idx === 0 && !state.timed.running
-        ? 'Lies die Melodie von links nach rechts. Die markierte Note ist dran.'
+        ? (settings.ahead !== '0'
+          ? `Lies die Melodie von links nach rechts. Ab der zweiten Note ${settings.ahead === '1' ? 'ist die Note, die dran ist,' : 'sind die nächsten zwei Noten'} abgedeckt: Lies immer voraus.`
+          : 'Lies die Melodie von links nach rechts. Die markierte Note ist dran.')
+        : isFlow() ? `Weiterspielen … Note ${mel.idx + 1} von ${mel.notes.length}`
         : `Note ${mel.idx + 1} von ${mel.notes.length}`);
       renderSel();
       return;
@@ -901,16 +925,20 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     }
     const n = item.notes[0];
     const ok = letter === letterOf(n.step) && acc === n.acc;
-    btnFor(letter)?.classList.add(ok ? 'good' : 'bad');
-    if (!ok) btnFor(letterOf(n.step))?.classList.add('good');
+    state.pressed = null;
+    if (!isFlow()) {
+      btnFor(letter)?.classList.add(ok ? 'good' : 'bad');
+      if (!ok) btnFor(letterOf(n.step))?.classList.add('good');
+    }
     let given = pitchName(letter, acc);
     const sameKey = (SEMI[letter] + acc - SEMI[letterOf(n.step)] - n.acc + 12) % 12 === 0;
     if (!ok && sameKey) given += ' (klingt gleich, ist hier aber anders notiert)';
     resolve(ok, [ok], given);
   }
 
-  function answerMidi(midi) {
+  function answerMidi(midi, source = 'screen') {
     if (!ready()) return;
+    state.pressed = { midi, source };
     const item = state.current;
     const want = item.notes.map(noteMidi);
     if (isChord()) {
@@ -934,8 +962,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     }
     const target = want[0];
     const ok = midi === target;
-    keyFor(midi)?.classList.add(ok ? 'good' : 'bad');
-    if (!ok) keyFor(target)?.classList.add('good');
+    if (!isFlow()) {
+      keyFor(midi)?.classList.add(ok ? 'good' : 'bad');
+      if (!ok) keyFor(target)?.classList.add('good');
+    }
     let given = midiName(midi);
     if (!ok && (midi - target) % 12 === 0) given += ' (falsche Oktave)';
     resolve(ok, [ok], given);
@@ -987,10 +1017,18 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const n = mel.notes[mel.idx];
     mel.results[mel.idx] = ok;
     mel.idx++;
-    play([noteMidi(n)]);
+    if (isFlow() && mel.idx < mel.notes.length) {
+      // Kein Urteil, keine Pause: nur den gespielten Ton der Bildschirm-Tastatur hören
+      if (state.pressed && state.pressed.source === 'screen') play([state.pressed.midi]);
+      updateStats();
+      nextItem();
+      return;
+    }
+    if (!isFlow()) play([noteMidi(n)]);
     drawMelody();
     const name = settings.answer === 'piano' ? fullName(n) : noteName(n);
-    if (ok) setFeedback('good', `Richtig: ${name}`);
+    if (isFlow()) setFeedback('', 'Auswertung …');
+    else if (ok) setFeedback('good', `Richtig: ${name}`);
     else setFeedback('bad', `Das war ${name}. Du hast ${given} gewählt.`);
     updateStats();
     renderHard();
@@ -1005,11 +1043,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (state.timed.running) { state.nextTimer = setTimeout(nextItem, 700); return; }
     const right = mel.results.filter(Boolean).length;
     state.nextTimer = setTimeout(() => {
+      drawMelody();
       setFeedback(right === mel.notes.length ? 'good' : '',
         `Melodie fertig: ${right} von ${mel.notes.length} richtig.`);
       $('fbactions').hidden = false;
       playMelody();
-    }, ok ? 400 : 1000);
+    }, isFlow() ? 300 : ok ? 400 : 1000);
   }
   function playMelody() {
     if (!state.melody) return;
@@ -1087,11 +1126,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function renderSettings() {
     const box = $('settings');
     box.innerHTML = SETTINGS_UI.map(s => s.select ? `
-      <fieldset>
+      <fieldset data-key="${s.key}">
         <legend><label for="set-${s.key}">${s.label}</label></legend>
         <select class="select" name="set-${s.key}" id="set-${s.key}"></select>
       </fieldset>` : `
-      <fieldset>
+      <fieldset data-key="${s.key}" ${s.only ? `data-only="${s.only}"` : ''}>
         <legend>${s.label}</legend>
         <div class="seg">
           ${s.opts.map(([v, l]) => `
@@ -1131,6 +1170,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function applySettings() {
     clearTimeout(state.nextTimer);
     renderKeySelect();
+    document.querySelectorAll('#settings [data-only]').forEach(f => { f.hidden = f.dataset.only !== settings.task; });
     state.melody = null;
     $('tagline').textContent = isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
       : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.' : 'Erkenne die Note, so schnell du kannst.';
@@ -1210,7 +1250,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         const hits = want.map(m => state.sel.includes(m));
         resolve(hits.every(Boolean) && state.sel.every(m => want.includes(m)), hits, state.sel.map(midiName).join(' '));
       }
-    } else answerMidi(note);
+    } else answerMidi(note, 'midi');
   }
   function midiStatus(text, ok) {
     $('midi-status').textContent = text;
