@@ -255,7 +255,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 .fbactions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ghost { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 14px; font-weight: 600; color: var(--ink); }
 .primary.small { padding: 6px 14px; }
-.acc { fill: currentColor; }
+.acc, .keysig { fill: currentColor; }
+.select {
+  font: inherit; font-size: 0.88rem; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; width: 100%;
+}
 .is-good .acc { fill: var(--good); }
 .is-bad .acc { fill: var(--bad); }
 .mods { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -302,6 +306,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
         <button class="ghost" id="fb-listen" type="button">Anhören</button>
         <button class="primary small" id="fb-next" type="button">Nächste Melodie</button>
       </span>
+      <span class="chip" id="key-chip" hidden></span>
       <span class="chip" id="midi-chip" hidden>MIDI verbunden</span>
     </div>
     <div class="overlay" id="overlay" hidden></div>
@@ -337,6 +342,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       <li>Täglich fünf Minuten bringen mehr als eine Stunde am Wochenende.</li>
       <li>Beginne mit <b>Im System</b> und einem Schlüssel. Wechsle zu <b>Mit Hilfslinien</b>, wenn du fast immer richtig liegst.</li>
       <li>Merkhilfen: Linien im Violinschlüssel von unten <b>E G H D F</b>, im Bassschlüssel <b>G H D F A</b>.</li>
+      <li><b>Tonart</b>: Die Vorzeichen direkt nach dem Schlüssel gelten für jede Note auf dieser Stufe, in allen Oktaven. In G-Dur ist also jedes F ein Fis. Reihenfolge der Kreuze: Fis Cis Gis Dis Ais Eis, der Bes: B Es As Des Ges Ces.</li>
+      <li>Ein ♮ (Auflösungszeichen) hebt ein Vorzeichen bis zum Taktende auf.</li>
       <li>Vorzeichen: ♯ erhöht und hängt <b>-is</b> an (Fis), ♭ erniedrigt und hängt <b>-es</b> an (Des). Ausnahmen: <b>Es</b>, <b>As</b> und <b>B</b> (das erniedrigte H).</li>
       <li>Akkorde liest du am schnellsten von unten: Liegen die Noten alle auf Linien oder alle in Zwischenräumen, ist es ein Dreiklang in Grundstellung. Mit <b>Mit Hilfslinien</b> kommen auch Umkehrungen dazu.</li>
       <li>Bei <b>Melodie</b> liest du acht Noten in zwei Takten nacheinander. Schau schon auf die nächste Note, während du die aktuelle spielst. Ein Vorzeichen gilt bis zum Taktstrich.</li>
@@ -362,7 +369,40 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const CLEF_NAME = { treble: 'Violinschlüssel', bass: 'Bassschlüssel' };
   const SHARPABLE = [0, 1, 3, 4, 5];                 // Cis Dis Fis Gis Ais
   const FLATTABLE = [1, 2, 4, 5, 6];                 // Des Es Ges As B
-  const RARE = ['2:1', '6:1', '0:-1', '3:-1'];       // Eis His Ces Fes kommen nicht vor
+  const RARE = ['2:1', '6:1', '0:-1', '3:-1'];       // Eis His Ces Fes nur, wenn die Tonart sie vorschreibt
+  // Tonarten: positive Zahl = Anzahl ♯, negative = Anzahl ♭
+  const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6];         // Fis Cis Gis Dis Ais Eis His
+  const FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3];          // B Es As Des Ges Ces Fes
+  const KEY_SIG_STEPS = {                            // Position der Vorzeichen im Violinschlüssel
+    sharp: [38, 35, 39, 36, 33, 37, 34],
+    flat:  [34, 37, 33, 36, 32, 35, 31]
+  };
+  const KEY_TONICS = {                               // [Buchstabe, Vorzeichen] für Dur und Moll
+    0: [[0, 0], [5, 0]],
+    1: [[4, 0], [2, 0]], 2: [[1, 0], [6, 0]], 3: [[5, 0], [3, 1]], 4: [[2, 0], [0, 1]], 5: [[6, 0], [4, 1]], 6: [[3, 1], [1, 1]],
+    '-1': [[3, 0], [1, 0]], '-2': [[6, -1], [4, 0]], '-3': [[2, -1], [0, 0]], '-4': [[5, -1], [3, 0]], '-5': [[1, -1], [6, -1]], '-6': [[4, -1], [2, -1]]
+  };
+  const KEY_ORDER = [0, 1, 2, 3, 4, 5, 6, -1, -2, -3, -4, -5, -6];
+  function keyLabel(c) {
+    const [maj, min] = KEY_TONICS[c];
+    const sig = c === 0 ? 'ohne Vorzeichen' : `${Math.abs(c)} ${c > 0 ? '♯' : '♭'}`;
+    return `${pitchName(...maj)}-Dur / ${pitchName(min[0], min[1], true)}-Moll (${sig})`;
+  }
+  const keyShort = c => `${pitchName(...KEY_TONICS[c][0])}-Dur`;
+  // Vorzeichen, das die aktuelle Tonart für einen Stammton vorschreibt
+  function keyAcc(letter, c = state.key) {
+    if (c > 0) return SHARP_ORDER.slice(0, c).includes(letter) ? 1 : 0;
+    if (c < 0) return FLAT_ORDER.slice(0, -c).includes(letter) ? -1 : 0;
+    return 0;
+  }
+  // Erlaubte Vorzeichen für eine Stufe: das der Tonart, bei "Mit ♯ ♭ ♮" auch zusätzliche
+  function accOptions(letter) {
+    const ka = keyAcc(letter);
+    return [-1, 0, 1].filter(a => a === ka || (settings.acc === 'on' && !RARE.includes(`${letter}:${a}`)));
+  }
+  const noteAllowed = n => Math.abs(n.acc) <= 1 && accOptions(letterOf(n.step)).includes(n.acc);
+  // Gezeichnetes Vorzeichen: keins, wenn die Tonart es schon vorgibt; sonst ♯, ♭ oder ♮
+  const shownAcc = n => (n.acc === keyAcc(letterOf(n.step)) ? null : n.acc);
   const letterOf = s => ((s % 7) + 7) % 7;
   const octOf = s => Math.floor(s / 7);
   const midiOf = (s, acc = 0) => (octOf(s) + 1) * 12 + SEMI[letterOf(s)] + acc;
@@ -397,7 +437,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
   const settings = Object.assign(
-    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto' },
+    { task: 'notes', clef: 'treble', level: '1', acc: 'off', answer: 'names', mode: 'free', names: 'de', sound: 'on', theme: 'auto', key: '0' },
     store.settings
   );
 
@@ -405,7 +445,8 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     { key: 'task',   label: 'Übung', opts: [['notes','Einzelnoten'],['chords','Akkorde'],['melody','Melodie']] },
     { key: 'clef',   label: 'Schlüssel', opts: [['treble','Violin'],['bass','Bass'],['both','Beide']] },
     { key: 'level',  label: 'Tonumfang', opts: [['1','Im System'],['2','Mit Hilfslinien']] },
-    { key: 'acc',    label: 'Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ und ♭']] },
+    { key: 'key',    label: 'Tonart', select: true },
+    { key: 'acc',    label: 'Zusätzliche Vorzeichen', opts: [['off','Ohne'],['on','Mit ♯ ♭ ♮']] },
     { key: 'answer', label: 'Antworten mit', opts: [['names','Notenname'],['piano','Klaviertaste']] },
     { key: 'mode',   label: 'Modus', opts: [['free','Frei üben'],['timed','60 Sekunden']] },
     { key: 'names',  label: 'Notennamen', opts: [['de','Deutsch (H)'],['en','Englisch (B)']] },
@@ -415,7 +456,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
 
   // ---------- Zustand ----------
   const state = {
-    current: null, prevId: null, melody: null, locked: false, shownAt: 0, nextTimer: null,
+    current: null, prevId: null, melody: null, key: 0, locked: false, shownAt: 0, nextTimer: null,
     mod: 0,          // gewähltes Vorzeichen für die nächste Namens-Antwort
     sel: [],         // Auswahl bei Akkorden (Namen "l:acc" oder MIDI-Nummern)
     correct: 0, total: 0, streak: 0, times: [],
@@ -434,14 +475,10 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     for (const clef of activeClefs()) {
       const [lo, hi] = RANGES[clef][settings.level];
       for (let s = lo; s <= hi; s++) {
-        const accs = [0];
-        if (settings.acc === 'on') {
-          if (SHARPABLE.includes(letterOf(s))) accs.push(1);
-          if (FLATTABLE.includes(letterOf(s))) accs.push(-1);
-        }
-        for (const acc of accs) {
+        const ka = keyAcc(letterOf(s));
+        for (const acc of accOptions(letterOf(s))) {
           const n = { step: s, acc };
-          list.push({ clef, notes: [n], id: `${clef}:${s}:${acc}`, label: fullName(n), base: acc ? 0.6 : 1 });
+          list.push({ clef, notes: [n], id: `${clef}:${s}:${acc}`, label: fullName(n), base: acc === ka ? 1 : 0.6 });
         }
       }
     }
@@ -464,17 +501,13 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     for (const clef of activeClefs()) {
       const [lo, hi] = RANGES[clef][settings.level];
       for (let s = lo - 9; s <= hi; s++) {
-        const rootAccs = settings.acc === 'on' ? [0, 1, -1] : [0];
-        for (const racc of rootAccs) {
-          if (racc === 1 && !SHARPABLE.includes(letterOf(s))) continue;
-          if (racc === -1 && !FLATTABLE.includes(letterOf(s))) continue;
+        for (const racc of accOptions(letterOf(s))) {
           const root = { step: s, acc: racc };
           for (const q of ['maj', 'min']) {
             const third = spell(root, 2, q === 'maj' ? 4 : 3);
             const fifth = spell(root, 4, 7);
             const base = [root, third, fifth];
-            if (base.some(n => Math.abs(n.acc) > 1 || RARE.includes(`${letterOf(n.step)}:${n.acc}`))) continue;
-            if (settings.acc !== 'on' && base.some(n => n.acc !== 0)) continue;
+            if (!base.every(noteAllowed)) continue;
             for (const inv of inversions) {
               const notes = base.map((n, i) => (i < inv ? { step: n.step + 7, acc: n.acc } : { ...n }))
                 .sort((a, b) => a.step - b.step);
@@ -507,17 +540,15 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       // Ein Vorzeichen gilt bis zum Taktende: dieselbe Stufe im Takt behält es
       const bar = i < 4 ? notes.slice(0, i) : notes.slice(4, i);
       const earlier = [...bar].reverse().find(n => n.step === step);
-      let acc = 0;
+      let acc = keyAcc(letterOf(step));
       if (earlier) acc = earlier.acc;
-      else if (settings.acc === 'on' && Math.random() < 0.25) {
-        const opts = [];
-        if (SHARPABLE.includes(letterOf(step))) opts.push(1);
-        if (FLATTABLE.includes(letterOf(step))) opts.push(-1);
+      else if (settings.acc === 'on' && Math.random() < 0.2) {
+        const opts = accOptions(letterOf(step)).filter(a => a !== acc);
         if (opts.length) acc = opts[Math.floor(Math.random() * opts.length)];
       }
       notes.push({ step, acc });
     }
-    return { clef, notes, idx: 0, results: [] };
+    return { clef, notes, idx: 0, results: [], key: state.key };
   }
 
   function pickItem() {
@@ -538,6 +569,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const BASS_PATH = 'M50 123Q216 231 288 301Q336 348 373.0 408.5Q410 469 431.5 536.0Q453 603 453 669Q453 728 435.0 773.5Q417 819 383.0 845.0Q349 871 302 871Q284 871 264.5 867.0Q245 863 224 855Q181 839 158.0 813.5Q135 788 135 765Q135 756 143.0 752.0Q151 748 158 748Q168 748 183 752Q190 754 196.5 755.0Q203 756 210 756Q248 756 272.0 733.5Q296 711 296 674Q296 638 266.0 612.0Q236 586 195 586Q146 586 111.0 617.0Q76 648 76 697Q76 756 109.0 802.0Q142 848 198.5 874.0Q255 900 324 900Q400 900 460.0 867.0Q520 834 555.5 776.5Q591 719 591 646Q591 551 538 464Q511 419 476.5 379.0Q442 339 389.0 297.5Q336 256 256.0 208.0Q176 160 57 101ZM687 809Q710 809 726.0 793.0Q742 777 742 754Q742 731 726.0 715.5Q710 700 687 700Q664 700 648.0 715.5Q632 731 632 754Q632 777 648.0 793.0Q664 809 687 809ZM687 589Q710 589 726.0 573.0Q742 557 742 534Q742 511 726.0 495.5Q710 480 687 480Q664 480 648.0 495.5Q632 511 632 534Q632 557 648.0 573.0Q664 589 687 589Z';
   // Vorzeichen: Umriss, rechter Rand und vertikale Mitte in Schrift-Einheiten
   const ACC_GLYPH = {
+    '0':  { d: 'M226 316V-221H195V-9L50 -46V486H83V279ZM197 84V212L81 183V56Z', right: 226, mid: 132 },
     '1':  { d: 'M97 46V189L50 177V277L97 290V486H128V298L195 314V509H226V322L275 333V234L226 220V77L275 89V-14L226 -26V-214H195V-34L128 -52V-247H97V-59L50 -71V32ZM195 70V214L128 197V54Z', right: 275, mid: 131 },
     '-1': { d: 'M50 615H81V225Q118 262 165 262Q197 262 223.0 240.5Q249 219 249 178Q249 146 230.0 119.0Q211 92 179 65L110 6Q91 -10 76.0 -25.5Q61 -41 50 -55ZM81 12Q107 40 125.0 63.5Q143 87 153 105Q164 124 169.5 140.0Q175 156 175 170Q175 198 162.0 210.5Q149 223 134 223Q118 223 102.5 211.5Q87 200 81 180Z', right: 249, mid: 95 }
   };
@@ -552,8 +584,21 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   const K = SP * 4 / 1000;  // Schrift-Einheiten → SVG
 
   // Notenlinien, Schlüssel und Randstriche
+  const keyGap = () => (state.key > 0 ? 13.5 : 11.5);           // Abstand der Tonart-Vorzeichen
+  const keyWidth = () => (state.key ? Math.abs(state.key) * keyGap() + 14 : 0);
   function frameSvg(L, W = 360) {
     let out = '';
+    // Tonart-Vorzeichen direkt nach dem Schlüssel
+    const kind = state.key > 0 ? 'sharp' : 'flat';
+    const gl = ACC_GLYPH[state.key > 0 ? '1' : '-1'];
+    for (const clef of Object.keys(L.staves)) {
+      const b = L.staves[clef];
+      KEY_SIG_STEPS[kind].slice(0, Math.abs(state.key)).forEach((st, i) => {
+        const y = yOf(b, clef, clef === 'treble' ? st : st - 14);
+        const x = 72 + i * keyGap();
+        out += `<path class="keysig" d="${gl.d}" transform="translate(${x - 50 * K} ${y + gl.mid * K}) scale(${K} ${-K})"/>`;
+      });
+    }
     const clefs = Object.keys(L.staves);
     for (const clef of clefs) {
       const b = L.staves[clef];
@@ -589,17 +634,17 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       : `<line class="stem" x1="${sx}" x2="${sx}" y1="${y(lo)}" y2="${y(hi) - 3.5 * SP}"/>`;
     // Vorzeichen von oben nach unten in Spalten, damit sie sich nicht überlappen
     const placed = [];
-    [...item.notes].filter(n => n.acc).sort((a, b2) => b2.step - a.step).forEach(n => {
+    [...item.notes].filter(n => shownAcc(n) !== null).sort((a, b2) => b2.step - a.step).forEach(n => {
       let col = 0;
       while (placed.some(p => p.col === col && Math.abs(p.step - n.step) < 6)) col++;
-      placed.push({ step: n.step, col, acc: n.acc });
+      placed.push({ step: n.step, col, acc: shownAcc(n) });
     });
     const noteCls = i => Array.isArray(marks) ? marks[i] : '';
     item.notes.forEach((n, i) => {
       const p = placed.find(p => p.step === n.step);
       let acc = '';
       if (p) {
-        const gl = ACC_GLYPH[String(n.acc)];
+        const gl = ACC_GLYPH[String(p.acc)];
         const right = x - 13.5 - p.col * 13;
         acc = `<path class="acc" d="${gl.d}" transform="translate(${right - gl.right * K} ${y(n.step) + gl.mid * K}) scale(${K} ${-K})"/>`;
       }
@@ -619,19 +664,19 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
 
   // Melodie: zwei Takte, die aktuelle Note ist hervorgehoben, gelesene Noten tragen ihren Namen
-  const MEL_W = 400;
-  const melX = i => 86 + i * 38 + (i >= 4 ? 14 : 0);
+  const melW = () => 400 + keyWidth();
+  const melX = i => 86 + keyWidth() + i * 38 + (i >= 4 ? 14 : 0);
   function drawMelody() {
     const mel = state.melody;
     const L = layout([mel.clef]);
     const b = L.staves[mel.clef];
-    svg.setAttribute('viewBox', `0 0 ${MEL_W} ${L.h}`);
+    svg.setAttribute('viewBox', `0 0 ${melW()} ${L.h}`);
     let out = '';
     if (mel.idx < mel.notes.length) {
       const x = melX(mel.idx);
       out += `<rect class="cursor" x="${x - 15}" y="${b - 4 * SP - 30}" width="30" height="${4 * SP + 60}" rx="6"/>`;
     }
-    out += frameSvg(L, MEL_W);
+    out += frameSvg(L, melW());
     out += `<line class="staffline" x1="${(melX(3) + melX(4)) / 2 - 2}" x2="${(melX(3) + melX(4)) / 2 - 2}" y1="${b - 4 * SP}" y2="${b}"/>`;
     // Namen unter dem System, tief genug für Hilfslinien und Notenhälse
     const lowest = Math.min(...mel.notes.map(n => n.step));
@@ -650,7 +695,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   // ---------- Antwort-Tasten ----------
   function renderMods() {
     const box = $('mods');
-    box.hidden = !(settings.acc === 'on' && settings.answer === 'names');
+    box.hidden = !((settings.acc === 'on' || settings.key !== '0') && settings.answer === 'names');
     box.innerHTML = `
       <button type="button" data-mod="-1" aria-pressed="${state.mod === -1}" class="${state.mod === -1 ? 'on' : ''}">♭</button>
       <button type="button" data-mod="1" aria-pressed="${state.mod === 1}" class="${state.mod === 1 ? 'on' : ''}">♯</button>
@@ -776,7 +821,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   function nextItem() {
     clearTimeout(state.nextTimer);
     if (isMelody()) {
-      if (!state.melody || state.melody.idx >= state.melody.notes.length) state.melody = makeMelody();
+      if (!state.melody || state.melody.idx >= state.melody.notes.length) { chooseKey(); state.melody = makeMelody(); }
       const mel = state.melody, n = mel.notes[mel.idx];
       state.current = { clef: mel.clef, notes: [n], id: `${mel.clef}:${n.step}:${n.acc}`, label: fullName(n) };
       state.locked = false;
@@ -790,6 +835,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
       renderSel();
       return;
     }
+    if (settings.key === 'rand' || state.key !== +settings.key) chooseKey();
     state.current = pickItem();
     state.prevId = state.current.id;
     state.locked = false;
@@ -970,7 +1016,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   }
 
   // ---------- 60-Sekunden-Test ----------
-  const timedKey = () => `${settings.task}-${settings.clef}-${settings.level}-${settings.acc}-${settings.answer}`;
+  const timedKey = () => `${settings.task}-${settings.clef}-${settings.level}-${settings.acc}-${settings.key}-${settings.answer}`;
   function showStart() {
     const ov = $('overlay');
     const rec = store.best60[timedKey()];
@@ -982,6 +1028,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     ov.hidden = false;
     $('timerbar').hidden = true;
     state.current = null;
+    chooseKey();
     drawStaff(null);
     setFeedback('', 'Bereit?');
     renderSel();
@@ -1028,7 +1075,11 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   // ---------- Einstellungen ----------
   function renderSettings() {
     const box = $('settings');
-    box.innerHTML = SETTINGS_UI.map(s => `
+    box.innerHTML = SETTINGS_UI.map(s => s.select ? `
+      <fieldset>
+        <legend><label for="set-${s.key}">${s.label}</label></legend>
+        <select class="select" name="set-${s.key}" id="set-${s.key}"></select>
+      </fieldset>` : `
       <fieldset>
         <legend>${s.label}</legend>
         <div class="seg">
@@ -1053,8 +1104,22 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     else if (hostTheme) r.setAttribute('data-theme', hostTheme);
     else r.removeAttribute('data-theme');
   }
+  function renderKeySelect() {
+    const sel = $('set-key');
+    sel.innerHTML = KEY_ORDER.map(c => `<option value="${c}">${keyLabel(c)}</option>`).join('')
+      + '<option value="rand">Wechselnde Tonart</option>';
+    sel.value = settings.key;
+  }
+  // Tonart für die nächste Aufgabe festlegen
+  function chooseKey() {
+    state.key = settings.key === 'rand' ? KEY_ORDER[Math.floor(Math.random() * KEY_ORDER.length)] : +settings.key;
+    const chip = $('key-chip');
+    chip.hidden = state.key === 0;
+    chip.textContent = keyShort(state.key);
+  }
   function applySettings() {
     clearTimeout(state.nextTimer);
+    renderKeySelect();
     state.melody = null;
     $('tagline').textContent = isChord() ? 'Lies den ganzen Akkord, von unten nach oben.'
       : isMelody() ? 'Lies eine kurze Melodie vom Blatt, Note für Note.' : 'Erkenne die Note, so schnell du kannst.';
@@ -1106,7 +1171,7 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     if (e.target.matches('input, textarea')) return;
     const k = e.key.toLowerCase();
     if (k === 'enter' && isMelody() && !$('fbactions').hidden) { e.preventDefault(); $('fb-next').click(); return; }
-    if (settings.acc === 'on' && (k === '#' || k === '+' || k === '-')) {
+    if ((settings.acc === 'on' || settings.key !== '0') && (k === '#' || k === '+' || k === '-')) {
       if (settings.answer === 'names') setMod(k === '-' ? -1 : 1);
       else state.mod = k === '-' ? -1 : 1;
       return;

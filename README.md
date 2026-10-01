@@ -10,7 +10,8 @@ Eine kleine Web-App zum Üben des Notenlesens am Klavier.
 
 - Einzelnoten, kurze Melodien (zwei Takte) oder Akkorde (Dur- und Moll-Dreiklänge, mit Hilfslinien auch Umkehrungen)
 - Violinschlüssel, Bassschlüssel oder beide (Klaviersystem)
-- Mit oder ohne Vorzeichen (♯ und ♭)
+- Tonarten von C-Dur bis 6 ♯ und 6 ♭ mit Vorzeichen am Zeilenanfang, auch wechselnd
+- Optional zusätzliche Vorzeichen (♯, ♭, ♮) mitten im Stück
 - Tonumfang „Im System“ oder „Mit Hilfslinien“
 - Antworten per Notenname (C D E F G A H) oder per Klaviertaste (mit richtiger Oktave)
 - 60-Sekunden-Test mit Rekord
