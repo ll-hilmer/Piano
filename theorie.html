@@ -1327,5 +1327,18 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
   renderCircle();
   renderInfo();
   renderCadence();
+  // Ohne Sprungziel oben beginnen, auch in einem umgebenden Rahmen; mit #kapitel dorthin springen
+  try { history.scrollRestoration = 'manual'; } catch (e) {}
+  const toStart = () => {
+    try {
+      const target = location.hash && document.getElementById(location.hash.slice(1));
+      if (target) target.scrollIntoView({ block: 'start' });
+      else { window.scrollTo(0, 0); document.querySelector('header').scrollIntoView({ block: 'start' }); }
+    } catch (e) {}
+  };
+  toStart();
+  requestAnimationFrame(toStart);
+  window.addEventListener('load', toStart);
+  window.addEventListener('pageshow', e => { if (e.persisted) toStart(); });
 })();
 </script>

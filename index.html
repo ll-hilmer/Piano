@@ -2437,5 +2437,12 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
     const msg = $('msg');
     msg.textContent = `Aus der Theorie gestartet: ${presetName}. ` + msg.textContent;
   }
+  // Beim Öffnen oben beginnen, auch wenn ein umgebender Rahmen (z. B. claude.ai) noch weit unten steht
+  try { history.scrollRestoration = 'manual'; } catch (e) {}
+  const toTop = () => { try { window.scrollTo(0, 0); document.querySelector('header').scrollIntoView({ block: 'start' }); } catch (e) {} };
+  toTop();
+  requestAnimationFrame(toTop);
+  window.addEventListener('load', toTop);
+  window.addEventListener('pageshow', e => { if (e.persisted) toTop(); });
 })();
 </script>
