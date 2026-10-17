@@ -25,6 +25,9 @@ Jede Änderung auf `main` wird automatisch als Webseite veröffentlicht
 ## Funktionen
 
 - Einzelnoten, kurze Melodien (zwei Takte) oder Akkorde (Dur- und Moll-Dreiklänge, mit Hilfslinien auch Umkehrungen)
+- **Stücke**: echte, gemeinfreie Stücke vom Blatt (Ausschnitte), sortiert nach Kategorien: Bekannt aus Filmen (Pachelbel, Satie, Tschaikowsky), Episch & dramatisch (Grieg, Mozart, Beethoven), Klassik (Für Elise, Kleine Nachtmusik, Bach-Präludium) und Traditionals (Greensleeves, Amazing Grace, Auld Lang Syne). Originaltonart und -takt mit Auftakt, Pausen, Punktierungen, Haltebögen und Vorzeichen bis zum Taktstrich. Im Takt mit Metronom (das Notenbild rückt Takt für Takt weiter, Tempo je Stück frei wählbar) oder Note für Note; danach das ganze Stück mit Auswertung
+- **Akkordsymbole**: Symbole wie Am, G7, Cmaj7, Dsus4 oder F/A lesen und die Töne wählen oder spielen (am E-Piano in beliebiger Lage, bei Slash-Akkorden muss der Basston unten liegen). Stufen: Dur & Moll, + Septakkorde, + sus, vermindert, Slash
+- **Metronom** mit frei eingebbarem Tempo (30–240), Taktart, Tempo tippen und Schlaganzeige; das Übungstempo ist ebenfalls frei eingebbar
 - Violinschlüssel, Bassschlüssel oder beide (Klaviersystem)
 - Tonarten von C-Dur bis 6 ♯ und 6 ♭ mit Vorzeichen am Zeilenanfang, auch wechselnd
 - Optional zusätzliche Vorzeichen (♯, ♭, ♮) mitten im Stück
