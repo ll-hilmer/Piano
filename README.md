@@ -8,7 +8,7 @@ Private Klavier-App: Notenlesen üben, Theorie nachlesen und (im Aufbau) die eig
 |---|---|
 | `index.html` – **Heute** | Weiter üben, Schnellstart, Übungstage (Serie, Woche, Kalender), Google-Drive-Konto |
 | `ueben.html` – **Üben** | alle Übungen (bisher `index.html`; alte Links mit `#ueben-…` werden weitergeleitet) |
-| `bibliothek.html` – **Bibliothek** | Vorschau der Notenbibliothek mit Beispielen; Import folgt |
+| `bibliothek.html` – **Bibliothek** | eigene Noten: PDF-Import, Scannen (Ecken ziehen, entzerren, „Saubere Noten“), Angaben (Komponist, Genre, Schwierigkeit, Stand, Sammlungen), Suche, Filter, Notenansicht mit Blättern; PDFs im Drive-Ordner „Klavier-App“, Kopie auf jedem Gerät |
 | `theorie.html` – **Theorie** | Musiktheorie mit Notenbeispielen |
 | `shared.js`, `shared.css` | Navigation mit Symbolen, Hell/Dunkel, Abgleich über Google Drive |
 

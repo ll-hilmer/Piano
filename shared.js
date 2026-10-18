@@ -65,7 +65,7 @@
   // Client-ID der eigenen Anmeldung (Google Cloud Console). Nicht geheim; kann auch auf der Startseite eingetragen werden.
   const DEFAULT_CLIENT_ID = '';
   const CFG_KEY = 'nl-drive';
-  const DATA_KEYS = ['notenleser-v1', 'notenleser-theme'];
+  const DATA_KEYS = ['notenleser-v1', 'notenleser-theme', 'nl-library'];
   const FILE_NAME = 'klavier-app.json';
   const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
   const API = 'https://www.googleapis.com';
@@ -86,6 +86,9 @@
   // Status: off (nie verbunden) · setup (Client-ID fehlt) · ok · syncing · expired · offline · error
   let status = 'off', statusMsg = '';
   function setStatus(s, msg = '') { status = s; statusMsg = msg; render(); document.dispatchEvent(new CustomEvent('nl-status', { detail: { status, msg } })); }
+  NL.ready = () => !!(cfg.connected && NL.clientId() && tokenValid() && navigator.onLine);
+  NL.api = (...a) => api(...a);
+  NL.ensureSetup = () => ensureSetup().then(() => cfg.folderId);
   NL.status = () => ({ status, msg: statusMsg, email: cfg.email, lastSync: cfg.lastSync, folderId: cfg.folderId });
 
   const TEXT = { off: 'Nicht verbunden', setup: 'Nicht verbunden', ok: 'Synchron', syncing: 'Abgleich …', expired: 'Neu anmelden', offline: 'Offline', error: 'Fehler' };
@@ -197,8 +200,20 @@
   }
   const mergeTheme = (L, R) => (!R ? L : !L ? R : (L.t || 0) >= (R.t || 0) ? L : R);
   NL.mergeStore = mergeStore;
+  // Bibliothek: je Stück gewinnt die zuletzt geänderte Fassung; Gelöschtes bleibt als Vermerk erhalten
+  function mergeLibrary(L, R) {
+    if (!R) return L; if (!L) return R;
+    const pieces = { ...(R.pieces || {}) };
+    Object.entries(L.pieces || {}).forEach(([id, p]) => { const o = pieces[id]; if (!o || (p.updated || 0) >= (o.updated || 0)) pieces[id] = p; });
+    return { pieces, _mod: Math.max(L._mod || 0, R._mod || 0) };
+  }
+  NL.mergeLibrary = mergeLibrary;
   function mergeAll(local, remote) {
-    return { 'notenleser-v1': mergeStore(local['notenleser-v1'], remote['notenleser-v1']), 'notenleser-theme': mergeTheme(local['notenleser-theme'], remote['notenleser-theme']) };
+    return {
+      'notenleser-v1': mergeStore(local['notenleser-v1'], remote['notenleser-v1']),
+      'notenleser-theme': mergeTheme(local['notenleser-theme'], remote['notenleser-theme']),
+      'nl-library': mergeLibrary(local['nl-library'], remote['nl-library'])
+    };
   }
   const readLocal = () => { const o = {}; DATA_KEYS.forEach(k => { o[k] = readJSON(k, null); }); return o; };
 

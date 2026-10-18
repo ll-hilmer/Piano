@@ -4,9 +4,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Figtree:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="shared.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
-/* Bibliothek (Vorschau): Suchleiste mit Import, Filter-Chips, Raster aus Notenblatt-Karten mit Stand und Schwierigkeit. */
-:root { --nl-max: 1080px; }
+/* Bibliothek: Suchleiste mit Import und Scannen, Filter, Raster aus Notenblatt-Karten.
+   Darüber liegen drei Ebenen: Angaben zum Stück, Scanner (Ecken ziehen, Noten säubern) und die Notenansicht. */
+:root { --nl-max: 1080px; --sheet: #fdfcf8; --sheet-ink: #1d2133; }
 * { box-sizing: border-box; }
 body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
 .wrap {
@@ -16,36 +18,41 @@ body { background: var(--paper); color: var(--ink); font-family: var(--font-body
 h1 { font-family: var(--font-display); font-weight: 500; font-style: italic; font-size: clamp(2rem, 6vw, 2.6rem); line-height: 1.05; margin: 0; }
 .tagline { color: var(--muted); margin: 4px 0 0; }
 button, input, select { font: inherit; color: inherit; }
-.preview {
-  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
-  background: var(--warn-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
-}
-.preview .ic { color: var(--warn); margin-top: 2px; }
-.preview p { margin: 0; max-width: 75ch; }
+.muted { color: var(--muted); }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .search { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; }
 .search .ic { color: var(--muted); }
 .search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 0; outline: none; }
 .search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
-.btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; padding: 9px 14px; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 9px 14px; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; text-decoration: none; white-space: nowrap; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--card); }
-.btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.btn.danger.armed { background: var(--bad); color: var(--card); border-color: var(--bad); }
+.btn.small { padding: 6px 10px; font-size: 0.88rem; }
+.btn[disabled] { opacity: .5; cursor: default; }
 .btn .ic { width: 18px; height: 18px; }
-.btn:focus-visible, .chip:focus-visible, .card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .chip:focus-visible, .card:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.file-in { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .chip { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
-.filters select { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 10px; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.filters select { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 10px; font-size: 0.85rem; font-weight: 600; color: var(--muted); max-width: 100%; }
 .count { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+.syncline { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+.syncline .ic { width: 16px; height: 16px; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
-.card { display: grid; gap: 8px; text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 12px; cursor: pointer; text-align: left; min-width: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.card { display: grid; gap: 7px; align-content: start; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 12px; cursor: pointer; text-align: left; min-width: 0; }
 .card:hover { border-color: var(--accent); }
-.sheet { aspect-ratio: 210 / 270; max-width: 100%; width: 100%; border-radius: 6px; background: #fdfcf8; border: 1px solid var(--line); display: block; }
-.card h3 { margin: 0; font-size: 1rem; line-height: 1.25; text-wrap: balance; }
-.card .who { color: var(--muted); font-size: 0.85rem; }
+.cover { position: relative; aspect-ratio: 210 / 297; max-width: 100%; width: 100%; border-radius: 6px; background: var(--sheet); border: 1px solid var(--line); overflow: hidden; display: grid; place-items: center; color: #8a8fa3; font-size: 0.8rem; }
+.cover img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.cover .cloud { position: absolute; right: 6px; bottom: 6px; background: var(--card); color: var(--muted); border-radius: 999px; padding: 3px; display: grid; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.cover .cloud .ic { width: 16px; height: 16px; }
+.cover .cloud.ok { color: var(--good); }
+.card h3 { margin: 0; font-size: 1rem; line-height: 1.25; text-wrap: balance; overflow-wrap: anywhere; }
+.card .who { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
 .meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dots { display: inline-flex; gap: 3px; }
 .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
@@ -56,10 +63,75 @@ button, input, select { font: inherit; color: inherit; }
 .pill.learn { background: var(--accent-soft); color: var(--accent); }
 .last { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 .last .ic { width: 14px; height: 14px; }
-.tag { position: relative; }
-.tag::after { content: "Beispiel"; position: absolute; bottom: 10px; left: 8px; font-size: 0.68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: var(--ink); color: var(--card); border-radius: 6px; padding: 1px 6px; }
-.empty { color: var(--muted); padding: 24px 0; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--card); padding: 9px 16px; border-radius: 10px; font-weight: 600; max-width: calc(100% - 32px); z-index: 40; }
+
+.empty { display: grid; justify-items: start; gap: 10px; background: var(--card); border: 1px dashed var(--line); border-radius: 14px; padding: 28px 22px; }
+.empty .ic.big { width: 40px; height: 40px; color: var(--accent); }
+.empty h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; }
+.empty p { margin: 0; max-width: 62ch; color: var(--muted); }
+.empty .row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* Ebenen (Dialoge) */
+dialog { border: 0; padding: 0; color: var(--ink); background: var(--card); }
+dialog::backdrop { background: rgba(10, 12, 24, .55); }
+.form-dlg { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); border-radius: 16px; }
+.form-dlg form { display: grid; gap: 14px; padding: 20px; }
+.form-dlg h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; }
+.field { display: grid; gap: 5px; min-width: 0; }
+.field > span { font-size: 0.85rem; font-weight: 600; }
+.field input[type=text] { width: 100%; border: 1px solid var(--line); background: var(--paper); border-radius: 9px; padding: 9px 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.seg { display: flex; flex-wrap: wrap; background: var(--paper); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { flex: 1; text-align: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; color: var(--muted); white-space: nowrap; }
+.seg input:checked + label { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg input:focus-visible + label { outline: 3px solid var(--accent); outline-offset: 1px; }
+.sugg { display: flex; flex-wrap: wrap; gap: 6px; }
+.sugg button { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.actions .spacer { flex: 1; }
+.hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
+
+.full { width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; background: var(--paper); }
+.full[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.topbar {
+  display: flex; align-items: center; gap: 10px; background: var(--card); border-bottom: 1px solid var(--line);
+  padding-block: calc(8px + env(safe-area-inset-top, 0px)) 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+.topbar .title { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar .title small { font-weight: 500; color: var(--muted); margin-left: 6px; }
+.iconbtn { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 7px; display: grid; cursor: pointer; color: var(--ink); }
+.iconbtn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Notenansicht */
+.stage { position: relative; overflow: hidden; display: grid; place-items: center; background: #6d7186; touch-action: pan-y pinch-zoom; }
+.stage canvas { background: var(--sheet); box-shadow: 0 2px 16px rgba(0,0,0,.35); display: block; }
+.stage .msg { color: #fff; font-weight: 600; }
+.tapzone { position: absolute; top: 0; bottom: 0; width: 30%; border: 0; background: transparent; cursor: pointer; }
+.tapzone.prev { left: 0; } .tapzone.next { right: 0; }
+.pager {
+  display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--card); border-top: 1px solid var(--line);
+  padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+
+/* Scanner */
+.scan-stage { position: relative; overflow: hidden; display: grid; place-items: center; background: #2a2d3a; touch-action: none; }
+.scan-stage canvas { display: block; }
+.scan-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scan-stage polygon { fill: rgba(143, 162, 255, .18); stroke: #8fa2ff; stroke-width: 2; }
+.scan-stage circle { fill: #fff; stroke: #2d4bd0; stroke-width: 3; cursor: grab; }
+.scan-tools {
+  display: grid; gap: 8px; background: var(--card); border-top: 1px solid var(--line);
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+.scan-tools .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.strip button { flex: none; width: 46px; height: 62px; border-radius: 6px; border: 2px solid transparent; padding: 0; background: #ddd center / cover no-repeat; cursor: pointer; }
+.strip button.on { border-color: var(--accent); }
+.toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 12, 24, .55); color: #fff; font-weight: 600; text-align: center; padding: 20px; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--card); padding: 9px 16px; border-radius: 10px; font-weight: 600; max-width: calc(100% - 32px); z-index: 60; }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 </style>
 
 <nav id="nl-nav"></nav>
@@ -68,105 +140,697 @@ button, input, select { font: inherit; color: inherit; }
 <div class="wrap">
   <header>
     <h1>Bibliothek</h1>
-    <p class="tagline">Deine Noten an einem Ort: am PC und auf dem iPad, auch offline.</p>
+    <p class="tagline">Deine Noten an einem Ort: am PC und auf dem iPad, gesichert in deinem Google Drive.</p>
   </header>
 
-  <div class="preview" role="note"><span id="pv-icon"></span>
-    <p><b>Vorschau.</b> So soll die Bibliothek aussehen. Die Stücke unten sind Beispiele. Import von PDFs und das Einscannen kommen im nächsten Schritt, gespeichert wird dann in deinem Google Drive.</p>
-  </div>
-
   <div class="toolbar">
-    <label class="search"><span id="s-icon"></span><input id="q" type="search" placeholder="Titel oder Komponist suchen" aria-label="Suchen"></label>
-    <button type="button" class="btn primary" aria-disabled="true" data-soon="PDF-Import">PDF importieren</button>
-    <button type="button" class="btn" aria-disabled="true" data-soon="Scannen">Scannen</button>
+    <label class="search"><span id="s-icon"></span><input id="q" type="search" placeholder="Titel, Komponist oder Sammlung suchen" aria-label="Suchen"></label>
+    <label class="btn primary" for="pdf-in" id="pdf-btn">PDF importieren</label>
+    <label class="btn" for="img-in" id="scan-btn">Scannen</label>
+    <input class="file-in" id="pdf-in" type="file" accept="application/pdf,.pdf" multiple>
+    <input class="file-in" id="img-in" type="file" accept="image/*" multiple>
   </div>
 
   <div class="filters" id="filters" aria-label="Filter"></div>
-
+  <div class="syncline" id="syncline" hidden></div>
   <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
 </div>
+
+<!-- Angaben zum Stück -->
+<dialog class="form-dlg" id="editor" aria-labelledby="ed-h">
+  <form method="dialog" id="ed-form">
+    <h2 id="ed-h">Neues Stück</h2>
+    <label class="field"><span>Titel</span><input type="text" id="ed-title" required autocomplete="off"></label>
+    <div class="two">
+      <label class="field"><span>Komponist</span><input type="text" id="ed-composer" list="dl-composer" autocomplete="off"></label>
+      <label class="field"><span>Genre</span><input type="text" id="ed-genre" list="dl-genre" autocomplete="off" placeholder="z. B. Filmmusik, Klassik"></label>
+    </div>
+    <div class="field"><span>Schwierigkeit</span><div class="seg" id="ed-diff"></div></div>
+    <div class="field"><span>Stand</span><div class="seg" id="ed-status"></div></div>
+    <label class="field"><span>Sammlungen <small class="muted">(mit Komma trennen)</small></span><input type="text" id="ed-coll" autocomplete="off" placeholder="z. B. Repertoire, Unterricht"></label>
+    <div class="sugg" id="ed-sugg"></div>
+    <p class="hint" id="ed-info"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="ed-delete" hidden>Löschen</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ed-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary" id="ed-save">Speichern</button>
+    </div>
+  </form>
+</dialog>
+<datalist id="dl-composer"></datalist>
+<datalist id="dl-genre"></datalist>
+
+<!-- Notenansicht -->
+<dialog class="full" id="viewer" aria-labelledby="v-title">
+  <div class="topbar">
+    <button type="button" class="iconbtn" id="v-close" aria-label="Schließen"></button>
+    <div class="title" id="v-title"></div>
+    <button type="button" class="btn small" id="v-edit">Angaben</button>
+  </div>
+  <div class="stage" id="v-stage">
+    <canvas id="v-canvas"></canvas>
+    <button type="button" class="tapzone prev" id="v-prev" aria-label="Vorige Seite"></button>
+    <button type="button" class="tapzone next" id="v-next" aria-label="Nächste Seite"></button>
+  </div>
+  <div class="pager"><button type="button" class="iconbtn" id="v-back" aria-label="Vorige Seite"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Nächste Seite"></button></div>
+</dialog>
+
+<!-- Scanner -->
+<dialog class="full" id="scanner" aria-labelledby="sc-title">
+  <div class="topbar">
+    <button type="button" class="iconbtn" id="sc-close" aria-label="Abbrechen"></button>
+    <div class="title" id="sc-title">Scannen</div>
+    <button type="button" class="btn small primary" id="sc-done">Fertig</button>
+  </div>
+  <div class="scan-stage" id="sc-stage">
+    <canvas id="sc-canvas"></canvas>
+    <svg id="sc-svg" aria-hidden="true"></svg>
+  </div>
+  <div class="scan-tools">
+    <p class="hint" id="sc-hint">Zieh die vier Punkte auf die Ecken des Notenblatts.</p>
+    <div class="row">
+      <button type="button" class="btn small toggle" id="sc-clean" aria-pressed="true">Saubere Noten</button>
+      <button type="button" class="btn small toggle" id="sc-preview" aria-pressed="false">Ergebnis zeigen</button>
+      <button type="button" class="btn small" id="sc-rotate">Drehen</button>
+      <button type="button" class="btn small" id="sc-reset">Ecken zurücksetzen</button>
+      <label class="btn small" for="img-more">Seite hinzufügen</label>
+      <input class="file-in" id="img-more" type="file" accept="image/*" multiple>
+      <button type="button" class="btn small danger" id="sc-remove">Seite entfernen</button>
+    </div>
+    <div class="strip" id="sc-strip"></div>
+  </div>
+</dialog>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
   const I = NL.icon;
-  $('pv-icon').innerHTML = I('star');
-  $('s-icon').innerHTML = I('search');
-  const [up, cam] = document.querySelectorAll('[data-soon]');
-  up.innerHTML = `${I('upload')}PDF importieren`;
-  cam.innerHTML = `${I('camera')}Scannen`;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const STATE = { learn: 'Lerne ich', shaky: 'Holprig', sure: 'Sitzt' };
 
-  // Beispiel-Einträge: nur Angaben (Titel, Komponist), keine Noten
-  const PIECES = [
-    { t: 'Nuvole Bianche', c: 'Ludovico Einaudi', g: 'Neoklassik', d: 3, s: 'sure', last: 12, p: 9 },
-    { t: 'Time (Inception)', c: 'Hans Zimmer', g: 'Filmmusik', d: 3, s: 'shaky', last: 34, p: 4 },
-    { t: 'Hedwig’s Theme', c: 'John Williams', g: 'Filmmusik', d: 4, s: 'learn', last: 1, p: 6 },
-    { t: 'Für Elise', c: 'Ludwig van Beethoven', g: 'Klassik', d: 3, s: 'sure', last: 21, p: 4 },
-    { t: 'Gymnopédie Nr. 1', c: 'Erik Satie', g: 'Klassik', d: 2, s: 'sure', last: 63, p: 3 },
-    { t: 'Comptine d’un autre été', c: 'Yann Tiersen', g: 'Filmmusik', d: 3, s: 'shaky', last: 48, p: 4 },
-    { t: 'Clair de Lune', c: 'Claude Debussy', g: 'Klassik', d: 5, s: 'learn', last: 3, p: 8 },
-    { t: 'River Flows in You', c: 'Yiruma', g: 'Neoklassik', d: 3, s: 'sure', last: 9, p: 5 }
-  ];
-  const STATE = { sure: 'Sitzt', shaky: 'Holprig', learn: 'Lerne ich' };
-  const GENRES = ['Alle', ...new Set(PIECES.map(p => p.g))];
-  let genre = 'Alle', level = '0', sort = 'title';
+  // ---------- PDF.js (Notenansicht und Deckblätter) ----------
+  const pdfjs = window.pdfjsLib;
+  if (pdfjs) {
+    const src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    try { pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([`importScripts('${src}');`], { type: 'text/javascript' })); }
+    catch (e) { pdfjs.GlobalWorkerOptions.workerSrc = src; }
+  }
+  const openPdf = async blob => pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
 
-  $('filters').innerHTML = GENRES.map(g => `<button type="button" class="chip" data-g="${g}" aria-pressed="${g === genre}">${g}</button>`).join('')
-    + `<select id="lvl" aria-label="Schwierigkeit"><option value="0">Jede Schwierigkeit</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">Schwierigkeit ${n}</option>`).join('')}</select>`
-    + `<select id="sort" aria-label="Sortierung"><option value="title">A–Z</option><option value="last">Lange nicht gespielt</option><option value="d">Schwierigkeit</option></select>`
-    + `<span class="count" id="count"></span>`;
-  $('filters').querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { genre = b.dataset.g; render(); }));
-  $('lvl').addEventListener('change', e => { level = e.target.value; render(); });
-  $('sort').addEventListener('change', e => { sort = e.target.value; render(); });
-  $('q').addEventListener('input', render);
+  // ---------- Speicher auf dem Gerät (IndexedDB): PDFs und Deckblätter ----------
+  const idb = (() => {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise((res, rej) => {
+      const r = indexedDB.open('notenleser', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('files'); r.result.createObjectStore('thumbs'); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+    const run = (store, mode, fn) => open().then(db => new Promise((res, rej) => {
+      const t = db.transaction(store, mode), req = fn(t.objectStore(store));
+      t.oncomplete = () => res(req && req.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+    return {
+      get: (s, k) => run(s, 'readonly', st => st.get(k)),
+      put: (s, k, v) => run(s, 'readwrite', st => st.put(v, k)),
+      del: (s, k) => run(s, 'readwrite', st => st.delete(k))
+    };
+  })();
 
-  // Deckblatt: Titel und angedeutete Notenzeilen (Papier bleibt in beiden Darstellungen hell)
-  function sheet(p) {
-    let sys = '';
-    for (let k = 0; k < 4; k++) {
-      const y0 = 78 + k * 46;
-      for (let l = 0; l < 5; l++) sys += `<line x1="18" x2="192" y1="${y0 + l * 5}" y2="${y0 + l * 5}" stroke="#9aa0b4" stroke-width="0.8"/>`;
-      for (let n = 0; n < 9; n++) {
-        const x = 40 + n * 17 + ((p.t.length * (k + 3) * (n + 1)) % 7);
-        const y = y0 + ((p.c.length * (n + 2) + k * 3) % 9) * 2.5;
-        sys += `<ellipse cx="${x}" cy="${y}" rx="2.8" ry="2" fill="#2b2f40"/><line x1="${x + 2.6}" x2="${x + 2.6}" y1="${y}" y2="${y - 13}" stroke="#2b2f40" stroke-width="0.8"/>`;
+  // ---------- Bibliothek (Angaben, mit Drive abgeglichen) ----------
+  const LIB_KEY = 'nl-library';
+  const readLib = () => { try { return JSON.parse(localStorage.getItem(LIB_KEY) || 'null') || { pieces: {} }; } catch (e) { return { pieces: {} }; } };
+  let lib = readLib();
+  lib.pieces = lib.pieces || {};
+  function saveLib() {
+    lib._mod = Date.now();
+    try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch (e) { toast('Speichern auf diesem Gerät fehlgeschlagen.'); }
+    NL.changed();
+  }
+  const pieces = () => Object.values(lib.pieces).filter(p => !p.deleted);
+  const touch = p => { p.updated = Date.now(); };
+  const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const uniq = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+
+  // ---------- Deckblatt aus der ersten Seite ----------
+  const thumbUrls = {};
+  async function makeThumb(id, blob) {
+    const doc = await openPdf(blob);
+    const page = await doc.getPage(1);
+    const v1 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: 360 / v1.width });
+    const c = document.createElement('canvas');
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    const t = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+    const pages = doc.numPages;
+    doc.destroy();
+    await idb.put('thumbs', id, t);
+    if (thumbUrls[id]) URL.revokeObjectURL(thumbUrls[id]);
+    thumbUrls[id] = URL.createObjectURL(t);
+    return pages;
+  }
+  async function thumbUrl(id) {
+    if (thumbUrls[id]) return thumbUrls[id];
+    const t = await idb.get('thumbs', id).catch(() => null);
+    if (t) thumbUrls[id] = URL.createObjectURL(t);
+    return thumbUrls[id] || null;
+  }
+
+  // ---------- Filter und Raster ----------
+  const view = { genre: 'Alle', coll: '', level: '0', status: '', sort: 'title' };
+  try { Object.assign(view, JSON.parse(localStorage.getItem('nl-lib-view') || '{}')); } catch (e) {}
+  const days = t => Math.floor((Date.now() - t) / 86400000);
+  const ago = t => { if (!t) return 'noch nie geöffnet'; const n = days(t); return n <= 0 ? 'heute geöffnet' : n === 1 ? 'gestern geöffnet' : `vor ${n} Tagen geöffnet`; };
+
+  function renderFilters() {
+    const ps = pieces();
+    const genres = ['Alle', ...uniq(ps.map(p => p.genre))];
+    if (!genres.includes(view.genre)) view.genre = 'Alle';
+    const colls = uniq(ps.flatMap(p => p.collections || []));
+    if (view.coll && !colls.includes(view.coll)) view.coll = '';
+    $('filters').hidden = !ps.length;
+    $('filters').innerHTML = genres.map(g => `<button type="button" class="chip" data-g="${esc(g)}" aria-pressed="${g === view.genre}">${esc(g)}</button>`).join('')
+      + (colls.length ? `<select id="f-coll" aria-label="Sammlung"><option value="">Alle Sammlungen</option>${colls.map(c => `<option value="${esc(c)}" ${c === view.coll ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>` : '')
+      + `<select id="f-lvl" aria-label="Schwierigkeit"><option value="0">Jede Schwierigkeit</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${String(n) === view.level ? 'selected' : ''}>Schwierigkeit ${n}</option>`).join('')}</select>`
+      + `<select id="f-status" aria-label="Stand"><option value="">Jeder Stand</option>${Object.entries(STATE).map(([k, v]) => `<option value="${k}" ${k === view.status ? 'selected' : ''}>${v}</option>`).join('')}</select>`
+      + `<select id="f-sort" aria-label="Sortierung">${[['title', 'A–Z'], ['composer', 'Komponist'], ['opened', 'Zuletzt geöffnet'], ['stale', 'Lange nicht geöffnet'], ['added', 'Neu hinzugefügt'], ['diff', 'Schwierigkeit']].map(([k, v]) => `<option value="${k}" ${k === view.sort ? 'selected' : ''}>${v}</option>`).join('')}</select>`
+      + `<span class="count" id="count"></span>`;
+    const keep = () => { try { localStorage.setItem('nl-lib-view', JSON.stringify(view)); } catch (e) {} renderGrid(); };
+    $('filters').querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { view.genre = b.dataset.g; renderFilters(); keep(); }));
+    const sel = (id, k) => { const el = $(id); if (el) el.addEventListener('change', () => { view[k] = el.value; keep(); }); };
+    sel('f-coll', 'coll'); sel('f-lvl', 'level'); sel('f-status', 'status'); sel('f-sort', 'sort');
+  }
+  async function renderGrid() {
+    const ps = pieces();
+    $('empty').hidden = ps.length > 0;
+    if (!ps.length) {
+      $('grid').innerHTML = '';
+      $('empty').innerHTML = `${I('bibliothek', 'big')}<h2>Noch keine Noten</h2>
+        <p>Importiere deine Noten als PDF oder fotografiere ausgedruckte Blätter. Die Noten werden in deinem Google-Drive-Ordner „Klavier-App“ gesichert und sind auf PC und iPad verfügbar.</p>
+        <p><b>Tipp fürs iPad:</b> In der App „Dateien“ unter ⋯ → „Dokumente scannen“ erkennt das iPad die Ecken automatisch. Das fertige PDF holst du dann hier mit „PDF importieren“.</p>
+        <div class="row"><label class="btn primary" for="pdf-in">${I('upload')}PDF importieren</label><label class="btn" for="img-in">${I('camera')}Scannen</label></div>`;
+      return;
+    }
+    const q = $('q').value.trim().toLowerCase();
+    const list = ps.filter(p => (view.genre === 'Alle' || p.genre === view.genre)
+      && (!view.coll || (p.collections || []).includes(view.coll))
+      && (view.level === '0' || p.difficulty === +view.level)
+      && (!view.status || p.status === view.status)
+      && (!q || [p.title, p.composer, p.genre, ...(p.collections || [])].join(' ').toLowerCase().includes(q)));
+    const by = {
+      title: (a, b) => a.title.localeCompare(b.title, 'de'),
+      composer: (a, b) => (a.composer || '~').localeCompare(b.composer || '~', 'de') || a.title.localeCompare(b.title, 'de'),
+      opened: (a, b) => (b.opened || 0) - (a.opened || 0),
+      stale: (a, b) => (a.opened || 0) - (b.opened || 0),
+      added: (a, b) => (b.added || 0) - (a.added || 0),
+      diff: (a, b) => (a.difficulty || 0) - (b.difficulty || 0) || a.title.localeCompare(b.title, 'de')
+    };
+    list.sort(by[view.sort] || by.title);
+    if ($('count')) $('count').textContent = `${list.length} ${list.length === 1 ? 'Stück' : 'Stücke'}`;
+    $('grid').innerHTML = list.length ? list.map(p => `
+      <button type="button" class="card" data-id="${p.id}">
+        <span class="cover" data-cover="${p.id}">${p.fileId || p.local ? 'Wird geladen …' : ''}</span>
+        <h3>${esc(p.title)}</h3>
+        <span class="who">${esc([p.composer, p.genre, p.pages ? `${p.pages} ${p.pages === 1 ? 'Seite' : 'Seiten'}` : ''].filter(Boolean).join(' · '))}</span>
+        <span class="meta"><span class="dots" title="Schwierigkeit ${p.difficulty || 0} von 5">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= (p.difficulty || 0) ? 'on' : ''}"></i>`).join('')}</span>
+          <span class="pill ${p.status || 'learn'}">${STATE[p.status || 'learn']}</span></span>
+        <span class="last">${I('clock')}${ago(p.opened)}</span>
+      </button>`).join('') : '<p class="muted">Keine Stücke passen zu diesem Filter.</p>';
+    $('grid').querySelectorAll('.card').forEach(c => c.addEventListener('click', () => openViewer(c.dataset.id)));
+    for (const p of list) {
+      const box = document.querySelector(`[data-cover="${p.id}"]`);
+      if (!box) continue;
+      const url = await thumbUrl(p.id);
+      const cloud = p.fileId ? `<span class="cloud ok" title="In Google Drive gesichert">${I('cloudOk')}</span>` : `<span class="cloud" title="Noch nicht in Google Drive">${I('upload')}</span>`;
+      box.innerHTML = (url ? `<img src="${url}" alt="">` : (p.fileId ? 'Liegt in Google Drive' : 'Keine Vorschau')) + cloud;
+    }
+  }
+  const render = () => { renderFilters(); renderGrid(); renderLists(); };
+  function renderLists() {
+    const ps = pieces();
+    $('dl-composer').innerHTML = uniq(ps.map(p => p.composer)).map(c => `<option value="${esc(c)}">`).join('');
+    $('dl-genre').innerHTML = uniq(['Klassik', 'Filmmusik', 'Neoklassik', 'Pop', 'Jazz', ...ps.map(p => p.genre)]).map(c => `<option value="${esc(c)}">`).join('');
+  }
+  $('q').addEventListener('input', renderGrid);
+
+  // ---------- Angaben zum Stück ----------
+  const seg = (box, name, opts) => {
+    $(box).innerHTML = opts.map(([v, l]) => `<input type="radio" name="${name}" id="${name}-${v}" value="${v}"><label for="${name}-${v}">${l}</label>`).join('');
+  };
+  seg('ed-diff', 'diff', [1, 2, 3, 4, 5].map(n => [n, n]));
+  seg('ed-status', 'stat', Object.entries(STATE));
+  let edit = null;   // { piece, isNew, resolve }
+  function openEditor(piece, isNew, info = '') {
+    return new Promise(resolve => {
+      edit = { piece, isNew, resolve };
+      $('ed-h').textContent = isNew ? 'Neues Stück' : 'Angaben bearbeiten';
+      $('ed-title').value = piece.title || '';
+      $('ed-composer').value = piece.composer || '';
+      $('ed-genre').value = piece.genre || '';
+      $('ed-coll').value = (piece.collections || []).join(', ');
+      document.querySelectorAll('input[name="diff"]').forEach(r => { r.checked = +r.value === (piece.difficulty || 3); });
+      document.querySelectorAll('input[name="stat"]').forEach(r => { r.checked = r.value === (piece.status || 'learn'); });
+      $('ed-info').textContent = info;
+      $('ed-delete').hidden = isNew;
+      $('ed-delete').classList.remove('armed'); $('ed-delete').textContent = 'Löschen';
+      $('ed-cancel').textContent = isNew ? 'Überspringen' : 'Abbrechen';
+      const colls = uniq(pieces().flatMap(p => p.collections || []).concat(['Repertoire', 'Lerne ich gerade', 'Unterricht']));
+      $('ed-sugg').innerHTML = colls.map(c => `<button type="button" data-c="${esc(c)}">+ ${esc(c)}</button>`).join('');
+      $('ed-sugg').querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => {
+        const cur = $('ed-coll').value.split(',').map(s => s.trim()).filter(Boolean);
+        if (!cur.includes(b.dataset.c)) cur.push(b.dataset.c);
+        $('ed-coll').value = cur.join(', ');
+      }));
+      $('editor').showModal();
+      setTimeout(() => $('ed-title').focus(), 50);
+    });
+  }
+  function closeEditor(result) {
+    if (!edit) return;
+    const r = edit.resolve; edit = null;
+    if ($('editor').open) $('editor').close();
+    r(result);
+  }
+  $('ed-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const p = edit.piece;
+    p.title = $('ed-title').value.trim() || 'Ohne Titel';
+    const oldName = fileName(p);
+    p.composer = $('ed-composer').value.trim();
+    p.genre = $('ed-genre').value.trim();
+    p.collections = uniq($('ed-coll').value.split(',').map(s => s.trim()));
+    p.difficulty = +((document.querySelector('input[name="diff"]:checked') || {}).value || 3);
+    p.status = (document.querySelector('input[name="stat"]:checked') || {}).value || 'learn';
+    if (!edit.isNew && p.fileId && fileName(p) !== oldName) p.rename = true;
+    touch(p);
+    closeEditor(true);
+  });
+  $('ed-cancel').addEventListener('click', () => closeEditor(false));
+  $('editor').addEventListener('cancel', e => { e.preventDefault(); closeEditor(false); });
+  $('ed-delete').addEventListener('click', () => {
+    const b = $('ed-delete');
+    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Wirklich löschen?'; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Löschen'; }, 3500); return; }
+    const p = edit.piece;
+    p.deleted = true; touch(p);
+    closeEditor('deleted');
+  });
+
+  // ---------- Import ----------
+  const nameFromFile = f => f.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  async function addPdf(blob, defaults, info) {
+    const id = newId();
+    const p = { id, title: defaults.title || 'Ohne Titel', composer: '', genre: '', difficulty: 3, status: 'learn', collections: [], added: Date.now(), local: true, size: blob.size };
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+    try { p.pages = await makeThumb(id, blob); }
+    catch (e) { toast(`„${p.title}“ ist kein lesbares PDF.`); return null; }
+    await idb.put('files', id, blob);
+    const ok = await openEditor(p, true, info);
+    if (!ok) { await idb.del('files', id); await idb.del('thumbs', id); return null; }
+    lib.pieces[id] = p; touch(p);
+    saveLib(); render();
+    syncFiles();
+    return p;
+  }
+  $('pdf-in').addEventListener('change', async e => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    for (const [i, f] of files.entries()) await addPdf(f, { title: nameFromFile(f) }, files.length > 1 ? `Datei ${i + 1} von ${files.length}: ${f.name}` : f.name);
+  });
+
+  // ---------- Abgleich der PDF-Dateien mit Google Drive ----------
+  const fileName = p => `${p.title}${p.composer ? ' – ' + p.composer : ''}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
+  let filesBusy = false;
+  function syncLine(text, icon = 'refresh') {
+    const el = $('syncline');
+    el.hidden = !text;
+    el.innerHTML = text ? `${I(icon)}<span>${esc(text)}</span>` : '';
+  }
+  async function syncFiles() {
+    if (filesBusy) return;
+    const all = Object.values(lib.pieces);
+    // Auf einem anderen Gerät gelöscht: auch hier die Datei entfernen
+    for (const p of all) if (p.deleted) await removeLocal(p.id);
+    const pendingUp = all.filter(p => !p.deleted && !p.fileId).length;
+    if (!NL.cfg().connected) { syncLine(pendingUp ? 'Melde dich auf der Startseite bei Google Drive an, damit deine Noten gesichert werden.' : '', 'cloudOff'); return; }
+    if (!NL.ready()) { syncLine(pendingUp ? `${pendingUp} ${pendingUp === 1 ? 'Stück wartet' : 'Stücke warten'} auf das Hochladen (keine Verbindung zu Google Drive).` : '', 'cloudOff'); return; }
+    filesBusy = true;
+    let changed = false;
+    try {
+      const folder = await NL.ensureSetup();
+      const todo = all.filter(p => (p.deleted && p.fileId && !p.trashed) || (!p.deleted && (!p.fileId || p.rename)));
+      let n = 0;
+      for (const p of todo) {
+        n++;
+        if (p.deleted) {
+          syncLine(`Lösche „${p.title}“ in Google Drive …`);
+          // In den Papierkorb von Drive (30 Tage wiederherstellbar)
+          await NL.api(`/drive/v3/files/${p.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }).catch(e => { if (e.code !== 404) throw e; });
+          p.trashed = true; changed = true;
+          continue;
+        }
+        if (!p.fileId) {
+          const blob = await idb.get('files', p.id);
+          if (!blob) continue;
+          syncLine(`Lade hoch: „${p.title}“ (${n} von ${todo.length}) …`, 'upload');
+          const bd = 'nl' + Math.random().toString(36).slice(2);
+          const meta = { name: fileName(p), parents: [folder], mimeType: 'application/pdf' };
+          const body = new Blob([`--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${bd}\r\nContent-Type: application/pdf\r\n\r\n`, blob, `\r\n--${bd}--`]);
+          const r = await (await NL.api('/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + bd }, body })).json();
+          p.fileId = r.id; p.rename = false; touch(p); changed = true;
+        } else if (p.rename) {
+          await NL.api(`/drive/v3/files/${p.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fileName(p) }) }).catch(() => {});
+          p.rename = false; changed = true;
+        }
+      }
+      if (changed) { saveLib(); renderGrid(); }
+      // Fehlende Dateien auf dieses Gerät holen (für offline)
+      const missing = [];
+      for (const p of pieces()) if (p.fileId && !(await idb.get('files', p.id))) missing.push(p);
+      for (const [i, p] of missing.entries()) {
+        syncLine(`Hole aus Google Drive: „${p.title}“ (${i + 1} von ${missing.length}) …`, 'cloud');
+        const blob = await (await NL.api(`/drive/v3/files/${p.fileId}?alt=media`)).blob();
+        await idb.put('files', p.id, blob);
+        try { await makeThumb(p.id, blob); } catch (e) {}
+        renderGrid();
+      }
+      syncLine('');
+    } catch (e) {
+      syncLine(e.code === 401 ? 'Google-Anmeldung abgelaufen. Tippe oben auf das Wolken-Symbol.' : 'Abgleich der Noten unterbrochen. Er wird später fortgesetzt.', 'cloudOff');
+      if (changed) saveLib();
+    } finally { filesBusy = false; }
+  }
+  document.addEventListener('nl-synced', () => { lib = readLib(); lib.pieces = lib.pieces || {}; render(); syncFiles(); });
+  document.addEventListener('nl-status', e => { if (e.detail.status === 'ok') syncFiles(); });
+  window.addEventListener('online', () => setTimeout(syncFiles, 1500));
+
+  // ---------- Notenansicht ----------
+  const V = { doc: null, page: 1, id: null, rendering: false, pending: false };
+  async function openViewer(id) {
+    const p = lib.pieces[id];
+    if (!p) return;
+    V.id = id; V.page = 1;
+    $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`;
+    $('v-canvas').hidden = true;
+    let msg = $('v-stage').querySelector('.msg');
+    if (!msg) { msg = document.createElement('div'); msg.className = 'msg'; $('v-stage').appendChild(msg); }
+    msg.textContent = 'Noten werden geladen …'; msg.hidden = false;
+    $('viewer').showModal();
+    try {
+      let blob = await idb.get('files', id);
+      if (!blob && p.fileId) {
+        if (!NL.ready()) throw new Error('Dieses Stück liegt nur in Google Drive. Verbinde dich mit dem Internet und melde dich an.');
+        msg.textContent = 'Wird aus Google Drive geladen …';
+        blob = await (await NL.api(`/drive/v3/files/${p.fileId}?alt=media`)).blob();
+        await idb.put('files', id, blob);
+      }
+      if (!blob) throw new Error('Die Datei fehlt auf diesem Gerät.');
+      if (!pdfjs) throw new Error('Die Notenansicht konnte nicht geladen werden. Prüfe die Internetverbindung.');
+      if (V.doc) V.doc.destroy();
+      V.doc = await openPdf(blob);
+      msg.hidden = true; $('v-canvas').hidden = false;
+      p.opened = Date.now(); touch(p); saveLib();
+      await renderPage();
+    } catch (e) { msg.textContent = e.message || 'Die Noten konnten nicht geöffnet werden.'; }
+  }
+  async function renderPage() {
+    if (!V.doc) return;
+    if (V.rendering) { V.pending = true; return; }
+    V.rendering = true;
+    const page = await V.doc.getPage(V.page);
+    const st = $('v-stage');
+    const v1 = page.getViewport({ scale: 1 });
+    const fit = Math.min((st.clientWidth - 16) / v1.width, (st.clientHeight - 16) / v1.height);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const vp = page.getViewport({ scale: fit * dpr });
+    const c = $('v-canvas');
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    c.style.width = Math.round(vp.width / dpr) + 'px'; c.style.height = Math.round(vp.height / dpr) + 'px';
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    $('v-page').textContent = `${V.page} / ${V.doc.numPages}`;
+    V.rendering = false;
+    if (V.pending) { V.pending = false; renderPage(); }
+  }
+  const turn = d => { if (!V.doc) return; const n = Math.min(V.doc.numPages, Math.max(1, V.page + d)); if (n !== V.page) { V.page = n; renderPage(); } };
+  $('v-prev').addEventListener('click', () => { if (Date.now() - swiped > 400) turn(-1); });
+  $('v-next').addEventListener('click', () => { if (Date.now() - swiped > 400) turn(1); });
+  $('v-back').addEventListener('click', () => turn(-1));
+  $('v-fwd').addEventListener('click', () => turn(1));
+  $('v-close').addEventListener('click', () => $('viewer').close());
+  $('viewer').addEventListener('close', () => { if (V.doc) { V.doc.destroy(); V.doc = null; } renderGrid(); });
+  $('v-edit').addEventListener('click', async () => {
+    const p = lib.pieces[V.id];
+    const r = await openEditor(p, false);
+    if (r === 'deleted') { $('viewer').close(); await removeLocal(p.id); }
+    if (r) { saveLib(); render(); syncFiles(); $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`; }
+  });
+  document.addEventListener('keydown', e => {
+    if (!$('viewer').open || $('editor').open) return;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); turn(1); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); turn(-1); }
+  });
+  // Wischen blättert; danach wird der Tipp auf die Blätterfläche ignoriert
+  let swipe = null, swiped = 0;
+  $('v-stage').addEventListener('pointerdown', e => { swipe = { x: e.clientX, y: e.clientY }; });
+  $('v-stage').addEventListener('pointerup', e => {
+    if (!swipe) return;
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { swiped = Date.now(); turn(dx < 0 ? 1 : -1); }
+  });
+  window.addEventListener('resize', () => { if ($('viewer').open) renderPage(); });
+  async function removeLocal(id) { await idb.del('files', id).catch(() => {}); await idb.del('thumbs', id).catch(() => {}); }
+
+  // ---------- Scanner: Ecken ziehen, entzerren, Noten säubern ----------
+  const S = { pages: [], cur: 0, preview: false, drag: -1 };
+  const MAX_SRC = 2400;
+  async function loadImage(file) {
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (e) { bmp = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); }); }
+    const w = bmp.width, h = bmp.height, k = Math.min(1, MAX_SRC / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return c;
+  }
+  const defaultCorners = c => { const mx = c.width * 0.04, my = c.height * 0.04; return [[mx, my], [c.width - mx, my], [c.width - mx, c.height - my], [mx, c.height - my]]; };
+  async function addImages(files) {
+    $('sc-hint').textContent = 'Fotos werden geladen …';
+    for (const f of files) {
+      try { const src = await loadImage(f); S.pages.push({ src, corners: defaultCorners(src), clean: true }); }
+      catch (e) { toast(`${f.name} konnte nicht geladen werden.`); }
+    }
+    S.cur = Math.max(0, S.pages.length - files.length);
+    $('sc-hint').textContent = 'Zieh die vier Punkte auf die Ecken des Notenblatts.';
+    renderStrip(); drawScan();
+  }
+  $('img-in').addEventListener('change', async e => {
+    const files = [...e.target.files]; e.target.value = '';
+    if (!files.length) return;
+    S.pages = []; S.cur = 0; S.preview = false;
+    $('sc-preview').setAttribute('aria-pressed', 'false');
+    $('scanner').showModal();
+    await addImages(files);
+  });
+  $('img-more').addEventListener('change', async e => { const files = [...e.target.files]; e.target.value = ''; if (files.length) await addImages(files); });
+
+  // Lineares Gleichungssystem für die Entzerrung (Zielrechteck → Fotoviereck)
+  function homography(dst, src) {
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = dst[i], [u, v] = src[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    for (let c = 0; c < 8; c++) {
+      let p = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      [A[c], A[p]] = [A[p], A[c]]; [b[c], b[p]] = [b[p], b[c]];
+      for (let r = 0; r < 8; r++) {
+        if (r === c) continue;
+        const f = A[r][c] / A[c][c];
+        for (let k = c; k < 8; k++) A[r][k] -= f * A[c][k];
+        b[r] -= f * b[c];
       }
     }
-    const title = p.t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    return `<svg class="sheet" viewBox="0 0 210 270" role="img" aria-label="Erste Seite: ${title}">
-      <rect width="210" height="270" fill="#fdfcf8"/>
-      <text x="105" y="36" text-anchor="middle" font-family="Bodoni Moda, Georgia, serif" font-size="15" fill="#1d2133">${title}</text>
-      <text x="192" y="56" text-anchor="end" font-family="Figtree, sans-serif" font-size="8" fill="#5c627c">${p.c}</text>${sys}</svg>`;
+    return b.map((v, i) => v / A[i][i]);
   }
-  const ago = n => (n === 0 ? 'heute' : n === 1 ? 'gestern' : `vor ${n} Tagen`);
-  function render() {
-    $('filters').querySelectorAll('[data-g]').forEach(b => b.setAttribute('aria-pressed', b.dataset.g === genre));
-    const q = $('q').value.trim().toLowerCase();
-    const list = PIECES.filter(p => (genre === 'Alle' || p.g === genre) && (level === '0' || p.d === +level)
-      && (!q || (p.t + ' ' + p.c).toLowerCase().includes(q)))
-      .sort((a, b) => (sort === 'last' ? b.last - a.last : sort === 'd' ? a.d - b.d : a.t.localeCompare(b.t, 'de')));
-    $('count').textContent = `${list.length} ${list.length === 1 ? 'Stück' : 'Stücke'}`;
-    $('grid').innerHTML = list.length ? list.map(p => `
-      <button type="button" class="card" data-soon="Notenansicht">
-        <span class="tag">${sheet(p)}</span>
-        <h3>${p.t}</h3>
-        <span class="who">${p.c} · ${p.g} · ${p.p} Seiten</span>
-        <span class="meta"><span class="dots" title="Schwierigkeit ${p.d} von 5">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= p.d ? 'on' : ''}"></i>`).join('')}</span>
-          <span class="pill ${p.s}">${STATE[p.s]}</span></span>
-        <span class="last">${I('clock')}${ago(p.last)} gespielt</span>
-      </button>`).join('') : '<p class="empty">Keine Stücke passen zu diesem Filter.</p>';
-    bindSoon();
+  // Seite entzerren (DIN-A4-Format) und auf Wunsch säubern: Papier weiß, Noten schwarz, Schatten weg
+  function processPage(pg, outW) {
+    const outH = Math.round(outW * Math.SQRT2);
+    const sw = pg.src.width, sh = pg.src.height;
+    const sd = pg.src.getContext('2d').getImageData(0, 0, sw, sh).data;
+    const h = homography([[0, 0], [outW, 0], [outW, outH], [0, outH]], pg.corners);
+    const out = document.createElement('canvas'); out.width = outW; out.height = outH;
+    const octx = out.getContext('2d');
+    const img = octx.createImageData(outW, outH), od = img.data;
+    const gray = pg.clean ? new Float32Array(outW * outH) : null;
+    for (let y = 0; y < outH; y++) {
+      for (let x = 0; x < outW; x++) {
+        const den = h[6] * x + h[7] * y + 1;
+        let u = (h[0] * x + h[1] * y + h[2]) / den, v = (h[3] * x + h[4] * y + h[5]) / den;
+        u = Math.min(sw - 1.001, Math.max(0, u)); v = Math.min(sh - 1.001, Math.max(0, v));
+        const x0 = u | 0, y0 = v | 0, fx = u - x0, fy = v - y0;
+        const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4;
+        const o = (y * outW + x) * 4;
+        for (let ch = 0; ch < 3; ch++) {
+          od[o + ch] = (sd[i00 + ch] * (1 - fx) + sd[i10 + ch] * fx) * (1 - fy) + (sd[i01 + ch] * (1 - fx) + sd[i11 + ch] * fx) * fy;
+        }
+        od[o + 3] = 255;
+        if (gray) gray[y * outW + x] = 0.299 * od[o] + 0.587 * od[o + 1] + 0.114 * od[o + 2];
+      }
+    }
+    if (gray) {
+      // Hintergrund (Papierhelligkeit) grob schätzen: hellster Wert je Block, geglättet
+      const B = 24, bw = Math.ceil(outW / B), bh = Math.ceil(outH / B);
+      const bg = new Float32Array(bw * bh);
+      for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+        let m = 0;
+        for (let y = by * B; y < Math.min(outH, by * B + B); y += 2) for (let x = bx * B; x < Math.min(outW, bx * B + B); x += 2) { const g = gray[y * outW + x]; if (g > m) m = g; }
+        bg[by * bw + bx] = m;
+      }
+      const sm = new Float32Array(bw * bh);
+      for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+        let s = 0, n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const yy = by + dy, xx = bx + dx; if (yy >= 0 && yy < bh && xx >= 0 && xx < bw) { s += bg[yy * bw + xx]; n++; } }
+        sm[by * bw + bx] = Math.max(40, s / n);
+      }
+      for (let y = 0; y < outH; y++) {
+        const fy = Math.min(bh - 1.001, Math.max(0, y / B - 0.5)), y0 = fy | 0, ty = fy - y0;
+        for (let x = 0; x < outW; x++) {
+          const fx = Math.min(bw - 1.001, Math.max(0, x / B - 0.5)), x0 = fx | 0, tx = fx - x0;
+          const b0 = sm[y0 * bw + x0] * (1 - tx) + sm[y0 * bw + x0 + 1] * tx, b1 = sm[(y0 + 1) * bw + x0] * (1 - tx) + sm[(y0 + 1) * bw + x0 + 1] * tx;
+          const ratio = gray[y * outW + x] / (b0 * (1 - ty) + b1 * ty);
+          const t = Math.min(1, Math.max(0, (ratio - 0.52) / 0.33));
+          const val = 255 * t * t * (3 - 2 * t);
+          const o = (y * outW + x) * 4;
+          od[o] = od[o + 1] = od[o + 2] = val;
+        }
+      }
+    }
+    octx.putImageData(img, 0, 0);
+    return out;
   }
+  // Anzeige: Foto mit Ecken, oder das Ergebnis
+  let shown = null;   // { scale, ox, oy } von Foto- zu Bildschirmkoordinaten
+  function drawScan() {
+    const pg = S.pages[S.cur];
+    const c = $('sc-canvas'), svg = $('sc-svg'), st = $('sc-stage');
+    $('sc-title').textContent = S.pages.length ? `Scannen · Seite ${S.cur + 1} von ${S.pages.length}` : 'Scannen';
+    $('sc-clean').setAttribute('aria-pressed', String(!!(pg && pg.clean)));
+    if (!pg) { c.width = c.height = 1; svg.innerHTML = ''; return; }
+    const img = S.preview ? processPage(pg, 700) : pg.src;
+    const k = Math.min((st.clientWidth - 24) / img.width, (st.clientHeight - 24) / img.height);
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.style.width = c.width + 'px'; c.style.height = c.height + 'px';
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    if (S.preview) { svg.innerHTML = ''; shown = null; return; }
+    const r = c.getBoundingClientRect(), sr = st.getBoundingClientRect();
+    shown = { kx: r.width / img.width, ky: r.height / img.height, ox: r.left - sr.left, oy: r.top - sr.top };
+    svg.innerHTML = '<polygon/>' + [0, 1, 2, 3].map(i => `<circle data-i="${i}" r="13"/>`).join('');
+    placeCorners();
+  }
+  // Nur die Punkte verschieben (beim Ziehen nichts neu aufbauen, sonst geht der Finger verloren)
+  function placeCorners() {
+    const pg = S.pages[S.cur], svg = $('sc-svg');
+    if (!pg || !shown) return;
+    const pts = pg.corners.map(([x, y]) => [shown.ox + x * shown.kx, shown.oy + y * shown.ky]);
+    svg.querySelector('polygon').setAttribute('points', pts.map(p => p.join(',')).join(' '));
+    svg.querySelectorAll('circle').forEach((c, i) => { c.setAttribute('cx', pts[i][0]); c.setAttribute('cy', pts[i][1]); });
+  }
+  function renderStrip() {
+    $('sc-strip').innerHTML = S.pages.map((pg, i) => `<button type="button" class="${i === S.cur ? 'on' : ''}" data-i="${i}" aria-label="Seite ${i + 1}" style="background-image:url(${pg.thumb || (pg.thumb = pg.src.toDataURL('image/jpeg', 0.5))})"></button>`).join('');
+    $('sc-strip').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.cur = +b.dataset.i; renderStrip(); drawScan(); }));
+  }
+  $('sc-svg').addEventListener('pointerdown', e => {
+    const i = e.target.dataset && e.target.dataset.i;
+    if (i === undefined || !shown) return;
+    S.drag = +i; e.target.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  $('sc-svg').addEventListener('pointermove', e => {
+    if (S.drag < 0 || !shown) return;
+    const pg = S.pages[S.cur], sr = $('sc-stage').getBoundingClientRect();
+    const x = (e.clientX - sr.left - shown.ox) / shown.kx, y = (e.clientY - sr.top - shown.oy) / shown.ky;
+    pg.corners[S.drag] = [Math.min(pg.src.width, Math.max(0, x)), Math.min(pg.src.height, Math.max(0, y))];
+    placeCorners();
+  });
+  const endDrag = () => { S.drag = -1; };
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+  $('sc-clean').addEventListener('click', () => { const pg = S.pages[S.cur]; if (pg) { pg.clean = !pg.clean; drawScan(); } });
+  $('sc-preview').addEventListener('click', () => { S.preview = !S.preview; $('sc-preview').setAttribute('aria-pressed', String(S.preview)); drawScan(); });
+  $('sc-reset').addEventListener('click', () => { const pg = S.pages[S.cur]; if (pg) { pg.corners = defaultCorners(pg.src); drawScan(); } });
+  $('sc-rotate').addEventListener('click', () => {
+    const pg = S.pages[S.cur]; if (!pg) return;
+    const c = document.createElement('canvas'); c.width = pg.src.height; c.height = pg.src.width;
+    const ctx = c.getContext('2d'); ctx.translate(c.width, 0); ctx.rotate(Math.PI / 2); ctx.drawImage(pg.src, 0, 0);
+    pg.src = c; pg.corners = defaultCorners(c); pg.thumb = null;
+    renderStrip(); drawScan();
+  });
+  $('sc-remove').addEventListener('click', () => {
+    S.pages.splice(S.cur, 1);
+    if (!S.pages.length) { $('scanner').close(); return; }
+    S.cur = Math.min(S.cur, S.pages.length - 1); renderStrip(); drawScan();
+  });
+  $('sc-close').addEventListener('click', () => $('scanner').close());
+  $('scanner').addEventListener('close', () => { S.pages = []; });
+  // Bei jeder Größenänderung der Fläche (Drehen des iPads, Seitenleiste) neu zeichnen
+  new ResizeObserver(() => { if ($('scanner').open && S.drag < 0) drawScan(); }).observe($('sc-stage'));
+  function loadJsPdf() {
+    if (window.jspdf) return Promise.resolve(window.jspdf);
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = () => res(window.jspdf); s.onerror = () => rej(new Error('PDF-Erstellung konnte nicht geladen werden. Prüfe die Internetverbindung.'));
+      document.head.appendChild(s);
+    });
+  }
+  $('sc-done').addEventListener('click', async () => {
+    if (!S.pages.length) return;
+    const busy = document.createElement('div'); busy.className = 'busy';
+    $('sc-stage').appendChild(busy);
+    try {
+      const { jsPDF } = await loadJsPdf();
+      const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+      for (const [i, pg] of S.pages.entries()) {
+        busy.textContent = `Seite ${i + 1} von ${S.pages.length} wird aufbereitet …`;
+        await new Promise(r => setTimeout(r, 30));
+        const out = processPage(pg, 1240);
+        if (i) doc.addPage();
+        doc.addImage(out.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, 595.28, 841.89, undefined, 'FAST');
+      }
+      const blob = doc.output('blob');
+      const n = S.pages.length;
+      $('scanner').close();
+      await addPdf(blob, { title: `Scan vom ${new Date().toLocaleDateString('de-DE')}` }, `${n} ${n === 1 ? 'Seite' : 'Seiten'} gescannt`);
+    } catch (e) { busy.textContent = e.message || 'Das hat nicht geklappt.'; setTimeout(() => busy.remove(), 2500); return; }
+    busy.remove();
+  });
+
+  // ---------- Kleinigkeiten ----------
   let toastTimer = 0;
   function toast(t) {
     let el = document.querySelector('.toast');
     if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
     el.textContent = t; el.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
   }
-  function bindSoon() {
-    document.querySelectorAll('[data-soon]').forEach(b => { b.onclick = () => toast(`${b.dataset.soon}: kommt im nächsten Schritt`); });
-  }
+  $('s-icon').innerHTML = I('search');
+  $('pdf-btn').innerHTML = `${I('upload')}PDF importieren`;
+  $('scan-btn').innerHTML = `${I('camera')}Scannen`;
+  $('v-close').innerHTML = I('arrow').replace('<path d="M5 12h14M13 6l6 6-6 6"/>', '<path d="M19 12H5M11 6l-6 6 6 6"/>');
+  $('sc-close').innerHTML = $('v-close').innerHTML;
+  $('v-back').innerHTML = $('v-close').innerHTML;
+  $('v-fwd').innerHTML = I('arrow');
+  ['pdf-btn', 'scan-btn'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(id).click(); } }));
+  $('pdf-btn').tabIndex = 0; $('scan-btn').tabIndex = 0;
+
   render();
+  syncFiles();
 })();
 </script>
