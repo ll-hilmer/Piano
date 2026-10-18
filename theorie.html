@@ -1,4 +1,4 @@
-<title>Musiktheorie</title>
+<title>Notenleser · Theorie</title>
 <script>
   // Darstellung aus der Übungs-App übernehmen, bevor die Seite gezeichnet wird
   (function () {
@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="shared.css">
 <style>
 /* Layout: Lesespalte mit Inhaltsverzeichnis oben; jedes Kapitel eine Karte mit Text, Notenbeispiel und „Anhören“. Gleiche Farbwelt wie die Übungs-App. */
 :root {
@@ -181,6 +182,8 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .forder b { color: var(--accent); }
 </style>
 
+<nav id="nl-nav"></nav>
+<script src="shared.js"></script>
 <div class="wrap">
   <header>
     <div>
@@ -193,7 +196,6 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
         <input type="radio" name="theme" id="th-light" value="light"><label for="th-light">Hell</label>
         <input type="radio" name="theme" id="th-dark" value="dark"><label for="th-dark">Dunkel</label>
       </div>
-      <a class="back" href="./">Zum Üben</a>
     </div>
   </header>
 
@@ -245,7 +247,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <li>Das <b>mittlere C</b> (c′) liegt genau dazwischen, auf einer Hilfslinie: unter dem Violin- und über dem Basssystem.</li>
     </ul>
     <div class="ex" data-ex="clefs"></div>
-    <a class="practice" href="./#ueben-noten">Jetzt üben: Noten in beiden Schlüsseln lesen</a>
+    <a class="practice" href="ueben.html#ueben-noten">Jetzt üben: Noten in beiden Schlüsseln lesen</a>
   </section>
 
   <section class="ch" id="namen">
@@ -261,7 +263,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><td>zweigestrichenes c″</td><td>C5</td><td>3. Zwischenraum im Violinschlüssel</td></tr>
       <tr><td>dreigestrichenes c‴</td><td>C6</td><td>2. Hilfslinie über dem Violinschlüssel</td></tr>
     </table></div>
-    <a class="practice" href="./#ueben-lernpfad">Jetzt üben: Lernpfad: Noten Schritt für Schritt</a>
+    <a class="practice" href="ueben.html#ueben-lernpfad">Jetzt üben: Lernpfad: Noten Schritt für Schritt</a>
   </section>
 
   <section class="ch" id="werte">
@@ -274,7 +276,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <li>Achtel und Sechzehntel werden oft mit <b>Balken</b> zu Gruppen zusammengefasst, damit man die Schläge leichter sieht.</li>
     </ul>
     <p class="tip"><b>Merkhilfe:</b> Die ganze Pause hängt wie ein schwerer Koffer unter der Linie, die halbe Pause sitzt wie ein Hut auf der Linie.</p>
-    <a class="practice" href="./#ueben-rhythmus">Jetzt üben: Rhythmus tippen</a>
+    <a class="practice" href="ueben.html#ueben-rhythmus">Jetzt üben: Rhythmus tippen</a>
   </section>
 
   <section class="ch" id="takt">
@@ -306,7 +308,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p>Bei einer <b>Synkope</b> fällt ein betonter Ton zwischen die Schläge, also auf ein „und“, und wird über den nächsten Schlag gehalten. Das klingt nach vorne drängend und ist typisch für Pop, Jazz und Ragtime.</p>
     <div class="ex" data-ex="syncope"></div>
     <p class="tip"><b>Zählen:</b> Viertel zählt man „1, 2, 3, 4“, Achtel „1 und 2 und …“ (geschrieben 1 + 2 +), Triolen „1-Tri-o-le“. Zähl anfangs laut mit, dann leise im Kopf.</p>
-    <a class="practice" href="./#ueben-rhythmus-achtel">Jetzt üben: Rhythmus mit Achteln tippen</a>
+    <a class="practice" href="ueben.html#ueben-rhythmus-achtel">Jetzt üben: Rhythmus mit Achteln tippen</a>
   </section>
 
   <section class="ch" id="halbton">
@@ -326,7 +328,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p>Ein Vorzeichen vor einer Note gilt bis zum Ende des Taktes, aber nur für diese Tonhöhe. Stehen Vorzeichen direkt hinter dem Schlüssel (<b>Generalvorzeichen</b>), gelten sie im ganzen Stück und in allen Oktaven. Daran erkennt man die Tonart.</p>
     <div class="ex" data-ex="accidentals"></div>
     <p class="small">Fis und Ges sind am Klavier dieselbe Taste. Welcher Name richtig ist, hängt von der Tonart ab.</p>
-    <a class="practice" href="./#ueben-vorzeichen">Jetzt üben: Noten mit Vorzeichen lesen</a>
+    <a class="practice" href="ueben.html#ueben-vorzeichen">Jetzt üben: Noten mit Vorzeichen lesen</a>
   </section>
 
   <section class="ch" id="dur">
@@ -335,7 +337,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p class="tip"><b>G – G – H – G – G – G – H</b>. Die Halbtöne liegen zwischen dem 3. und 4. sowie dem 7. und 8. Ton.</p>
     <p>C-Dur kommt ohne schwarze Tasten aus, weil E–F und H–C von Natur aus Halbtöne sind. Startet man auf einem anderen Ton, braucht man Vorzeichen, damit der Bauplan stimmt. So entstehen die Tonarten.</p>
     <div class="ex" data-ex="cmajor"></div>
-    <a class="practice" href="./#ueben-melodie">Jetzt üben: Melodien lesen</a>
+    <a class="practice" href="ueben.html#ueben-melodie">Jetzt üben: Melodien lesen</a>
   </section>
 
   <section class="ch" id="intervalle">
@@ -346,7 +348,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><th>Intervall</th><th>Halbtöne</th><th>ab C</th><th>Klang</th><th></th></tr>
     </table></div>
     <p class="tip"><b>Im Notenbild:</b> Ungerade Intervalle (Terz, Quinte, Septime) liegen Linie–Linie oder Zwischenraum–Zwischenraum. Gerade (Sekunde, Quarte, Sexte, Oktave) liegen Linie–Zwischenraum.</p>
-    <a class="practice" href="./#ueben-intervalle">Jetzt üben: Intervalle erkennen</a>
+    <a class="practice" href="ueben.html#ueben-intervalle">Jetzt üben: Intervalle erkennen</a>
   </section>
 
   <section class="ch" id="dreiklaenge">
@@ -359,7 +361,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <li><b>Übermäßig</b>: zwei große Terzen (4 + 4), klingt schwebend.</li>
     </ul>
     <div class="ex" data-ex="triads"></div>
-    <a class="practice" href="./#ueben-akkorde">Jetzt üben: Dreiklänge lesen</a>
+    <a class="practice" href="ueben.html#ueben-akkorde">Jetzt üben: Dreiklänge lesen</a>
   </section>
 
   <section class="ch" id="umkehrungen">
@@ -372,7 +374,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     </ul>
     <div class="ex" data-ex="inversions"></div>
     <p class="tip"><b>Erkennen:</b> Bei einer Umkehrung liegen zwei Töne eine Quarte auseinander. Der obere dieser beiden ist der Grundton.</p>
-    <a class="practice" href="./#ueben-umkehrungen">Jetzt üben: Dreiklänge mit Umkehrungen lesen</a>
+    <a class="practice" href="ueben.html#ueben-umkehrungen">Jetzt üben: Dreiklänge mit Umkehrungen lesen</a>
   </section>
 
   <section class="ch" id="vortrag">
@@ -421,7 +423,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <div class="cinfo" id="cinfo"></div>
     </div>
     <p class="small">Tippe eine Tonart an. Unten bei 6 Uhr treffen sich Fis-Dur (6 ♯) und Ges-Dur (6 ♭): Sie klingen gleich und werden nur anders geschrieben.</p>
-    <a class="practice" href="./#ueben-tonarten">Jetzt üben: Noten in wechselnden Tonarten lesen</a>
+    <a class="practice" href="ueben.html#ueben-tonarten">Jetzt üben: Noten in wechselnden Tonarten lesen</a>
   </section>
 
   <section class="ch" id="parallel">
@@ -435,7 +437,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><td>Reihenfolge der Bes</td><td>B Es As Des Ges Ces</td><td>das Wort „<b>BEAD</b>“, dann Ges, Ces</td></tr>
     </table></div>
     <p class="tip"><b>Tonart schnell erkennen:</b> Bei Kreuzen ist der Grundton einen Halbton über dem letzten Kreuz (letztes Kreuz Fis → G-Dur). Bei Bes ist das vorletzte B der Grundton (B, Es → B-Dur). Ein einziges B bedeutet F-Dur.</p>
-    <a class="practice" href="./#ueben-tonarten">Jetzt üben: Tonarten an den Vorzeichen erkennen</a>
+    <a class="practice" href="ueben.html#ueben-tonarten">Jetzt üben: Tonarten an den Vorzeichen erkennen</a>
   </section>
 
   <section class="ch" id="stufen">
@@ -466,7 +468,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     </div>
     <div class="ex" data-ex="cadence"></div>
     <p class="tip"><b>Übungsidee:</b> Spiel die Kadenz in jeder Tonart des Quintenzirkels. So lernst du nebenbei alle Vorzeichen.</p>
-    <a class="practice" href="./#ueben-akkorde">Jetzt üben: Akkorde lesen</a>
+    <a class="practice" href="ueben.html#ueben-akkorde">Jetzt üben: Akkorde lesen</a>
   </section>
 
   <section class="ch" id="septakkord">
@@ -502,7 +504,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
       <tr><td>halbverminderter</td><td>Cm7♭5 / Cø</td><td>vermindert + kleine Septime</td><td>Stufe vii in Dur</td></tr>
       <tr><td>verminderter</td><td>H°7</td><td>nur kleine Terzen</td><td>Stufe vii in harmonisch Moll</td></tr>
     </table></div>
-    <a class="practice" href="./#ueben-akkordsymbole">Jetzt üben: Akkordsymbole lesen</a>
+    <a class="practice" href="ueben.html#ueben-akkordsymbole">Jetzt üben: Akkordsymbole lesen</a>
   </section>
 
   <section class="ch" id="folgen">
@@ -522,7 +524,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     <p>Die linke Hand spielt meist nicht die Melodie, sondern eine <b>Begleitung</b> aus den Tönen des jeweiligen Akkords. Ein paar Muster reichen für sehr viele Stücke. Alle Beispiele nutzen die Folge <b>C – Am – F – G</b> (I – vi – IV – V) aus dem vorigen Kapitel.</p>
     <p class="tip"><b>So übst du ein Muster:</b> erst die linke Hand allein und langsam, bis sie von selbst läuft. Dann die rechte Hand mit langen Akkorden dazu, zuletzt eine Melodie. Unter den Noten steht jeweils der Akkord.</p>
     <div class="acc-patterns" id="patterns"></div>
-    <a class="practice" href="./#ueben-beidehaende">Jetzt üben: Mit beiden Händen spielen</a>
+    <a class="practice" href="ueben.html#ueben-beidehaende">Jetzt üben: Mit beiden Händen spielen</a>
   </section>
 
   <section class="ch" id="blues">
@@ -1314,15 +1316,18 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
   document.querySelectorAll('input[name="theme"]').forEach(inp => inp.addEventListener('change', () => {
     const t = { ...readTheme(), choice: inp.value };
     try {
-      localStorage.setItem(THEME_KEY, JSON.stringify(t));
+      localStorage.setItem(THEME_KEY, JSON.stringify({ ...t, t: Date.now() }));
       // auch in den Einstellungen der App vermerken
       const st = JSON.parse(localStorage.getItem('notenleser-v1') || '{}');
       st.settings = { ...(st.settings || {}), theme: inp.value };
+      st._mod = Date.now();
       localStorage.setItem('notenleser-v1', JSON.stringify(st));
     } catch (e) {}
+    if (window.NL) NL.changed();
     applyTheme(t);
   }));
   window.addEventListener('storage', e => { if (e.key === THEME_KEY) applyTheme(readTheme()); });
+  document.addEventListener('nl-synced', () => applyTheme(readTheme()));
   applyTheme(readTheme());
 
   renderCircle();
@@ -1334,7 +1339,7 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
     try {
       const target = location.hash && document.getElementById(location.hash.slice(1));
       if (target) target.scrollIntoView({ block: 'start' });
-      else { window.scrollTo(0, 0); document.querySelector('header').scrollIntoView({ block: 'start' }); }
+      else { window.scrollTo(0, 0); document.querySelector('#nl-nav').scrollIntoView({ block: 'start' }); }
     } catch (e) {}
   };
   toStart();

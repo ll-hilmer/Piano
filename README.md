@@ -1,6 +1,24 @@
 # Notenleser
 
-Eine kleine Web-App zum Üben des Notenlesens am Klavier.
+Private Klavier-App: Notenlesen üben, Theorie nachlesen und (im Aufbau) die eigenen Noten verwalten.
+
+## Aufbau
+
+| Seite | Inhalt |
+|---|---|
+| `index.html` – **Heute** | Weiter üben, Schnellstart, Übungstage (Serie, Woche, Kalender), Google-Drive-Konto |
+| `ueben.html` – **Üben** | alle Übungen (bisher `index.html`; alte Links mit `#ueben-…` werden weitergeleitet) |
+| `bibliothek.html` – **Bibliothek** | Vorschau der Notenbibliothek mit Beispielen; Import folgt |
+| `theorie.html` – **Theorie** | Musiktheorie mit Notenbeispielen |
+| `shared.js`, `shared.css` | Navigation mit Symbolen, Hell/Dunkel, Abgleich über Google Drive |
+
+## Abgleich über Google Drive
+
+Fortschritt, Statistik, Übungstage und Einstellungen werden in einer versteckten Datei im eigenen Google Drive
+(App-Datenordner) gespeichert und zwischen PC und iPad zusammengeführt; für die Noten legt die App den Ordner „Klavier-App“ an.
+Die App sieht nur diese beiden Dinge (Berechtigungen `drive.appdata` und `drive.file`). Anmeldung per Weiterleitung zu Google,
+die Anmeldung gilt jeweils eine Stunde und wird beim Öffnen der Startseite still erneuert.
+Einrichtung (Client-ID aus der Google Cloud Console) Schritt für Schritt auf der Startseite unter „Google Drive“.
 
 ## Benutzen
 
@@ -8,7 +26,7 @@ Eine kleine Web-App zum Üben des Notenlesens am Klavier.
 Auf dem Handy oder Tablet über das Browser-Menü „Zum Startbildschirm hinzufügen“ wie eine App ablegen.
 Ein E-Piano per USB funktioniert dort direkt in Chrome und Edge.
 
-**Ohne Internet:** `index.html` im Browser öffnen (Doppelklick genügt).
+**Ohne Internet:** `ueben.html` im Browser öffnen (Doppelklick genügt).
 
 ## Musiktheorie
 

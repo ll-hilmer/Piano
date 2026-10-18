@@ -1,0 +1,74 @@
+/* Gemeinsame Farben (gleich wie in Üben und Theorie) und die Navigation aller Seiten.
+   Oben eine Leiste mit Name, Bereichen und Drive-Status; auf schmalen Geräten wandern die Bereiche als Tab-Leiste nach unten. */
+:root {
+  --paper: #f3f5f9; --card: #ffffff; --ink: #161a2c; --muted: #5c627c; --line: #d8dce8;
+  --accent: #2d4bd0; --accent-soft: #e4e9fc; --good: #1d8549; --good-soft: #dcf2e4;
+  --bad: #c3302d; --bad-soft: #fbe2e1; --warn: #a8660c; --warn-soft: #fbefd9;
+  --font-display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
+    --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
+    --bad: #ff6f69; --bad-soft: #3d1c1f; --warn: #f2b14a; --warn-soft: #3a2a12; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
+  --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
+  --bad: #ff6f69; --bad-soft: #3d1c1f; --warn: #f2b14a; --warn-soft: #3a2a12; color-scheme: dark;
+}
+:root[data-nl="light"][data-nl] {
+  --paper: #f3f5f9; --card: #ffffff; --ink: #161a2c; --muted: #5c627c; --line: #d8dce8;
+  --accent: #2d4bd0; --accent-soft: #e4e9fc; --good: #1d8549; --good-soft: #dcf2e4;
+  --bad: #c3302d; --bad-soft: #fbe2e1; --warn: #a8660c; --warn-soft: #fbefd9; color-scheme: light;
+}
+:root[data-nl="dark"][data-nl] {
+  --paper: #0e1120; --card: #171b2e; --ink: #e7e9f4; --muted: #9ba1bf; --line: #2c3252;
+  --accent: #8fa2ff; --accent-soft: #232b52; --good: #4fc68b; --good-soft: #173526;
+  --bad: #ff6f69; --bad-soft: #3d1c1f; --warn: #f2b14a; --warn-soft: #3a2a12; color-scheme: dark;
+}
+
+.ic { width: 20px; height: 20px; flex: none; }
+
+.nl-nav { background: var(--card); border-bottom: 1px solid var(--line); font-family: var(--font-body); }
+.nl-bar {
+  max-width: var(--nl-max, 860px); margin: 0 auto; display: flex; align-items: center; gap: 12px;
+  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.nl-brand { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 1.35rem; color: var(--ink); text-decoration: none; margin-right: auto; }
+.nl-tabs { display: flex; gap: 2px; }
+.nl-tab {
+  display: flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 9px;
+  color: var(--muted); text-decoration: none; font-weight: 600; font-size: 0.92rem;
+}
+.nl-tab:hover { color: var(--ink); background: var(--paper); }
+.nl-tab.on { color: var(--accent); background: var(--accent-soft); }
+.nl-tab:focus-visible, .nl-sync:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.nl-sync {
+  display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--paper); color: var(--muted);
+  border-radius: 999px; padding: 5px 11px 5px 8px; font: 600 0.8rem var(--font-body); cursor: pointer; white-space: nowrap;
+}
+.nl-sync .ic { width: 18px; height: 18px; }
+.nl-sync[data-state="ok"] { color: var(--good); }
+.nl-sync[data-state="syncing"] .ic { animation: nl-spin 1s linear infinite; }
+.nl-sync[data-state="expired"], .nl-sync[data-state="error"] { color: var(--warn); border-color: var(--warn); }
+@keyframes nl-spin { to { transform: rotate(-360deg); } }
+@media (prefers-reduced-motion: reduce) { .nl-sync[data-state="syncing"] .ic { animation: none; } }
+
+/* Schmal (Handy, iPad hochkant): Bereiche als Tab-Leiste am unteren Rand */
+@media (max-width: 760px) {
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .nl-tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; gap: 0;
+    background: var(--card); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+  }
+  .nl-tab { flex: 1; flex-direction: column; gap: 3px; padding: 8px 4px 7px; border-radius: 0; font-size: 0.72rem; }
+  .nl-tab.on { background: transparent; }
+  .nl-tab .ic { width: 23px; height: 23px; }
+  .nl-sync span { display: none; }
+  .nl-sync { padding: 6px; }
+}

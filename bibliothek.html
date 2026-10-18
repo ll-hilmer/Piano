@@ -1,0 +1,172 @@
+<meta charset="utf-8">
+<title>Notenleser · Bibliothek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Bibliothek (Vorschau): Suchleiste mit Import, Filter-Chips, Raster aus Notenblatt-Karten mit Stand und Schwierigkeit. */
+:root { --nl-max: 1080px; }
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
+.wrap {
+  max-width: 1080px; margin: 0 auto; display: grid; gap: 16px;
+  padding-block: 22px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1 { font-family: var(--font-display); font-weight: 500; font-style: italic; font-size: clamp(2rem, 6vw, 2.6rem); line-height: 1.05; margin: 0; }
+.tagline { color: var(--muted); margin: 4px 0 0; }
+button, input, select { font: inherit; color: inherit; }
+.preview {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
+  background: var(--warn-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+}
+.preview .ic { color: var(--warn); margin-top: 2px; }
+.preview p { margin: 0; max-width: 75ch; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.search { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; }
+.search .ic { color: var(--muted); }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 0; outline: none; }
+.search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; padding: 9px 14px; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.btn .ic { width: 18px; height: 18px; }
+.btn:focus-visible, .chip:focus-visible, .card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.filters select { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 10px; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.count { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+.card { display: grid; gap: 8px; text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 12px; cursor: pointer; text-align: left; min-width: 0; }
+.card:hover { border-color: var(--accent); }
+.sheet { aspect-ratio: 210 / 270; max-width: 100%; width: 100%; border-radius: 6px; background: #fdfcf8; border: 1px solid var(--line); display: block; }
+.card h3 { margin: 0; font-size: 1rem; line-height: 1.25; text-wrap: balance; }
+.card .who { color: var(--muted); font-size: 0.85rem; }
+.meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dots { display: inline-flex; gap: 3px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.dots i.on { background: var(--accent); }
+.pill { font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.pill.sure { background: var(--good-soft); color: var(--good); }
+.pill.shaky { background: var(--warn-soft); color: var(--warn); }
+.pill.learn { background: var(--accent-soft); color: var(--accent); }
+.last { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.last .ic { width: 14px; height: 14px; }
+.tag { position: relative; }
+.tag::after { content: "Beispiel"; position: absolute; bottom: 10px; left: 8px; font-size: 0.68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: var(--ink); color: var(--card); border-radius: 6px; padding: 1px 6px; }
+.empty { color: var(--muted); padding: 24px 0; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--card); padding: 9px 16px; border-radius: 10px; font-weight: 600; max-width: calc(100% - 32px); z-index: 40; }
+</style>
+
+<nav id="nl-nav"></nav>
+<script src="shared.js"></script>
+
+<div class="wrap">
+  <header>
+    <h1>Bibliothek</h1>
+    <p class="tagline">Deine Noten an einem Ort: am PC und auf dem iPad, auch offline.</p>
+  </header>
+
+  <div class="preview" role="note"><span id="pv-icon"></span>
+    <p><b>Vorschau.</b> So soll die Bibliothek aussehen. Die Stücke unten sind Beispiele. Import von PDFs und das Einscannen kommen im nächsten Schritt, gespeichert wird dann in deinem Google Drive.</p>
+  </div>
+
+  <div class="toolbar">
+    <label class="search"><span id="s-icon"></span><input id="q" type="search" placeholder="Titel oder Komponist suchen" aria-label="Suchen"></label>
+    <button type="button" class="btn primary" aria-disabled="true" data-soon="PDF-Import">PDF importieren</button>
+    <button type="button" class="btn" aria-disabled="true" data-soon="Scannen">Scannen</button>
+  </div>
+
+  <div class="filters" id="filters" aria-label="Filter"></div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const I = NL.icon;
+  $('pv-icon').innerHTML = I('star');
+  $('s-icon').innerHTML = I('search');
+  const [up, cam] = document.querySelectorAll('[data-soon]');
+  up.innerHTML = `${I('upload')}PDF importieren`;
+  cam.innerHTML = `${I('camera')}Scannen`;
+
+  // Beispiel-Einträge: nur Angaben (Titel, Komponist), keine Noten
+  const PIECES = [
+    { t: 'Nuvole Bianche', c: 'Ludovico Einaudi', g: 'Neoklassik', d: 3, s: 'sure', last: 12, p: 9 },
+    { t: 'Time (Inception)', c: 'Hans Zimmer', g: 'Filmmusik', d: 3, s: 'shaky', last: 34, p: 4 },
+    { t: 'Hedwig’s Theme', c: 'John Williams', g: 'Filmmusik', d: 4, s: 'learn', last: 1, p: 6 },
+    { t: 'Für Elise', c: 'Ludwig van Beethoven', g: 'Klassik', d: 3, s: 'sure', last: 21, p: 4 },
+    { t: 'Gymnopédie Nr. 1', c: 'Erik Satie', g: 'Klassik', d: 2, s: 'sure', last: 63, p: 3 },
+    { t: 'Comptine d’un autre été', c: 'Yann Tiersen', g: 'Filmmusik', d: 3, s: 'shaky', last: 48, p: 4 },
+    { t: 'Clair de Lune', c: 'Claude Debussy', g: 'Klassik', d: 5, s: 'learn', last: 3, p: 8 },
+    { t: 'River Flows in You', c: 'Yiruma', g: 'Neoklassik', d: 3, s: 'sure', last: 9, p: 5 }
+  ];
+  const STATE = { sure: 'Sitzt', shaky: 'Holprig', learn: 'Lerne ich' };
+  const GENRES = ['Alle', ...new Set(PIECES.map(p => p.g))];
+  let genre = 'Alle', level = '0', sort = 'title';
+
+  $('filters').innerHTML = GENRES.map(g => `<button type="button" class="chip" data-g="${g}" aria-pressed="${g === genre}">${g}</button>`).join('')
+    + `<select id="lvl" aria-label="Schwierigkeit"><option value="0">Jede Schwierigkeit</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">Schwierigkeit ${n}</option>`).join('')}</select>`
+    + `<select id="sort" aria-label="Sortierung"><option value="title">A–Z</option><option value="last">Lange nicht gespielt</option><option value="d">Schwierigkeit</option></select>`
+    + `<span class="count" id="count"></span>`;
+  $('filters').querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { genre = b.dataset.g; render(); }));
+  $('lvl').addEventListener('change', e => { level = e.target.value; render(); });
+  $('sort').addEventListener('change', e => { sort = e.target.value; render(); });
+  $('q').addEventListener('input', render);
+
+  // Deckblatt: Titel und angedeutete Notenzeilen (Papier bleibt in beiden Darstellungen hell)
+  function sheet(p) {
+    let sys = '';
+    for (let k = 0; k < 4; k++) {
+      const y0 = 78 + k * 46;
+      for (let l = 0; l < 5; l++) sys += `<line x1="18" x2="192" y1="${y0 + l * 5}" y2="${y0 + l * 5}" stroke="#9aa0b4" stroke-width="0.8"/>`;
+      for (let n = 0; n < 9; n++) {
+        const x = 40 + n * 17 + ((p.t.length * (k + 3) * (n + 1)) % 7);
+        const y = y0 + ((p.c.length * (n + 2) + k * 3) % 9) * 2.5;
+        sys += `<ellipse cx="${x}" cy="${y}" rx="2.8" ry="2" fill="#2b2f40"/><line x1="${x + 2.6}" x2="${x + 2.6}" y1="${y}" y2="${y - 13}" stroke="#2b2f40" stroke-width="0.8"/>`;
+      }
+    }
+    const title = p.t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return `<svg class="sheet" viewBox="0 0 210 270" role="img" aria-label="Erste Seite: ${title}">
+      <rect width="210" height="270" fill="#fdfcf8"/>
+      <text x="105" y="36" text-anchor="middle" font-family="Bodoni Moda, Georgia, serif" font-size="15" fill="#1d2133">${title}</text>
+      <text x="192" y="56" text-anchor="end" font-family="Figtree, sans-serif" font-size="8" fill="#5c627c">${p.c}</text>${sys}</svg>`;
+  }
+  const ago = n => (n === 0 ? 'heute' : n === 1 ? 'gestern' : `vor ${n} Tagen`);
+  function render() {
+    $('filters').querySelectorAll('[data-g]').forEach(b => b.setAttribute('aria-pressed', b.dataset.g === genre));
+    const q = $('q').value.trim().toLowerCase();
+    const list = PIECES.filter(p => (genre === 'Alle' || p.g === genre) && (level === '0' || p.d === +level)
+      && (!q || (p.t + ' ' + p.c).toLowerCase().includes(q)))
+      .sort((a, b) => (sort === 'last' ? b.last - a.last : sort === 'd' ? a.d - b.d : a.t.localeCompare(b.t, 'de')));
+    $('count').textContent = `${list.length} ${list.length === 1 ? 'Stück' : 'Stücke'}`;
+    $('grid').innerHTML = list.length ? list.map(p => `
+      <button type="button" class="card" data-soon="Notenansicht">
+        <span class="tag">${sheet(p)}</span>
+        <h3>${p.t}</h3>
+        <span class="who">${p.c} · ${p.g} · ${p.p} Seiten</span>
+        <span class="meta"><span class="dots" title="Schwierigkeit ${p.d} von 5">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= p.d ? 'on' : ''}"></i>`).join('')}</span>
+          <span class="pill ${p.s}">${STATE[p.s]}</span></span>
+        <span class="last">${I('clock')}${ago(p.last)} gespielt</span>
+      </button>`).join('') : '<p class="empty">Keine Stücke passen zu diesem Filter.</p>';
+    bindSoon();
+  }
+  let toastTimer = 0;
+  function toast(t) {
+    let el = document.querySelector('.toast');
+    if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = t; el.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
+  }
+  function bindSoon() {
+    document.querySelectorAll('[data-soon]').forEach(b => { b.onclick = () => toast(`${b.dataset.soon}: kommt im nächsten Schritt`); });
+  }
+  render();
+})();
+</script>
