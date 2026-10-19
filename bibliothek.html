@@ -61,6 +61,7 @@ button, input, select { font: inherit; color: inherit; }
 .pill.sure { background: var(--good-soft); color: var(--good); }
 .pill.shaky { background: var(--warn-soft); color: var(--warn); }
 .pill.learn { background: var(--accent-soft); color: var(--accent); }
+.pill.open { background: var(--paper); color: var(--muted); border: 1px solid var(--line); }
 .pill.due { background: var(--warn); color: var(--card); }
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; }
 .check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); }
@@ -116,7 +117,25 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .stage { position: relative; overflow: hidden; background: #6d7186; touch-action: none; user-select: none; -webkit-user-select: none; }
 .stage.zoomed { overflow: auto; }
 .sheetwrap { min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 8px; width: max-content; }
-.stage canvas { background: var(--sheet); box-shadow: 0 2px 16px rgba(0,0,0,.35); display: block; flex: none; }
+.sheet { position: relative; flex: none; }
+.stage canvas { display: block; }
+#v-canvas { background: var(--sheet); box-shadow: 0 2px 16px rgba(0,0,0,.35); }
+#v-ink { position: absolute; left: 0; top: 0; pointer-events: none; }
+#viewer.inking .stage { cursor: crosshair; }
+.inkbar {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 8px; box-shadow: 0 6px 24px rgba(0,0,0,.28); max-width: calc(100% - 24px);
+}
+.inkbar button { border: 1px solid transparent; background: transparent; color: var(--ink); border-radius: 9px; min-width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; font-weight: 700; padding: 0 6px; }
+.inkbar button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.inkbar button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.inkbar .sep { width: 1px; height: 26px; background: var(--line); }
+.inkbar .grp { display: flex; align-items: center; gap: 4px; }
+.inkbar .sw { width: 26px; height: 26px; min-width: 26px; border-radius: 50%; padding: 0; border: 2px solid var(--line); }
+.inkbar .sw[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--card) inset; }
+.inkbar .done { background: var(--accent); color: var(--card); padding: 0 12px; }
+.inkbar .armed { background: var(--bad); color: var(--card); }
+#v-textin { position: absolute; z-index: 3; font: 600 16px var(--font-body); padding: 4px 6px; border: 2px solid var(--accent); border-radius: 6px; background: #fff; color: #1d2133; min-width: 120px; }
 .stage .msg { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 600; text-align: center; padding: 20px; }
 .pager {
   display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--card); border-top: 1px solid var(--line);
@@ -196,7 +215,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <div class="field"><span>Stand</span><div class="seg" id="ed-status"></div></div>
     <label class="field"><span>Sammlungen <small class="muted">(mit Komma trennen)</small></span><input type="text" id="ed-coll" autocomplete="off" placeholder="z. B. Repertoire, Unterricht"></label>
     <div class="sugg" id="ed-sugg"></div>
-    <label class="check"><input type="checkbox" id="ed-plan"><span>Im Wiederholungsplan <small class="muted">(kommt als „Stück des Tages“ zum Auffrischen; Stücke mit „Lerne ich“ sind nie im Plan)</small></span></label>
+    <label class="check"><input type="checkbox" id="ed-plan"><span>Im Wiederholungsplan <small class="muted">(kommt als „Stück des Tages“ zum Auffrischen; „Offen“ und „Lerne ich“ sind nie im Plan)</small></span></label>
     <p class="hint" id="ed-info"></p>
     <div class="actions">
       <button type="button" class="btn danger" id="ed-delete" hidden>Löschen</button>
@@ -214,11 +233,13 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   <div class="topbar">
     <button type="button" class="iconbtn" id="v-close" aria-label="Schließen"></button>
     <div class="title" id="v-title"></div>
+    <button type="button" class="btn small" id="v-ink-btn" aria-pressed="false">Stift</button>
     <button type="button" class="btn small" id="v-opts" aria-expanded="false">Ansicht</button>
     <button type="button" class="btn small" id="v-edit">Angaben</button>
   </div>
   <div class="stage" id="v-stage" aria-label="Noten. Rechts tippen: weiter, links tippen: zurück, Mitte: Leisten ein- oder ausblenden.">
-    <div class="sheetwrap" id="v-wrap"><canvas id="v-canvas"></canvas></div>
+    <div class="sheetwrap" id="v-wrap"><div class="sheet" id="v-sheet"><canvas id="v-canvas"></canvas><canvas id="v-ink"></canvas></div></div>
+    <div class="inkbar" id="v-inkbar" hidden></div>
     <div class="msg" id="v-msg" hidden></div>
     <div class="hintbubble" id="v-hint" hidden></div>
     <div class="vpanel" id="v-panel" hidden>
@@ -227,6 +248,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <p class="hint">„Halbe Seite“ zeigt beim Weiterblättern erst die obere Hälfte der nächsten Seite, während du unten noch zu Ende spielst. Gilt bei einer Seite.</p>
       <div class="field"><span>Zoom</span><div class="actions"><button type="button" class="btn small" id="v-zout" aria-label="Verkleinern">−</button><span id="v-zval">100 %</span><button type="button" class="btn small" id="v-zin" aria-label="Vergrößern">+</button><button type="button" class="btn small" id="v-zfit">Ganze Seite</button><button type="button" class="btn small" id="v-zwidth">Seitenbreite</button></div></div>
       <p class="hint">Ist die Seite größer als der Bildschirm, springt Tippen rechts (oder das Pedal) erst zum nächsten Ausschnitt: nach rechts, dann tiefer. Am Seitenende wird umgeblättert.</p>
+      <label class="check"><input type="checkbox" id="v-showink"><span>Markierungen anzeigen</span></label>
+      <label class="check"><input type="checkbox" id="v-penonly"><span>Nur der Apple Pencil zeichnet, der Finger blättert weiter</span></label>
       <p class="hint">Blätterpedal: sendet es Pfeiltasten oder Bild auf/ab, funktioniert es direkt. Leertaste blättert ebenfalls weiter.</p>
     </div>
   </div>
@@ -295,7 +318,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const $ = id => document.getElementById(id);
   const I = NL.icon;
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const STATE = { learn: 'Lerne ich', shaky: 'Holprig', sure: 'Sitzt' };
+  const STATE = { open: 'Offen', learn: 'Lerne ich', shaky: 'Holprig', sure: 'Sitzt' };
 
   // ---------- PDF.js (Notenansicht und Deckblätter) ----------
   const pdfjs = window.pdfjsLib;
@@ -307,8 +330,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const idb = (() => {
     let dbp = null;
     const open = () => dbp || (dbp = new Promise((res, rej) => {
-      const r = indexedDB.open('notenleser', 1);
-      r.onupgradeneeded = () => { r.result.createObjectStore('files'); r.result.createObjectStore('thumbs'); };
+      const r = indexedDB.open('notenleser', 2);
+      r.onupgradeneeded = () => ['files', 'thumbs', 'annots'].forEach(n => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); });
       r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
     }));
     const run = (store, mode, fn) => open().then(db => new Promise((res, rej) => {
@@ -459,7 +482,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       $('ed-genre').value = piece.genre || '';
       $('ed-coll').value = (piece.collections || []).join(', ');
       document.querySelectorAll('input[name="diff"]').forEach(r => { r.checked = +r.value === (piece.difficulty || 3); });
-      document.querySelectorAll('input[name="stat"]').forEach(r => { r.checked = r.value === (piece.status || 'learn'); });
+      document.querySelectorAll('input[name="stat"]').forEach(r => { r.checked = r.value === (piece.status || 'open'); });
       $('ed-info').textContent = info;
       $('ed-plan').checked = !(piece.rep && piece.rep.paused);
       $('ed-delete').hidden = isNew;
@@ -512,7 +535,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   // PDF prüfen, Deckblatt erzeugen und auf dem Gerät ablegen (noch nicht in der Bibliothek)
   async function preparePdf(blob, title) {
     const id = newId();
-    const p = { id, title: title || 'Ohne Titel', composer: '', genre: '', difficulty: 3, status: 'learn', collections: [], added: Date.now(), local: true, size: blob.size };
+    const p = { id, title: title || 'Ohne Titel', composer: '', genre: '', difficulty: 3, status: 'open', collections: [], added: Date.now(), local: true, size: blob.size };
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
     try { p.pages = await makeThumb(id, blob); }
     catch (e) { return null; }
@@ -549,7 +572,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <input type="text" data-t="${i}" value="${esc(guess(f).title)}" aria-label="Titel ${i + 1}" placeholder="Titel">
       <input type="text" data-c="${i}" value="${esc(guess(f).composer)}" list="dl-composer" aria-label="Komponist ${i + 1}" placeholder="Komponist"></div>`).join('');
     $('b-genre').value = ''; $('b-coll').value = ''; $('b-info').textContent = '';
-    document.querySelector('input[name="bstat"][value="learn"]').checked = true;
+    document.querySelector('input[name="bstat"][value="open"]').checked = true;
     $('b-save').disabled = false;
     $('batch').showModal();
     const go = await new Promise(res => {
@@ -628,6 +651,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
           syncLine(`Lösche „${p.title}“ in Google Drive …`);
           // In den Papierkorb von Drive (30 Tage wiederherstellbar)
           await NL.api(`/drive/v3/files/${p.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }).catch(e => { if (e.code !== 404) throw e; });
+          if (p.annotId) await NL.api(`/drive/v3/files/${p.annotId}`, { method: 'DELETE' }).catch(() => {});
           p.trashed = true; changed = true;
           continue;
         }
@@ -656,6 +680,32 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         try { await makeThumb(p.id, blob); } catch (e) {}
         renderGrid();
       }
+      // Markierungen: eine kleine Datei je Stück im versteckten App-Bereich, Striche beider Geräte werden vereinigt
+      let annChanged = false;
+      for (const p of pieces()) {
+        if ($('viewer').open && V.id === p.id) continue;      // offenes Stück erst nach dem Schließen
+        const a = await idb.get('annots', p.id);
+        const remoteNewer = p.annotId && (p.annotRev || 0) > ((a && a.rev) || 0);
+        if (!(a && a.dirty) && !remoteNewer) continue;
+        syncLine(`Markierungen: „${p.title}“ …`, 'pencil');
+        let remote = null;
+        if (p.annotId) { try { remote = await (await NL.api(`/drive/v3/files/${p.annotId}?alt=media`)).json(); } catch (e) { if (e.code !== 404) throw e; p.annotId = null; } }
+        const merged = mergeAnnot(a, remote);
+        if (a && a.dirty) {
+          const body = JSON.stringify({ strokes: merged.strokes, del: merged.del, rev: merged.rev });
+          if (p.annotId) await NL.api(`/upload/drive/v3/files/${p.annotId}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
+          else {
+            const bd = 'nl' + Math.random().toString(36).slice(2);
+            const mp = `--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: `annot-${p.id}.json`, parents: ['appDataFolder'] })}\r\n--${bd}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${bd}--`;
+            p.annotId = (await (await NL.api('/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + bd }, body: mp })).json()).id;
+          }
+          // neuer Zeitstempel erst nach dem Hochladen: dann holen die anderen Geräte garantiert den neuen Stand
+          p.annotRev = Date.now(); touch(p); annChanged = true;
+        }
+        merged.dirty = false; merged.rev = Math.max(merged.rev || 0, p.annotRev || 0);
+        await idb.put('annots', p.id, merged);
+      }
+      if (annChanged) saveLib();
       syncLine('');
     } catch (e) {
       syncLine(e.code === 401 ? 'Google-Anmeldung abgelaufen. Tippe oben auf das Wolken-Symbol.' : 'Abgleich der Noten unterbrochen. Er wird später fortgesetzt.', 'cloudOff');
@@ -677,11 +727,13 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const stage = () => $('v-stage');
   // Querformat (breiter als hoch) zeigt automatisch zwei Seiten nebeneinander
   const twoUp = () => n() > 1 && (VS.layout === '2' || (VS.layout === 'auto' && stage().clientWidth > stage().clientHeight * 1.15));
-  const halfMode = () => VS.turn === 'half' && !twoUp();
+  const halfMode = () => VS.turn === 'half' && !twoUp() && !A.editing;
 
   async function openViewer(id) {
     const p = lib.pieces[id];
     if (!p) return;
+    if (A.editing) setEditing(false);
+    A.data = null;
     V.id = id; V.page = 1; V.half = false; V.zoom = VS.zoom || 1; V.cache.clear(); V.openedAt = Date.now();
     $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`;
     $('v-canvas').hidden = true; $('v-panel').hidden = true; $('viewer').classList.remove('immersive');
@@ -703,6 +755,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       V.doc = await openPdf(blob);
       msg.hidden = true; $('v-canvas').hidden = false;
       p.opened = Date.now(); touch(p); saveLib();
+      await loadAnnot(id);
       await renderPage();
       showHint('Rechts tippen: weiter · links: zurück · Mitte: Leisten ausblenden');
     } catch (e) { msg.textContent = e.message || 'Die Noten konnten nicht geöffnet werden.'; }
@@ -755,12 +808,15 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       const ctx = c.getContext('2d');
       ctx.fillStyle = '#6d7186'; ctx.fillRect(0, 0, c.width, c.height);
       const k = s * dpr;
+      // Wo liegt welche Seite (CSS-Pixel)? Für das Zeichnen und Anzeigen der Markierungen
+      V.rects = [{ pg: V.page, x: 0, y: 0, w: pw * s, h: ph * s }];
       if (two) {
         ctx.drawImage(await pageImage(V.page, k), 0, 0);
         if (V.page + 1 <= n()) {
           const [pw2, ph2] = await pageSize(V.page + 1);
           const k2 = Math.min(pw * k / pw2, ph * k / ph2);
           ctx.drawImage(await pageImage(V.page + 1, k2), Math.round((pw * s + gap) * dpr), 0);
+          V.rects.push({ pg: V.page + 1, x: pw * s + gap, y: 0, w: pw2 * k2 / dpr, h: ph2 * k2 / dpr });
         }
         $('v-page').textContent = `${V.page}${V.page + 1 <= n() ? '–' + (V.page + 1) : ''} / ${n()}`;
       } else if (halfMode() && V.half && V.page < n()) {
@@ -772,11 +828,14 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         ctx.drawImage(nxt, 0, 0, nxt.width, Math.min(nxt.height, mid), 0, 0, c.width, Math.min(nxt.height, mid));
         ctx.drawImage(cur, 0, mid, cur.width, cur.height - mid, 0, mid, c.width, cur.height - mid);
         ctx.fillStyle = '#2d4bd0'; ctx.fillRect(0, mid - Math.round(2 * dpr), c.width, Math.round(4 * dpr));
+        const [, ph2] = await pageSize(V.page + 1);
+        V.rects = [{ pg: V.page + 1, x: 0, y: 0, w: cssW, h: ph2 * cssW / pw2, cy0: 0, cy1: cssH / 2 }, { pg: V.page, x: 0, y: 0, w: cssW, h: cssH, cy0: cssH / 2, cy1: cssH }];
         $('v-page').textContent = `${V.page + 1} oben · ${V.page} unten / ${n()}`;
       } else {
         ctx.drawImage(await pageImage(V.page, k), 0, 0);
         $('v-page').textContent = `${V.page} / ${n()}`;
       }
+      drawInk();
       st.classList.toggle('zoomed', cssW > W + 2 || cssH > H + 2);
       if (V.toEnd) { V.toEnd = false; st.scrollTo(st.scrollWidth, st.scrollHeight); }
       const ztxt = `${VS.fit === 'width' ? 'Seitenbreite' : 'Ganze Seite'}${V.zoom > 1.001 ? ` · ${Math.round(V.zoom * 100)} %` : ''}`;
@@ -857,14 +916,20 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     $('v-panel').hidden = !open; $('v-opts').setAttribute('aria-expanded', String(open));
     document.querySelector(`input[name="vlay"][value="${VS.layout}"]`).checked = true;
     document.querySelector(`input[name="vturn"][value="${VS.turn}"]`).checked = true;
+    $('v-showink').checked = VS.showInk !== false;
+    $('v-penonly').checked = !!VS.penOnly;
   });
   $('v-panel').addEventListener('change', e => {
     if (e.target.name === 'vlay') VS.layout = e.target.value;
     if (e.target.name === 'vturn') { VS.turn = e.target.value; V.half = false; }
+    if (e.target.id === 'v-showink') VS.showInk = e.target.checked;
+    if (e.target.id === 'v-penonly') { VS.penOnly = e.target.checked; VS.penSeen = true; }
     saveVS(); V.cache.clear(); renderPage();
   });
   $('v-close').addEventListener('click', () => $('viewer').close());
   $('viewer').addEventListener('close', () => {
+    if (A.editing) setEditing(false);
+    saveAnnot();
     if (V.doc) { V.doc.destroy(); V.doc = null; }
     V.cache.clear();
     if (wake) { wake.release().catch(() => {}); wake = null; }
@@ -874,12 +939,228 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (p && !p.deleted && !NL.rep.ratedToday(p) && (fromHeute || Date.now() - V.openedAt > 20000)) askRating(p);
     else if (fromHeute) { fromHeute = false; location.href = './'; }
   });
+  // ---------- Markierungen: Stift, Textmarker, Radierer, Text, Fingersatz ----------
+  // Gespeichert je Stück als Liste von Strichen in Seitenkoordinaten (0–1), unabhängig von Zoom und Gerät.
+  // Gelöschtes wird vermerkt, damit PC und iPad ihre Änderungen ohne Verlust zusammenführen können.
+  const INK = { pen: ['#1d2133', '#2d4bd0', '#c3302d', '#1d8549'], hl: ['#ffe14d', '#7ee08a', '#ff9fd0', '#8fd0ff'] };
+  const A = { data: null, editing: false, tool: 'pen', color: { pen: INK.pen[0], hl: INK.hl[0] }, digit: '1', undo: [], drawing: null, saveTimer: 0, textAt: null };
+  const blankAnnot = () => ({ strokes: [], del: [], rev: 0, dirty: false });
+  const sid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function mergeAnnot(a, b) {
+    a = a || blankAnnot(); b = b || blankAnnot();
+    const del = [...new Set([...(a.del || []), ...(b.del || [])])], gone = new Set(del);
+    const byId = new Map();
+    [...(b.strokes || []), ...(a.strokes || [])].forEach(x => byId.set(x.id, x));
+    return { strokes: [...byId.values()].filter(x => !gone.has(x.id)), del, rev: Math.max(a.rev || 0, b.rev || 0), dirty: !!a.dirty };
+  }
+  async function loadAnnot(id) { A.data = (await idb.get('annots', id).catch(() => null)) || blankAnnot(); A.undo = []; }
+  function annotChanged() {
+    A.data.dirty = true;
+    drawInk();
+    clearTimeout(A.saveTimer);
+    A.saveTimer = setTimeout(saveAnnot, 700);
+  }
+  async function saveAnnot() {
+    clearTimeout(A.saveTimer);
+    const id = V.id, data = A.data;
+    if (!data || !id || !data.dirty) return;
+    data.rev = Date.now();
+    await idb.put('annots', id, data);
+    const p = lib.pieces[id];
+    if (p) { p.annotRev = data.rev; touch(p); saveLib(); }
+    if (!$('viewer').open) syncFiles();
+  }
+  const visible = () => VS.showInk !== false || A.editing;
+  function drawInk() {
+    const ink = $('v-ink'), c = $('v-canvas');
+    if (ink.width !== c.width || ink.height !== c.height) { ink.width = c.width; ink.height = c.height; }
+    ink.style.width = c.style.width; ink.style.height = c.style.height;
+    const ctx = ink.getContext('2d');
+    ctx.clearRect(0, 0, ink.width, ink.height);
+    if (!A.data || !visible()) return;
+    const k = ink.width / (parseFloat(c.style.width) || 1);
+    ctx.save(); ctx.scale(k, k);
+    for (const r of V.rects || []) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(r.x, r.cy0 ?? r.y, r.w, (r.cy1 ?? r.y + r.h) - (r.cy0 ?? r.y)); ctx.clip();
+      A.data.strokes.filter(x => x.pg === r.pg).forEach(x => paintStroke(ctx, x, r));
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  function paintStroke(ctx, st, r, from = 1) {
+    const X = x => r.x + x * r.w, Y = y => r.y + y * r.h;
+    if (st.t === 'text') {
+      ctx.fillStyle = st.c; ctx.font = `${st.b ? 700 : 600} ${st.s * r.w}px Figtree, system-ui, sans-serif`;
+      ctx.textBaseline = 'middle'; ctx.textAlign = st.b ? 'center' : 'left';
+      ctx.fillText(st.v, X(st.x), Y(st.y));
+      return;
+    }
+    const p = st.pts;
+    if (!p.length) return;
+    ctx.strokeStyle = st.c; ctx.fillStyle = st.c; ctx.lineJoin = 'round';
+    if (st.t === 'hl') {
+      ctx.globalAlpha = 0.4; ctx.lineCap = 'round'; ctx.lineWidth = st.w * r.w;
+      ctx.beginPath(); ctx.moveTo(X(p[0][0]), Y(p[0][1])); p.forEach(q => ctx.lineTo(X(q[0]), Y(q[1]))); ctx.stroke();
+      ctx.globalAlpha = 1;
+      return;
+    }
+    // Stift: Strichstärke folgt dem Druck des Pencils
+    ctx.lineCap = 'round';
+    if (p.length === 1) { ctx.beginPath(); ctx.arc(X(p[0][0]), Y(p[0][1]), st.w * r.w * 0.6, 0, 7); ctx.fill(); return; }
+    for (let i = Math.max(1, from); i < p.length; i++) {
+      ctx.lineWidth = st.w * r.w * (0.45 + (p[i - 1][2] + p[i][2]) * 0.55);
+      ctx.beginPath(); ctx.moveTo(X(p[i - 1][0]), Y(p[i - 1][1])); ctx.lineTo(X(p[i][0]), Y(p[i][1])); ctx.stroke();
+    }
+  }
+  // Zeiger → Seite und Seitenkoordinaten
+  function hitPage(e) {
+    const b = $('v-canvas').getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top;
+    const r = (V.rects || []).find(q => x >= q.x && x <= q.x + q.w && y >= (q.cy0 ?? q.y) && y <= (q.cy1 ?? q.y + q.h));
+    return r ? { r, nx: (x - r.x) / r.w, ny: (y - r.y) / r.h } : null;
+  }
+  const r4 = v => Math.round(v * 10000) / 10000;
+  // Darf dieser Zeiger zeichnen? Pencil und Maus immer, der Finger nur ohne „Nur der Apple Pencil zeichnet“
+  function inkPointer(e) {
+    if (!(e.pointerType === 'pen' || e.pointerType === 'mouse' || !VS.penOnly)) return false;
+    const h = hitPage(e);
+    if (!h) return false;
+    e.preventDefault();
+    if (A.tool === 'fing') { addStroke({ t: 'text', b: 1, v: A.digit, x: r4(h.nx), y: r4(h.ny), s: 0.026, c: A.color.pen, pg: h.r.pg }); return true; }
+    if (A.tool === 'text') { openText(e, h); return true; }
+    stage().setPointerCapture(e.pointerId);
+    if (A.tool === 'erase') { A.drawing = { pid: e.pointerId, erase: [] }; eraseAt(h); return true; }
+    const st = { id: sid(), t: A.tool, pg: h.r.pg, c: A.color[A.tool], w: A.tool === 'hl' ? 0.02 : 0.0028, pts: [[r4(h.nx), r4(h.ny), r4(e.pointerType === 'pen' ? e.pressure : 0.5)]] };
+    A.drawing = { pid: e.pointerId, st, r: h.r };
+    return true;
+  }
+  function inkMove(e) {
+    const d = A.drawing;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    if (!evs.length) evs.push(e);
+    if (d.erase) { evs.forEach(ev => { const h = hitPage(ev); if (h) eraseAt(h); }); return; }
+    const b = $('v-canvas').getBoundingClientRect(), from = d.st.pts.length;
+    for (const ev of evs) {
+      const nx = (ev.clientX - b.left - d.r.x) / d.r.w, ny = (ev.clientY - b.top - d.r.y) / d.r.h;
+      const last = d.st.pts[d.st.pts.length - 1];
+      if (Math.hypot((nx - last[0]) * d.r.w, (ny - last[1]) * d.r.h) < 1.2) continue;
+      d.st.pts.push([r4(nx), r4(ny), r4(ev.pointerType === 'pen' ? ev.pressure : 0.5)]);
+    }
+    // nur das neue Stück des Strichs zeichnen (flüssig auch bei vielen Markierungen)
+    const ink = $('v-ink'), ctx = ink.getContext('2d'), k = ink.width / (parseFloat($('v-canvas').style.width) || 1);
+    ctx.save(); ctx.scale(k, k);
+    if (d.st.t === 'hl') { drawInk(); ctx.restore(); ctx.save(); ctx.scale(k, k); paintStroke(ctx, d.st, d.r); }
+    else paintStroke(ctx, d.st, d.r, from);
+    ctx.restore();
+  }
+  function inkEnd() {
+    const d = A.drawing; A.drawing = null;
+    if (d.erase) { if (d.erase.length) { A.undo.push({ erased: d.erase }); annotChanged(); } return; }
+    addStroke(d.st);
+  }
+  function addStroke(st) {
+    st.id = st.id || sid();
+    A.data.strokes.push(st);
+    A.undo.push({ add: st.id });
+    annotChanged();
+  }
+  function eraseAt(h) {
+    const R = 14 / h.r.w;   // Radius ca. 14 Bildschirmpunkte
+    const hitIt = st => st.pg === h.r.pg && (st.t === 'text'
+      ? Math.hypot(st.x - h.nx, (st.y - h.ny) * h.r.h / h.r.w) < R * 1.6
+      : st.pts.some(q => Math.hypot(q[0] - h.nx, (q[1] - h.ny) * h.r.h / h.r.w) < R + st.w / 2));
+    const gone = A.data.strokes.filter(hitIt);
+    if (!gone.length) return;
+    A.data.strokes = A.data.strokes.filter(x => !gone.includes(x));
+    A.data.del.push(...gone.map(x => x.id));
+    A.drawing.erase.push(...gone);
+    drawInk();
+  }
+  function inkUndo() {
+    const u = A.undo.pop();
+    if (!u) return;
+    if (u.add) { A.data.strokes = A.data.strokes.filter(x => x.id !== u.add); A.data.del.push(u.add); }
+    // Wiederherstellen als neue Striche (die alten gelten auf anderen Geräten schon als gelöscht)
+    if (u.erased) u.erased.forEach(x => A.data.strokes.push({ ...x, id: sid() }));
+    annotChanged();
+  }
+  let clearArmed = 0;
+  function inkClear(btn) {
+    if (Date.now() - clearArmed > 3000) { clearArmed = Date.now(); btn.classList.add('armed'); btn.title = 'Nochmal tippen zum Leeren'; setTimeout(() => btn.classList.remove('armed'), 3000); return; }
+    clearArmed = 0; btn.classList.remove('armed');
+    const pgs = new Set((V.rects || []).map(r => r.pg));
+    const gone = A.data.strokes.filter(x => pgs.has(x.pg));
+    if (!gone.length) return;
+    A.data.strokes = A.data.strokes.filter(x => !pgs.has(x.pg));
+    A.data.del.push(...gone.map(x => x.id));
+    A.undo.push({ erased: gone });
+    annotChanged();
+  }
+  // Text: an der Stelle ein Eingabefeld, Enter übernimmt
+  function openText(e, h) {
+    closeText(false);
+    const inp = document.createElement('input');
+    inp.id = 'v-textin'; inp.type = 'text'; inp.placeholder = 'Text, z. B. „ruhig“, „Ped.“';
+    const sh = $('v-sheet').getBoundingClientRect(), b = $('v-canvas').getBoundingClientRect();
+    inp.style.left = (e.clientX - sh.left) + 'px'; inp.style.top = (e.clientY - sh.top - 18) + 'px';
+    $('v-sheet').appendChild(inp);
+    A.textAt = h;
+    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') closeText(true); if (ev.key === 'Escape') closeText(false); });
+    inp.addEventListener('blur', () => closeText(true));
+    setTimeout(() => inp.focus(), 0);
+  }
+  function closeText(commit) {
+    const inp = $('v-textin');
+    if (!inp) return;
+    const v = inp.value.trim(), h = A.textAt;
+    inp.id = ''; A.textAt = null;          // beim Entfernen feuert „blur“ noch einmal: dann nichts doppelt tun
+    inp.remove();
+    if (commit && v && h) addStroke({ t: 'text', v, x: r4(h.nx), y: r4(h.ny), s: 0.022, c: A.color.pen, pg: h.r.pg });
+  }
+  // Werkzeugleiste
+  function renderInkbar() {
+    const t = A.tool, cols = t === 'hl' ? INK.hl : INK.pen, cur = t === 'hl' ? A.color.hl : A.color.pen;
+    const tb = (tool, icon, label) => `<button type="button" data-tool="${tool}" aria-pressed="${t === tool}" title="${label}" aria-label="${label}">${I(icon)}</button>`;
+    $('v-inkbar').innerHTML = `<span class="grp">${tb('pen', 'pencil', 'Stift') + tb('hl', 'highlighter', 'Textmarker') + tb('erase', 'eraser', 'Radierer') + tb('text', 'text', 'Text')}</span>`
+      + '<span class="sep"></span>'
+      + `<span class="grp">${['1', '2', '3', '4', '5'].map(d => `<button type="button" data-digit="${d}" aria-pressed="${t === 'fing' && A.digit === d}" title="Fingersatz ${d}" aria-label="Fingersatz ${d}">${d}</button>`).join('')}</span>`
+      + '<span class="sep"></span>'
+      + (t === 'erase' ? '' : `<span class="grp">${cols.map(c => `<button type="button" class="sw" data-color="${c}" aria-pressed="${c === cur}" style="background:${c}" aria-label="Farbe ${c}"></button>`).join('')}</span><span class="sep"></span>`)
+      + `<span class="grp"><button type="button" id="ink-undo" title="Rückgängig" aria-label="Rückgängig">${I('undo')}</button>`
+      + `<button type="button" id="ink-clear" title="Markierungen dieser Seite löschen" aria-label="Seite leeren">${I('trash')}</button>`
+      + `<button type="button" class="done" id="ink-done">Fertig</button></span>`;
+  }
+  $('v-inkbar').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    closeText(true);
+    if (b.dataset.tool) A.tool = b.dataset.tool;
+    else if (b.dataset.digit) { A.tool = 'fing'; A.digit = b.dataset.digit; }
+    else if (b.dataset.color) A.color[A.tool === 'hl' ? 'hl' : 'pen'] = b.dataset.color;
+    else if (b.id === 'ink-undo') inkUndo();
+    else if (b.id === 'ink-clear') { inkClear(b); return; }
+    else if (b.id === 'ink-done') { setEditing(false); return; }
+    renderInkbar();
+  });
+  function setEditing(on) {
+    A.editing = on;
+    closeText(true);
+    $('viewer').classList.toggle('inking', on);
+    if (on) $('viewer').classList.remove('immersive');
+    $('v-inkbar').hidden = !on;
+    $('v-ink-btn').setAttribute('aria-pressed', String(on));
+    if (on) { V.half = false; renderInkbar(); }
+    else saveAnnot();
+    renderPage();
+  }
+  $('v-ink-btn').addEventListener('click', e => { e.currentTarget.blur(); if (A.data) setEditing(!A.editing); });
+
   // ---------- Bewertung und Wiederholungsplan ----------
   let fromHeute = false;
   function askRating(p) {
     $('r-h').textContent = `Wie lief „${p.title}“?`;
-    $('r-sub').textContent = p.status === 'learn'
-      ? 'Zählt als Übungstag. Stücke mit „Lerne ich“ kommen nicht in den Wiederholungsplan.'
+    $('r-sub').textContent = p.status === 'learn' || p.status === 'open'
+      ? 'Zählt als Übungstag. Neue Stücke kommen erst mit „Holprig“ oder „Sitzt“ in den Wiederholungsplan.'
       : 'Danach plant die App, wann das Stück wieder dran ist.';
     $('rate').showModal();
   }
@@ -889,7 +1170,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (r && p) {
       const days = NL.rep.rate(p, r);
       saveLib(); NL.markPractice(1); render();
-      toast(p.status === 'learn' ? 'Gespeichert. Übungstag gezählt.' : `Gespeichert. Wieder dran ${days === 1 ? 'morgen' : `in ${days} Tagen`}.`);
+      toast(!NL.rep.inPlan(p) ? 'Gespeichert. Übungstag gezählt.' : `Gespeichert. Wieder dran ${days === 1 ? 'morgen' : `in ${days} Tagen`}.`);
     }
     if (fromHeute) { fromHeute = false; setTimeout(() => { location.href = './'; }, r ? 900 : 0); }
   }
@@ -905,6 +1186,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   // Tastatur und Blätterpedal (Pedale senden meist Pfeiltasten oder Bild auf/ab)
   document.addEventListener('keydown', e => {
     if (!$('viewer').open || $('editor').open || e.target.matches('input, select, textarea')) return;
+    if (A.editing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); inkUndo(); return; }
     if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
     else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); prev(); }
     else if (e.key === '+' || e.key === '=') setZoom(V.zoom * 1.25);
@@ -915,7 +1197,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const pts = new Map();
   let gest = null;
   stage().addEventListener('pointerdown', e => {
-    if (e.target.closest('.vpanel')) return;
+    if (e.target.closest('.vpanel, .inkbar, #v-textin')) return;
+    if (e.pointerType === 'pen' && !VS.penSeen) { VS.penSeen = true; VS.penOnly = true; saveVS(); }
+    if (A.editing && inkPointer(e)) return;
     stage().setPointerCapture(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 1) gest = { kind: 'one', x: e.clientX, y: e.clientY, t: Date.now(), sl: stage().scrollLeft, stp: stage().scrollTop, moved: false };
@@ -925,6 +1209,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     }
   });
   stage().addEventListener('pointermove', e => {
+    if (A.drawing && A.drawing.pid === e.pointerId) { inkMove(e); return; }
     if (!pts.has(e.pointerId) || !gest) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (gest.kind === 'pinch' && pts.size >= 2) {
@@ -940,6 +1225,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     }
   });
   const endPointer = e => {
+    if (A.drawing && A.drawing.pid === e.pointerId) { inkEnd(); return; }
     if (!pts.has(e.pointerId)) return;
     pts.delete(e.pointerId);
     if (!gest) return;
@@ -968,7 +1254,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     try { if ('wakeLock' in navigator && $('viewer').open && document.visibilityState === 'visible') wake = await navigator.wakeLock.request('screen'); } catch (e) {}
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('viewer').open) keepAwake(); });
-  async function removeLocal(id) { await idb.del('files', id).catch(() => {}); await idb.del('thumbs', id).catch(() => {}); }
+  async function removeLocal(id) { for (const st of ['files', 'thumbs', 'annots']) await idb.del(st, id).catch(() => {}); }
 
   // ---------- Scanner: Ecken ziehen, entzerren, Noten säubern ----------
   const S = { pages: [], cur: 0, preview: false, drag: -1 };
