@@ -991,16 +991,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   function paintStroke(ctx, st, r, from = 1) {
     const X = x => r.x + x * r.w, Y = y => r.y + y * r.h;
     if (st.t === 'brk') {
-      // Große Übe-Klammer: senkrechter Strich, oben und unten kurze, leicht geschwungene Enden
-      const x = X(st.x), y1 = Y(st.y1), y2 = Y(st.y2), L = 0.045 * r.w * (st.d === 'close' ? -1 : 1), lift = Math.abs(L) * 0.28;
-      ctx.strokeStyle = st.c; ctx.lineWidth = st.w * r.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // Große Übe-Klammer: senkrechter Strich mit kurzen, geraden Enden und eckigen Ecken
+      const x = X(st.x), y1 = Y(st.y1), y2 = Y(st.y2), L = 0.03 * r.w * (st.d === 'close' ? -1 : 1);
+      ctx.strokeStyle = st.c; ctx.lineWidth = st.w * r.w; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
       ctx.beginPath();
-      ctx.moveTo(x - L * 0.18, y1 + lift * 0.6);
-      ctx.quadraticCurveTo(x + L * 0.25, y1 - lift * 0.15, x + L, y1 - lift);
-      ctx.moveTo(x, y1);
-      ctx.lineTo(x, y2);
-      ctx.moveTo(x - L * 0.05, y2);
-      ctx.quadraticCurveTo(x + L * 0.4, y2 - lift * 0.2, x + L, y2 - lift * 0.45);
+      ctx.moveTo(x + L, y1); ctx.lineTo(x, y1); ctx.lineTo(x, y2); ctx.lineTo(x + L, y2);
       ctx.stroke();
       return;
     }
@@ -1174,8 +1169,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       + `<span class="grp">${['1', '2', '3', '4', '5'].map(d => `<button type="button" data-digit="${d}" aria-pressed="${t === 'fing' && A.digit === d}" title="Fingersatz ${d}" aria-label="Fingersatz ${d}">${d}</button>`).join('')}`
       + `<button type="button" data-mark="check" aria-pressed="${t === 'mark' && A.mark === 'check'}" title="Haken (Absetzen)" aria-label="Haken zum Absetzen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 6"/></svg></button>`
       + `<button type="button" data-mark="x" aria-pressed="${t === 'mark' && A.mark === 'x'}" title="Kreuz" aria-label="Kreuz"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`
-      + `<button type="button" data-brk="open" aria-pressed="${t === 'brk' && A.brk === 'open'}" title="Klammer auf: von oben nach unten ziehen" aria-label="Klammer auf"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 2v20M7 3.5Q10 2.6 16 1.8M7.6 22Q11 21 16 20.8"/></svg></button>`
-      + `<button type="button" data-brk="close" aria-pressed="${t === 'brk' && A.brk === 'close'}" title="Klammer zu: von oben nach unten ziehen" aria-label="Klammer zu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M16 2v20M17 3.5Q14 2.6 8 1.8M16.4 22Q13 21 8 20.8"/></svg></button></span>`
+      + `<button type="button" data-brk="open" aria-pressed="${t === 'brk' && A.brk === 'open'}" title="Klammer auf: von oben nach unten ziehen" aria-label="Klammer auf"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"><path d="M15 3H8v18h7"/></svg></button>`
+      + `<button type="button" data-brk="close" aria-pressed="${t === 'brk' && A.brk === 'close'}" title="Klammer zu: von oben nach unten ziehen" aria-label="Klammer zu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"><path d="M9 3h7v18H9"/></svg></button></span>`
       + '<span class="sep"></span>'
       + (t === 'erase' ? '' : `<span class="grp">${cols.map(c => `<button type="button" class="sw" data-color="${c}" aria-pressed="${c === cur}" style="background:${c}" aria-label="Farbe ${c}"></button>`).join('')}</span><span class="sep"></span>`)
       + `<span class="grp"><button type="button" id="ink-undo" title="Rückgängig" aria-label="Rückgängig">${I('undo')}</button>`
