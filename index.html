@@ -86,6 +86,8 @@ button { font: inherit; cursor: pointer; }
 .next a:hover b { color: var(--accent); }
 .next a span { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 .next a.over span { color: var(--warn); }
+.spotnext { border-top: 0; padding-top: 0; }
+.spotnext a span b { color: var(--ink); }
 .pill.sure { background: var(--good-soft); color: var(--good); border-color: transparent; }
 .pill.shaky { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .pill.learn { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
@@ -124,6 +126,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
 
   <section class="panel" aria-labelledby="h-daily">
     <div class="daily" id="daily"></div>
+  </section>
+
+  <section class="panel" id="spots-card" aria-labelledby="h-spots" hidden>
+    <h2 id="h-spots"><span id="spots-icon"></span>Übestellen</h2>
+    <div class="next spotnext" id="spotlist"></div>
   </section>
 
   <section class="panel resume" aria-label="Weiter üben">
@@ -343,8 +350,18 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     if (url && $('d-cover')) $('d-cover').innerHTML = `<img src="${url}" alt="">`;
   }
 
+  // Übestellen aus den Klammern: was am längsten nicht geübt wurde, zuerst
+  function renderSpots() {
+    const lib = NL.lib.read(), list = [];
+    Object.values(lib.pieces).filter(p => !p.deleted).forEach(p => Object.entries(p.spots || {}).forEach(([id, sp]) => { if (!sp.done) list.push({ p, id, sp }); }));
+    list.sort((a, b) => (a.sp.last || 0) - (b.sp.last || 0));
+    $('spots-card').hidden = !list.length;
+    $('spots-icon').innerHTML = I('clock');
+    $('spotlist').innerHTML = list.slice(0, 4).map(({ p, id, sp }) => `<a href="bibliothek.html#spot-${p.id}-${id}"><b>${esc(sp.name)} · ${esc(p.title)}</b><span>heute <b>${sp.cur}</b> bpm, Ziel ${sp.target}</span></a>`).join('');
+  }
   renderDaily();
-  document.addEventListener('nl-synced', () => renderDaily());
+  renderSpots();
+  document.addEventListener('nl-synced', () => { renderDaily(); renderSpots(); });
   renderStats();
   renderKonto();
   document.addEventListener('nl-status', renderKonto);
