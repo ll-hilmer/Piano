@@ -943,7 +943,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   // Gespeichert je Stück als Liste von Strichen in Seitenkoordinaten (0–1), unabhängig von Zoom und Gerät.
   // Gelöschtes wird vermerkt, damit PC und iPad ihre Änderungen ohne Verlust zusammenführen können.
   const INK = { pen: ['#1d2133', '#2d4bd0', '#c3302d', '#1d8549'], hl: ['#ffe14d', '#7ee08a', '#ff9fd0', '#8fd0ff'] };
-  const A = { data: null, editing: false, tool: 'pen', color: { pen: INK.pen[0], hl: INK.hl[0] }, digit: '1', undo: [], drawing: null, saveTimer: 0, textAt: null };
+  const A = { data: null, editing: false, tool: 'pen', color: { pen: INK.pen[0], hl: INK.hl[0] }, digit: '1', mark: 'check', undo: [], drawing: null, saveTimer: 0, textAt: null };
   const blankAnnot = () => ({ strokes: [], del: [], rev: 0, dirty: false });
   const sid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   function mergeAnnot(a, b) {
@@ -990,8 +990,20 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function paintStroke(ctx, st, r, from = 1) {
     const X = x => r.x + x * r.w, Y = y => r.y + y * r.h;
+    if (st.t === 'mark') {
+      // Haken (Absetzen) und Kreuz als kleine Zeichen, Größe relativ zur Seitenbreite
+      const z = st.s * r.w, cx = X(st.x), cy = Y(st.y);
+      ctx.strokeStyle = st.c; ctx.lineWidth = Math.max(1.2, z * 0.16); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      if (st.m === 'check') { ctx.moveTo(cx - z * 0.45, cy); ctx.lineTo(cx - z * 0.1, cy + z * 0.4); ctx.lineTo(cx + z * 0.55, cy - z * 0.55); }
+      else { ctx.moveTo(cx - z * 0.4, cy - z * 0.4); ctx.lineTo(cx + z * 0.4, cy + z * 0.4); ctx.moveTo(cx + z * 0.4, cy - z * 0.4); ctx.lineTo(cx - z * 0.4, cy + z * 0.4); }
+      ctx.stroke();
+      return;
+    }
     if (st.t === 'text') {
-      ctx.fillStyle = st.c; ctx.font = `${st.b ? 700 : 600} ${st.s * r.w}px Figtree, system-ui, sans-serif`;
+      // Fingersätze (fett) kleiner als normaler Text; gilt auch für schon gesetzte
+      const size = st.b ? Math.min(st.s, 0.019) : st.s;
+      ctx.fillStyle = st.c; ctx.font = `${st.b ? 700 : 600} ${size * r.w}px Figtree, system-ui, sans-serif`;
       ctx.textBaseline = 'middle'; ctx.textAlign = st.b ? 'center' : 'left';
       ctx.fillText(st.v, X(st.x), Y(st.y));
       return;
@@ -1026,7 +1038,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     const h = hitPage(e);
     if (!h) return false;
     e.preventDefault();
-    if (A.tool === 'fing') { addStroke({ t: 'text', b: 1, v: A.digit, x: r4(h.nx), y: r4(h.ny), s: 0.026, c: A.color.pen, pg: h.r.pg }); return true; }
+    if (A.tool === 'fing') { addStroke({ t: 'text', b: 1, v: A.digit, x: r4(h.nx), y: r4(h.ny), s: 0.019, c: A.color.pen, pg: h.r.pg }); return true; }
+    if (A.tool === 'mark') { addStroke({ t: 'mark', m: A.mark, x: r4(h.nx), y: r4(h.ny), s: 0.018, c: A.color.pen, pg: h.r.pg }); return true; }
     if (A.tool === 'text') { openText(e, h); return true; }
     stage().setPointerCapture(e.pointerId);
     if (A.tool === 'erase') { A.drawing = { pid: e.pointerId, erase: [] }; eraseAt(h); return true; }
@@ -1066,7 +1079,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function eraseAt(h) {
     const R = 14 / h.r.w;   // Radius ca. 14 Bildschirmpunkte
-    const hitIt = st => st.pg === h.r.pg && (st.t === 'text'
+    const hitIt = st => st.pg === h.r.pg && (st.t === 'text' || st.t === 'mark'
       ? Math.hypot(st.x - h.nx, (st.y - h.ny) * h.r.h / h.r.w) < R * 1.6
       : st.pts.some(q => Math.hypot(q[0] - h.nx, (q[1] - h.ny) * h.r.h / h.r.w) < R + st.w / 2));
     const gone = A.data.strokes.filter(hitIt);
@@ -1123,7 +1136,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     const tb = (tool, icon, label) => `<button type="button" data-tool="${tool}" aria-pressed="${t === tool}" title="${label}" aria-label="${label}">${I(icon)}</button>`;
     $('v-inkbar').innerHTML = `<span class="grp">${tb('pen', 'pencil', 'Stift') + tb('hl', 'highlighter', 'Textmarker') + tb('erase', 'eraser', 'Radierer') + tb('text', 'text', 'Text')}</span>`
       + '<span class="sep"></span>'
-      + `<span class="grp">${['1', '2', '3', '4', '5'].map(d => `<button type="button" data-digit="${d}" aria-pressed="${t === 'fing' && A.digit === d}" title="Fingersatz ${d}" aria-label="Fingersatz ${d}">${d}</button>`).join('')}</span>`
+      + `<span class="grp">${['1', '2', '3', '4', '5'].map(d => `<button type="button" data-digit="${d}" aria-pressed="${t === 'fing' && A.digit === d}" title="Fingersatz ${d}" aria-label="Fingersatz ${d}">${d}</button>`).join('')}`
+      + `<button type="button" data-mark="check" aria-pressed="${t === 'mark' && A.mark === 'check'}" title="Haken (Absetzen)" aria-label="Haken zum Absetzen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 6"/></svg></button>`
+      + `<button type="button" data-mark="x" aria-pressed="${t === 'mark' && A.mark === 'x'}" title="Kreuz" aria-label="Kreuz"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>`
       + '<span class="sep"></span>'
       + (t === 'erase' ? '' : `<span class="grp">${cols.map(c => `<button type="button" class="sw" data-color="${c}" aria-pressed="${c === cur}" style="background:${c}" aria-label="Farbe ${c}"></button>`).join('')}</span><span class="sep"></span>`)
       + `<span class="grp"><button type="button" id="ink-undo" title="Rückgängig" aria-label="Rückgängig">${I('undo')}</button>`
@@ -1136,6 +1151,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     closeText(true);
     if (b.dataset.tool) A.tool = b.dataset.tool;
     else if (b.dataset.digit) { A.tool = 'fing'; A.digit = b.dataset.digit; }
+    else if (b.dataset.mark) { A.tool = 'mark'; A.mark = b.dataset.mark; }
     else if (b.dataset.color) A.color[A.tool === 'hl' ? 'hl' : 'pen'] = b.dataset.color;
     else if (b.id === 'ink-undo') inkUndo();
     else if (b.id === 'ink-clear') { inkClear(b); return; }
