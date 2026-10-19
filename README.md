@@ -6,9 +6,9 @@ Private Klavier-App: Notenlesen üben, Theorie nachlesen und (im Aufbau) die eig
 
 | Seite | Inhalt |
 |---|---|
-| `index.html` – **Heute** | Weiter üben, Schnellstart, Übungstage (Serie, Woche, Kalender), Google-Drive-Konto |
+| `index.html` – **Heute** | Stück des Tages aus den eigenen Noten (Wiederholungsplan), als Nächstes fällige Stücke, Weiter üben, Schnellstart, Übungstage (Serie mit einem Joker-Tag pro Woche, Woche, Kalender), Google-Drive-Konto |
 | `ueben.html` – **Üben** | alle Übungen (bisher `index.html`; alte Links mit `#ueben-…` werden weitergeleitet) |
-| `bibliothek.html` – **Bibliothek** | eigene Noten: PDF-Import (auch mehrere per Drag & Drop), Scannen (Ecken ziehen, entzerren, „Saubere Noten“), Angaben (Komponist, Genre, Schwierigkeit, Stand, Sammlungen), Suche, Filter; Notenansicht mit zwei Seiten im Querformat, halbem Umblättern, Blätterpedal, Zoom, Bildschirm bleibt an, offline; PDFs im Drive-Ordner „Klavier-App“, Kopie auf jedem Gerät |
+| `bibliothek.html` – **Bibliothek** | eigene Noten: PDF-Import (auch mehrere per Drag & Drop), Scannen (Ecken ziehen, entzerren, „Saubere Noten“), Angaben (Komponist, Genre, Schwierigkeit, Stand, Sammlungen), Suche, Filter; Bewertung nach dem Spielen (lief gut / holprig / vergessen) mit Wiederholungsplan; Notenansicht mit zwei Seiten im Querformat, halbem Umblättern, Blätterpedal, Zoom, Bildschirm bleibt an, offline; PDFs im Drive-Ordner „Klavier-App“, Kopie auf jedem Gerät |
 | `theorie.html` – **Theorie** | Musiktheorie mit Notenbeispielen |
 | `shared.js`, `shared.css` | Navigation mit Symbolen, Hell/Dunkel, Abgleich über Google Drive |
 | `sw.js` | Offline-Speicher der App (Service Worker); Version wird beim Bauen gesetzt |

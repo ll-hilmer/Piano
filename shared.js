@@ -173,6 +173,105 @@
     }
   }
 
+  // ---------- Repertoire: Wiederholungsplan, Stück des Tages, Übungstage ----------
+  const DAY = 86400000;
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const startOfDay = (t = Date.now()) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  NL.dayKey = dayKey;
+  NL.lib = {
+    read: () => { const l = readJSON('nl-library', null) || {}; l.pieces = l.pieces || {}; return l; },
+    write: l => { l._mod = Date.now(); writeJSON('nl-library', l); NL.changed(); }
+  };
+  // Übungstag vermerken (zählt für Serie und Kalender), auch wenn nur aus eigenen Noten gespielt wurde
+  NL.markPractice = (n = 1) => {
+    const st = readJSON('notenleser-v1', {}) || {};
+    st.days = st.days || {};
+    const d = st.days[dayKey()] = typeof st.days[dayKey()] === 'object' ? st.days[dayKey()] : {};
+    d[NL.device] = (d[NL.device] || 0) + n;
+    st._mod = Date.now();
+    writeJSON('notenleser-v1', st);
+    NL.changed();
+  };
+  const RATE = { good: 'Lief gut', shaky: 'Holprig', forgot: 'Vergessen' };
+  NL.rep = {
+    RATE,
+    // Im Plan: alles außer „Lerne ich“, sofern nicht pausiert
+    inPlan: p => !p.deleted && p.status !== 'learn' && !(p.rep && p.rep.paused),
+    // Noch nie bewertet: ab dem Tag nach dem Hinzufügen fällig (bloßes Ansehen verschiebt nichts)
+    due: p => (p.rep && p.rep.due) || startOfDay((p.added || Date.now()) + DAY),
+    daysUntil: p => Math.round((startOfDay(NL.rep.due(p)) - startOfDay()) / DAY),
+    dueText(p) {
+      const n = NL.rep.daysUntil(p);
+      return n < -1 ? `seit ${-n} Tagen fällig` : n === -1 ? 'seit gestern fällig' : n === 0 ? 'heute fällig' : n === 1 ? 'morgen fällig' : `in ${n} Tagen fällig`;
+    },
+    // Bewertung: gut = Abstand verdoppeln, holprig = halbieren, vergessen = morgen wieder
+    rate(p, r) {
+      const rp = p.rep = p.rep || {};
+      const prev = rp.interval || Math.max(3, Math.min(30, Math.round((Date.now() - (p.added || Date.now())) / DAY)));
+      rp.interval = r === 'good' ? Math.min(120, Math.max(4, Math.round(prev * 2))) : r === 'shaky' ? Math.min(14, Math.max(2, Math.round(prev / 2))) : 1;
+      rp.due = startOfDay() + rp.interval * DAY;
+      rp.last = Date.now();
+      rp.count = (rp.count || 0) + 1;
+      rp.hist = [...(rp.hist || []), { d: dayKey(), r }].slice(-12);
+      const lastTwo = rp.hist.slice(-2).map(h => h.r);
+      if (r === 'forgot' || (r === 'shaky' && p.status === 'sure')) p.status = 'shaky';
+      else if (r === 'good' && lastTwo.length === 2 && lastTwo.every(x => x === 'good') && p.status !== 'learn') p.status = 'sure';
+      p.opened = Date.now();
+      p.updated = Date.now();
+      return rp.interval;
+    },
+    ratedToday: p => !!(p.rep && p.rep.hist && p.rep.hist.some(h => h.d === dayKey())),
+    // Fällige zuerst; holprige und lange überfällige häufiger, etwas Zufall gegen Eintönigkeit
+    ranked(lib, exclude = []) {
+      return Object.values(lib.pieces).filter(p => NL.rep.inPlan(p) && !exclude.includes(p.id))
+        .map(p => ({ p, score: -NL.rep.daysUntil(p) + (p.status === 'shaky' ? 3 : 0) + Math.random() * 1.5 - (NL.rep.ratedToday(p) ? 50 : 0) }))
+        .sort((a, b) => b.score - a.score).map(x => x.p);
+    },
+    // Stück des Tages: einmal pro Tag gewählt und auf allen Geräten gleich
+    daily(lib, reroll = false) {
+      const today = dayKey(), d = lib.daily;
+      const valid = d && d.date === today && lib.pieces[d.id] && NL.rep.inPlan(lib.pieces[d.id]);
+      if (valid && !reroll) return lib.pieces[d.id];
+      const skip = reroll && d && d.date === today ? [...(d.skipped || []), d.id] : [];
+      const pick = NL.rep.ranked(lib, skip)[0] || (skip.length ? NL.rep.ranked(lib)[0] : null);
+      lib.daily = pick ? { date: today, id: pick.id, t: Date.now(), skipped: skip } : null;
+      NL.lib.write(lib);
+      return pick;
+    }
+  };
+  // Deckblatt eines Stücks aus dem Gerätespeicher der Bibliothek
+  NL.thumb = id => new Promise(res => {
+    try {
+      const r = indexedDB.open('notenleser', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('files'); r.result.createObjectStore('thumbs'); };
+      r.onerror = () => res(null);
+      r.onsuccess = () => {
+        try {
+          const g = r.result.transaction('thumbs').objectStore('thumbs').get(id);
+          g.onsuccess = () => res(g.result ? URL.createObjectURL(g.result) : null);
+          g.onerror = () => res(null);
+        } catch (e) { res(null); }
+      };
+    } catch (e) { res(null); }
+  });
+  // Serie: Tage in Folge mit Übung; ein ausgelassener Tag pro Woche (Mo–So) wird von einem Joker überbrückt
+  NL.streak = days => {
+    const has = d => NL.dayCount(days[dayKey(d)]) > 0;
+    const wk = d => { const m = new Date(d); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return dayKey(m); };
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    const used = {};
+    let streak = 0, pending = null;                   // ein Joker zählt erst, wenn davor wieder geübt wurde
+    if (!has(d)) d.setDate(d.getDate() - 1);          // heute zählt erst, wenn geübt wurde
+    for (let i = 0; i < 800; i++) {
+      if (has(d)) { streak++; if (pending) { used[pending[0]] = pending[1]; pending = null; } }
+      else if (!pending && !used[wk(d)]) pending = [wk(d), dayKey(d)];
+      else break;
+      d.setDate(d.getDate() - 1);
+    }
+    const thisWeek = wk(new Date());
+    return { streak, jokerUsed: used[thisWeek] || null, jokers: used };
+  };
+
   // ---------- Zusammenführen: beide Geräte dürfen geübt haben ----------
   const maxBy = (a, b, f) => (f(a) >= f(b) ? a : b);
   function mergeStore(L, R) {
@@ -205,7 +304,9 @@
     if (!R) return L; if (!L) return R;
     const pieces = { ...(R.pieces || {}) };
     Object.entries(L.pieces || {}).forEach(([id, p]) => { const o = pieces[id]; if (!o || (p.updated || 0) >= (o.updated || 0)) pieces[id] = p; });
-    return { pieces, _mod: Math.max(L._mod || 0, R._mod || 0) };
+    // Stück des Tages: die zuletzt gesetzte Wahl gilt auf allen Geräten
+    const daily = !L.daily ? R.daily : !R.daily ? L.daily : (L.daily.t || 0) >= (R.daily.t || 0) ? L.daily : R.daily;
+    return { pieces, daily, _mod: Math.max(L._mod || 0, R._mod || 0) };
   }
   NL.mergeLibrary = mergeLibrary;
   function mergeAll(local, remote) {

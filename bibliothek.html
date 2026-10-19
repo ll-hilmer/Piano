@@ -61,6 +61,16 @@ button, input, select { font: inherit; color: inherit; }
 .pill.sure { background: var(--good-soft); color: var(--good); }
 .pill.shaky { background: var(--warn-soft); color: var(--warn); }
 .pill.learn { background: var(--accent-soft); color: var(--accent); }
+.pill.due { background: var(--warn); color: var(--card); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; }
+.check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); }
+.rate-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.rate-btns button { display: grid; gap: 4px; justify-items: center; padding: 14px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-weight: 700; cursor: pointer; }
+.rate-btns button small { font-weight: 500; color: var(--muted); font-size: 0.78rem; }
+.rate-btns [data-r="good"] { border-color: var(--good); color: var(--good); background: var(--good-soft); }
+.rate-btns [data-r="shaky"] { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+.rate-btns [data-r="forgot"] { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.rate-btns button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .last { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 .last .ic { width: 14px; height: 14px; }
 
@@ -186,6 +196,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <div class="field"><span>Stand</span><div class="seg" id="ed-status"></div></div>
     <label class="field"><span>Sammlungen <small class="muted">(mit Komma trennen)</small></span><input type="text" id="ed-coll" autocomplete="off" placeholder="z. B. Repertoire, Unterricht"></label>
     <div class="sugg" id="ed-sugg"></div>
+    <label class="check"><input type="checkbox" id="ed-plan"><span>Im Wiederholungsplan <small class="muted">(kommt als „Stück des Tages“ zum Auffrischen; Stücke mit „Lerne ich“ sind nie im Plan)</small></span></label>
     <p class="hint" id="ed-info"></p>
     <div class="actions">
       <button type="button" class="btn danger" id="ed-delete" hidden>Löschen</button>
@@ -220,6 +231,20 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     </div>
   </div>
   <div class="pager"><button type="button" class="iconbtn" id="v-back" aria-label="Zurückblättern"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Weiterblättern"></button><span class="zoom" id="v-zoomtag"></span></div>
+</dialog>
+
+<!-- Wie lief's? -->
+<dialog class="form-dlg" id="rate" aria-labelledby="r-h">
+  <form method="dialog" id="r-form">
+    <h2 id="r-h">Wie lief es?</h2>
+    <p class="hint" id="r-sub"></p>
+    <div class="rate-btns">
+      <button type="button" data-r="good">Lief gut<small>später wieder</small></button>
+      <button type="button" data-r="shaky">Holprig<small>bald wieder</small></button>
+      <button type="button" data-r="forgot">Vergessen<small>morgen wieder</small></button>
+    </div>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="r-skip">Nur angeschaut</button></div>
+  </form>
 </dialog>
 
 <!-- Mehrere PDFs auf einmal -->
@@ -356,7 +381,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       + (colls.length ? `<select id="f-coll" aria-label="Sammlung"><option value="">Alle Sammlungen</option>${colls.map(c => `<option value="${esc(c)}" ${c === view.coll ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>` : '')
       + `<select id="f-lvl" aria-label="Schwierigkeit"><option value="0">Jede Schwierigkeit</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${String(n) === view.level ? 'selected' : ''}>Schwierigkeit ${n}</option>`).join('')}</select>`
       + `<select id="f-status" aria-label="Stand"><option value="">Jeder Stand</option>${Object.entries(STATE).map(([k, v]) => `<option value="${k}" ${k === view.status ? 'selected' : ''}>${v}</option>`).join('')}</select>`
-      + `<select id="f-sort" aria-label="Sortierung">${[['title', 'A–Z'], ['composer', 'Komponist'], ['opened', 'Zuletzt geöffnet'], ['stale', 'Lange nicht geöffnet'], ['added', 'Neu hinzugefügt'], ['diff', 'Schwierigkeit']].map(([k, v]) => `<option value="${k}" ${k === view.sort ? 'selected' : ''}>${v}</option>`).join('')}</select>`
+      + `<select id="f-sort" aria-label="Sortierung">${[['title', 'A–Z'], ['composer', 'Komponist'], ['opened', 'Zuletzt geöffnet'], ['stale', 'Lange nicht geöffnet'], ['added', 'Neu hinzugefügt'], ['diff', 'Schwierigkeit'], ['due', 'Wiederholen: fällig zuerst']].map(([k, v]) => `<option value="${k}" ${k === view.sort ? 'selected' : ''}>${v}</option>`).join('')}</select>`
       + `<span class="count" id="count"></span>`;
     const keep = () => { try { localStorage.setItem('nl-lib-view', JSON.stringify(view)); } catch (e) {} renderGrid(); };
     $('filters').querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { view.genre = b.dataset.g; renderFilters(); keep(); }));
@@ -387,7 +412,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       opened: (a, b) => (b.opened || 0) - (a.opened || 0),
       stale: (a, b) => (a.opened || 0) - (b.opened || 0),
       added: (a, b) => (b.added || 0) - (a.added || 0),
-      diff: (a, b) => (a.difficulty || 0) - (b.difficulty || 0) || a.title.localeCompare(b.title, 'de')
+      diff: (a, b) => (a.difficulty || 0) - (b.difficulty || 0) || a.title.localeCompare(b.title, 'de'),
+      due: (a, b) => (NL.rep.inPlan(b) - NL.rep.inPlan(a)) || NL.rep.due(a) - NL.rep.due(b)
     };
     list.sort(by[view.sort] || by.title);
     if ($('count')) $('count').textContent = `${list.length} ${list.length === 1 ? 'Stück' : 'Stücke'}`;
@@ -397,8 +423,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         <h3>${esc(p.title)}</h3>
         <span class="who">${esc([p.composer, p.genre, p.pages ? `${p.pages} ${p.pages === 1 ? 'Seite' : 'Seiten'}` : ''].filter(Boolean).join(' · '))}</span>
         <span class="meta"><span class="dots" title="Schwierigkeit ${p.difficulty || 0} von 5">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= (p.difficulty || 0) ? 'on' : ''}"></i>`).join('')}</span>
-          <span class="pill ${p.status || 'learn'}">${STATE[p.status || 'learn']}</span></span>
-        <span class="last">${I('clock')}${ago(p.opened)}</span>
+          <span class="pill ${p.status || 'learn'}">${STATE[p.status || 'learn']}</span>${NL.rep.inPlan(p) && NL.rep.daysUntil(p) <= 0 && !NL.rep.ratedToday(p) ? '<span class="pill due">fällig</span>' : ''}</span>
+        <span class="last">${I('clock')}${ago(p.opened)}${NL.rep.inPlan(p) ? ` · ${NL.rep.dueText(p)}` : ''}</span>
       </button>`).join('') : '<p class="muted">Keine Stücke passen zu diesem Filter.</p>';
     $('grid').querySelectorAll('.card').forEach(c => c.addEventListener('click', () => openViewer(c.dataset.id)));
     for (const p of list) {
@@ -435,6 +461,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       document.querySelectorAll('input[name="diff"]').forEach(r => { r.checked = +r.value === (piece.difficulty || 3); });
       document.querySelectorAll('input[name="stat"]').forEach(r => { r.checked = r.value === (piece.status || 'learn'); });
       $('ed-info').textContent = info;
+      $('ed-plan').checked = !(piece.rep && piece.rep.paused);
       $('ed-delete').hidden = isNew;
       $('ed-delete').classList.remove('armed'); $('ed-delete').textContent = 'Löschen';
       $('ed-cancel').textContent = isNew ? 'Überspringen' : 'Abbrechen';
@@ -465,6 +492,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     p.collections = uniq($('ed-coll').value.split(',').map(s => s.trim()));
     p.difficulty = +((document.querySelector('input[name="diff"]:checked') || {}).value || 3);
     p.status = (document.querySelector('input[name="stat"]:checked') || {}).value || 'learn';
+    if (!$('ed-plan').checked || (p.rep && p.rep.paused)) { p.rep = p.rep || {}; p.rep.paused = !$('ed-plan').checked; }
     if (!edit.isNew && p.fileId && fileName(p) !== oldName) p.rename = true;
     touch(p);
     closeEditor(true);
@@ -654,7 +682,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   async function openViewer(id) {
     const p = lib.pieces[id];
     if (!p) return;
-    V.id = id; V.page = 1; V.half = false; V.zoom = VS.zoom || 1; V.cache.clear();
+    V.id = id; V.page = 1; V.half = false; V.zoom = VS.zoom || 1; V.cache.clear(); V.openedAt = Date.now();
     $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`;
     $('v-canvas').hidden = true; $('v-panel').hidden = true; $('viewer').classList.remove('immersive');
     const msg = $('v-msg');
@@ -841,7 +869,33 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     V.cache.clear();
     if (wake) { wake.release().catch(() => {}); wake = null; }
     renderGrid();
+    // Nach dem Spielen (ab 20 Sekunden geöffnet oder vom „Stück des Tages“): kurz bewerten
+    const p = lib.pieces[V.id];
+    if (p && !p.deleted && !NL.rep.ratedToday(p) && (fromHeute || Date.now() - V.openedAt > 20000)) askRating(p);
+    else if (fromHeute) { fromHeute = false; location.href = './'; }
   });
+  // ---------- Bewertung und Wiederholungsplan ----------
+  let fromHeute = false;
+  function askRating(p) {
+    $('r-h').textContent = `Wie lief „${p.title}“?`;
+    $('r-sub').textContent = p.status === 'learn'
+      ? 'Zählt als Übungstag. Stücke mit „Lerne ich“ kommen nicht in den Wiederholungsplan.'
+      : 'Danach plant die App, wann das Stück wieder dran ist.';
+    $('rate').showModal();
+  }
+  function finishRating(r) {
+    const p = lib.pieces[V.id];
+    $('rate').close();
+    if (r && p) {
+      const days = NL.rep.rate(p, r);
+      saveLib(); NL.markPractice(1); render();
+      toast(p.status === 'learn' ? 'Gespeichert. Übungstag gezählt.' : `Gespeichert. Wieder dran ${days === 1 ? 'morgen' : `in ${days} Tagen`}.`);
+    }
+    if (fromHeute) { fromHeute = false; setTimeout(() => { location.href = './'; }, r ? 900 : 0); }
+  }
+  document.querySelectorAll('#rate [data-r]').forEach(b => b.addEventListener('click', () => finishRating(b.dataset.r)));
+  $('r-skip').addEventListener('click', () => finishRating(null));
+  $('rate').addEventListener('cancel', e => { e.preventDefault(); finishRating(null); });
   $('v-edit').addEventListener('click', async () => {
     const p = lib.pieces[V.id];
     const r = await openEditor(p, false);
@@ -1143,5 +1197,12 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 
   render();
   syncFiles();
+  // Aus „Heute“ geöffnet: bibliothek.html#play-<id>
+  const m = location.hash.match(/^#play-(\w+)$/);
+  if (m && lib.pieces[m[1]] && !lib.pieces[m[1]].deleted) {
+    try { fromHeute = sessionStorage.getItem('nl-from-heute') === '1'; sessionStorage.removeItem('nl-from-heute'); } catch (e) {}
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    openViewer(m[1]);
+  }
 })();
 </script>

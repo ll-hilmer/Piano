@@ -69,9 +69,27 @@ button { font: inherit; cursor: pointer; }
 .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
 
 /* Vorschau künftiger Funktionen */
-.soon { border-style: dashed; background: transparent; }
-.soon .row { display: flex; gap: 14px; align-items: center; }
-.soon .ic.big { width: 34px; height: 34px; color: var(--muted); }
+/* Stück des Tages */
+.daily { display: grid; grid-template-columns: auto 1fr; gap: 14px 18px; align-items: start; }
+.daily .cover { width: 92px; aspect-ratio: 210 / 297; border-radius: 6px; border: 1px solid var(--line); background: #fdfcf8; overflow: hidden; display: grid; place-items: center; color: #8a8fa3; }
+.daily .cover img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.daily .body { display: grid; gap: 6px; min-width: 0; }
+.daily .eyebrow { font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 6px; }
+.daily .eyebrow .ic { width: 16px; height: 16px; }
+.daily h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
+.daily .why { color: var(--muted); font-size: 0.9rem; }
+.daily .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.daily .done { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--good); }
+.next { display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 10px; grid-column: 1 / -1; }
+.next h4 { margin: 0 0 4px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.next a { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; color: var(--ink); text-decoration: none; border-radius: 6px; }
+.next a:hover b { color: var(--accent); }
+.next a span { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+.next a.over span { color: var(--warn); }
+.pill.sure { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.pill.shaky { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.kpi small { font-size: 0.72rem; color: var(--muted); }
+@media (max-width: 480px) { .daily { grid-template-columns: 1fr; } .daily .cover { width: 120px; } }
 .pill { font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 2px 9px; background: var(--paper); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
 
 /* Drive-Konto */
@@ -103,6 +121,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     <p class="date" id="date"></p>
   </header>
 
+  <section class="panel" aria-labelledby="h-daily">
+    <div class="daily" id="daily"></div>
+  </section>
+
   <section class="panel resume" aria-label="Weiter üben">
     <div class="badge" id="resume-icon"></div>
     <div class="txt">
@@ -121,24 +143,13 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
   <section class="panel" aria-labelledby="h-week">
     <h2 id="h-week"><span id="cal-icon"></span>Dein Üben</h2>
     <div class="kpis">
-      <div class="kpi"><b id="k-streak">0</b><span>Tage in Folge</span></div>
+      <div class="kpi"><b id="k-streak">0</b><span>Tage in Folge</span><small id="k-joker"></small></div>
       <div class="kpi"><b id="k-week">0 / 7</b><span>Tage diese Woche</span></div>
       <div class="kpi"><b id="k-today">0</b><span>Antworten heute</span></div>
       <div class="kpi"><b id="k-best">0</b><span>Rekord: richtig in Folge</span></div>
     </div>
     <div class="cal-wrap"><div class="cal" id="cal" role="img" aria-label="Übungskalender der letzten Wochen"></div></div>
     <div class="legend"><span>weniger</span><i style="background:var(--paper);border:1px solid var(--line)"></i><i style="background:color-mix(in srgb, var(--good) 30%, var(--card))"></i><i style="background:color-mix(in srgb, var(--good) 60%, var(--card))"></i><i style="background:var(--good)"></i><span>mehr</span></div>
-  </section>
-
-  <section class="panel soon" aria-labelledby="h-soon">
-    <h2 id="h-soon">Bald hier</h2>
-    <div class="row">
-      <span id="soon-icon"></span>
-      <div>
-        <b>Stück des Tages</b> <span class="pill">mit der Bibliothek</span>
-        <p class="note">Aus deinen eigenen Noten wählt die App jeden Tag ein Stück zum Auffrischen. Was holprig lief oder lange nicht dran war, kommt öfter. Dazu eine Serie mit Joker-Tagen.</p>
-      </div>
-    </div>
   </section>
 
   <section class="panel" id="konto" aria-labelledby="h-konto">
@@ -169,7 +180,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
   ];
   $('tiles').innerHTML = QUICK.map(([ic, t, s, id]) => `<a class="tile" href="ueben.html#${id}">${I(ic)}<span>${t}</span><small>${s}</small></a>`).join('');
   $('cal-icon').innerHTML = I('calendar');
-  $('soon-icon').innerHTML = I('shuffle', 'big');
   $('konto-icon').innerHTML = I('cloud');
   $('resume-icon').innerHTML = I('play');
   $('resume-go').innerHTML = `Weiter ${I('arrow')}`;
@@ -195,10 +205,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     const count = d => NL.dayCount(days[dayKey(d)]);
     const has = d => count(d) > 0;
     const d = new Date(now); d.setHours(12, 0, 0, 0);
-    let streak = 0;
-    const cur = new Date(d);
-    if (!has(cur)) cur.setDate(cur.getDate() - 1);          // heute noch nicht geübt: Serie von gestern zählt weiter
-    while (has(cur)) { streak++; cur.setDate(cur.getDate() - 1); }
+    const { streak, jokerUsed } = NL.streak(days);
+    $('k-joker').textContent = jokerUsed
+      ? `Joker diese Woche genutzt (${new Date(jokerUsed + 'T12:00').toLocaleDateString('de-DE', { weekday: 'short' })})`
+      : 'Joker diese Woche noch frei';
     const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     let week = 0;
     for (let k = 0; k < 7; k++) { const x = new Date(monday); x.setDate(monday.getDate() + k); if (x <= d && has(x)) week++; }
@@ -289,6 +299,51 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     }));
   }
 
+  // ---------- Stück des Tages ----------
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const STATE = { learn: 'Lerne ich', shaky: 'Holprig', sure: 'Sitzt' };
+  const playHref = id => `bibliothek.html#play-${id}`;
+  async function renderDaily(reroll = false) {
+    const box = $('daily');
+    const lib = NL.lib.read();
+    const all = Object.values(lib.pieces).filter(p => !p.deleted);
+    const head = `<div class="eyebrow" id="h-daily">${I('shuffle')}Stück des Tages</div>`;
+    if (!all.length || !all.some(NL.rep.inPlan)) {
+      box.innerHTML = `<div class="cover">${I('bibliothek')}</div><div class="body">${head}
+        <h3>${all.length ? 'Noch nichts zum Auffrischen' : 'Noch keine eigenen Noten'}</h3>
+        <span class="why">${all.length
+          ? 'Stücke mit dem Stand „Sitzt“ oder „Holprig“ kommen hier zum Auffrischen. „Lerne ich“-Stücke bleiben außen vor.'
+          : 'Importiere deine Noten in der Bibliothek. Danach schlägt dir die App hier jeden Tag ein Stück zum Auffrischen vor.'}</span>
+        <div class="row"><a class="btn primary" href="bibliothek.html">${I('bibliothek')}Zur Bibliothek</a></div></div>`;
+      return;
+    }
+    const p = NL.rep.daily(lib, reroll);
+    const done = NL.rep.ratedToday(p);
+    const last = p.rep && p.rep.hist && p.rep.hist[p.rep.hist.length - 1];
+    const ago = p.opened ? Math.max(0, Math.round((Date.now() - p.opened) / 86400000)) : null;
+    const why = [
+      ago == null ? 'noch nie gespielt' : ago === 0 ? 'heute geöffnet' : ago === 1 ? 'gestern gespielt' : `vor ${ago} Tagen gespielt`,
+      last && !done ? `zuletzt: ${NL.rep.RATE[last.r].toLowerCase()}` : '',
+      done ? '' : NL.rep.dueText(p)
+    ].filter(Boolean).join(' · ');
+    box.innerHTML = `<div class="cover" id="d-cover">${I('music')}</div><div class="body">${head}
+      <h3>${esc(p.title)}</h3>
+      <span class="why">${esc(p.composer || '')}${p.composer ? ' · ' : ''}<span class="pill ${p.status}">${STATE[p.status]}</span></span>
+      <span class="why">${esc(why)}</span>
+      <div class="row">${done
+        ? `<span class="done">${I('cloudOk')}Heute gespielt: ${NL.rep.RATE[last.r]}</span><button type="button" class="btn" id="d-more">${I('shuffle')}Noch eins</button>`
+        : `<a class="btn primary" href="${playHref(p.id)}" id="d-play">${I('play')}Spielen</a><button type="button" class="btn" id="d-other">${I('shuffle')}Anderes Stück</button>`}</div></div>`;
+    const next = NL.rep.ranked(lib, [p.id]).slice(0, 4);
+    if (next.length) box.innerHTML += `<div class="next"><h4>Als Nächstes wiederholen</h4>${next.map(q => `<a href="${playHref(q.id)}" class="${NL.rep.daysUntil(q) < 0 ? 'over' : ''}"><b>${esc(q.title)}</b><span>${NL.rep.dueText(q)}</span></a>`).join('')}</div>`;
+    box.querySelectorAll('a[href^="bibliothek.html#play-"]').forEach(a => a.addEventListener('click', () => { try { sessionStorage.setItem('nl-from-heute', '1'); } catch (e) {} }));
+    const other = $('d-other') || $('d-more');
+    if (other) other.addEventListener('click', () => renderDaily(true));
+    const url = await NL.thumb(p.id);
+    if (url && $('d-cover')) $('d-cover').innerHTML = `<img src="${url}" alt="">`;
+  }
+
+  renderDaily();
+  document.addEventListener('nl-synced', () => renderDaily());
   renderStats();
   renderKonto();
   document.addEventListener('nl-status', renderKonto);
