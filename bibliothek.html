@@ -214,7 +214,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <div class="field"><span>Seiten</span><div class="seg" id="v-layout"></div></div>
       <div class="field"><span>Blättern</span><div class="seg" id="v-turn"></div></div>
       <p class="hint">„Halbe Seite“ zeigt beim Weiterblättern erst die obere Hälfte der nächsten Seite, während du unten noch zu Ende spielst. Gilt bei einer Seite.</p>
-      <div class="field"><span>Zoom</span><div class="actions"><button type="button" class="btn small" id="v-zout" aria-label="Verkleinern">−</button><span id="v-zval">100 %</span><button type="button" class="btn small" id="v-zin" aria-label="Vergrößern">+</button><button type="button" class="btn small" id="v-zfit">Einpassen</button></div></div>
+      <div class="field"><span>Zoom</span><div class="actions"><button type="button" class="btn small" id="v-zout" aria-label="Verkleinern">−</button><span id="v-zval">100 %</span><button type="button" class="btn small" id="v-zin" aria-label="Vergrößern">+</button><button type="button" class="btn small" id="v-zfit">Ganze Seite</button><button type="button" class="btn small" id="v-zwidth">Seitenbreite</button></div></div>
+      <p class="hint">Ist die Seite größer als der Bildschirm, springt Tippen rechts (oder das Pedal) erst zum nächsten Ausschnitt: nach rechts, dann tiefer. Am Seitenende wird umgeblättert.</p>
       <p class="hint">Blätterpedal: sendet es Pfeiltasten oder Bild auf/ab, funktioniert es direkt. Leertaste blättert ebenfalls weiter.</p>
     </div>
   </div>
@@ -639,11 +640,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 
   // ---------- Notenansicht ----------
   // Einstellungen je Gerät: Seiten (auto/1/2), Blättern (ganze/halbe Seite)
-  const VS = Object.assign({ layout: 'auto', turn: 'full' }, (() => { try { return JSON.parse(localStorage.getItem('nl-viewer') || '{}'); } catch (e) { return {}; } })());
+  const VS = Object.assign({ layout: 'auto', turn: 'full', fit: 'page', zoom: 1 }, (() => { try { return JSON.parse(localStorage.getItem('nl-viewer') || '{}'); } catch (e) { return {}; } })());
   const saveVS = () => { try { localStorage.setItem('nl-viewer', JSON.stringify(VS)); } catch (e) {} };
   seg('v-layout', 'vlay', [['auto', 'Automatisch'], ['1', 'Eine'], ['2', 'Zwei']]);
   seg('v-turn', 'vturn', [['full', 'Ganze Seite'], ['half', 'Halbe Seite']]);
-  const V = { doc: null, page: 1, half: false, zoom: 1, id: null, rendering: false, pending: false, cache: new Map() };
+  const V = { doc: null, page: 1, half: false, zoom: VS.zoom || 1, toEnd: false, id: null, rendering: false, pending: false, cache: new Map() };
   const n = () => (V.doc ? V.doc.numPages : 1);
   const stage = () => $('v-stage');
   // Querformat (breiter als hoch) zeigt automatisch zwei Seiten nebeneinander
@@ -653,7 +654,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   async function openViewer(id) {
     const p = lib.pieces[id];
     if (!p) return;
-    V.id = id; V.page = 1; V.half = false; V.zoom = 1; V.cache.clear();
+    V.id = id; V.page = 1; V.half = false; V.zoom = VS.zoom || 1; V.cache.clear();
     $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`;
     $('v-canvas').hidden = true; $('v-panel').hidden = true; $('viewer').classList.remove('immersive');
     const msg = $('v-msg');
@@ -713,7 +714,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       const two = twoUp(), gap = two ? 12 : 0;
       if (two && V.page >= n()) V.page = Math.max(1, n() - 1);
       const [pw, ph] = await pageSize(V.page);
-      const fit = two ? Math.min((W - gap) / 2 / pw, H / ph) : Math.min(W / pw, H / ph);
+      // „Seitenbreite“: Seite füllt die Breite, gelesen wird abschnittsweise nach unten
+      const fit = VS.fit === 'width' ? (two ? (W - gap) / 2 / pw : W / pw) : two ? Math.min((W - gap) / 2 / pw, H / ph) : Math.min(W / pw, H / ph);
       const s = fit * V.zoom;
       // Gerätepixel begrenzen (iPad: sehr große Zeichenflächen bleiben sonst leer)
       let dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -747,9 +749,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         ctx.drawImage(await pageImage(V.page, k), 0, 0);
         $('v-page').textContent = `${V.page} / ${n()}`;
       }
-      st.classList.toggle('zoomed', V.zoom > 1.001);
-      $('v-zval').textContent = $('v-zoomtag').textContent = V.zoom > 1.001 ? `${Math.round(V.zoom * 100)} %` : '';
-      if (V.zoom <= 1.001) $('v-zval').textContent = '100 %';
+      st.classList.toggle('zoomed', cssW > W + 2 || cssH > H + 2);
+      if (V.toEnd) { V.toEnd = false; st.scrollTo(st.scrollWidth, st.scrollHeight); }
+      const ztxt = `${VS.fit === 'width' ? 'Seitenbreite' : 'Ganze Seite'}${V.zoom > 1.001 ? ` · ${Math.round(V.zoom * 100)} %` : ''}`;
+      $('v-zval').textContent = ztxt;
+      $('v-zoomtag').textContent = VS.fit === 'width' || V.zoom > 1.001 ? ztxt : '';
       // Folgeseite schon vorbereiten
       const ahead = V.page + (two ? 2 : 1);
       if (ahead <= n()) pageImage(ahead, k).catch(() => {});
@@ -758,8 +762,38 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     }
     if (V.pending) { V.pending = false; renderPage(); }
   }
+  // Ist die Seite größer als der Bildschirm, geht es erst abschnittsweise weiter:
+  // nach rechts, dann eine Zeile tiefer wieder links; erst am Seitenende wird umgeblättert
+  const STEP = 0.85;
+  function stepView(dir) {
+    const st = stage();
+    if (!st.classList.contains('zoomed')) return false;
+    const maxX = st.scrollWidth - st.clientWidth, maxY = st.scrollHeight - st.clientHeight;
+    const x = st.scrollLeft, y = st.scrollTop, dx = st.clientWidth * 0.9, dy = st.clientHeight * STEP;
+    const go = (l, t) => { st.scrollTo({ left: l, top: t, behavior: 'smooth' }); return true; };
+    if (twoUp()) {
+      // zwei Seiten: erst die linke Seite von oben nach unten, dann die rechte
+      if (dir > 0) {
+        if (y < maxY - 2) return go(x, Math.min(maxY, y + dy));
+        if (maxX > 2 && x < maxX - 2) return go(maxX, 0);
+      } else {
+        if (y > 2) return go(x, Math.max(0, y - dy));
+        if (maxX > 2 && x > 2) return go(0, maxY);
+      }
+      return false;
+    }
+    if (dir > 0) {
+      if (maxX > 2 && x < maxX - 2) return go(Math.min(maxX, x + dx), y);
+      if (y < maxY - 2) return go(0, Math.min(maxY, y + dy));
+    } else {
+      if (maxX > 2 && x > 2) return go(Math.max(0, x - dx), y);
+      if (y > 2) return go(maxX, Math.max(0, y - dy));
+    }
+    return false;
+  }
   function next() {
     if (!V.doc) return;
+    if (stepView(1)) return;
     if (twoUp()) { if (V.page + 2 <= n()) V.page += 2; else return; }
     else if (halfMode()) {
       if (!V.half && V.page < n()) V.half = true;
@@ -772,6 +806,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function prev() {
     if (!V.doc) return;
+    if (stepView(-1)) return;
     if (twoUp()) { if (V.page > 1) V.page = Math.max(1, V.page - 2); else return; }
     else if (halfMode()) {
       if (V.half) V.half = false;
@@ -779,15 +814,16 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       else return;
     } else if (V.page > 1) V.page--;
     else return;
-    stage().scrollTo(0, 0);
+    V.toEnd = true;   // zurückgeblättert: am Ende der vorigen Seite weiterlesen
     renderPage();
   }
-  function setZoom(z) { V.zoom = Math.min(4, Math.max(1, z)); renderPage(); }
+  function setZoom(z) { V.zoom = VS.zoom = Math.min(4, Math.max(1, z)); saveVS(); renderPage(); }
   $('v-back').addEventListener('click', e => { e.currentTarget.blur(); prev(); });
   $('v-fwd').addEventListener('click', e => { e.currentTarget.blur(); next(); });
   $('v-zin').addEventListener('click', () => setZoom(V.zoom * 1.25));
   $('v-zout').addEventListener('click', () => setZoom(V.zoom / 1.25));
-  $('v-zfit').addEventListener('click', () => setZoom(1));
+  $('v-zfit').addEventListener('click', () => { VS.fit = 'page'; setZoom(1); });
+  $('v-zwidth').addEventListener('click', () => { VS.fit = 'width'; setZoom(1); });
   $('v-opts').addEventListener('click', () => {
     const open = $('v-panel').hidden;
     $('v-panel').hidden = !open; $('v-opts').setAttribute('aria-expanded', String(open));
@@ -846,7 +882,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     } else if (gest.kind === 'one') {
       const dx = e.clientX - gest.x, dy = e.clientY - gest.y;
       if (Math.hypot(dx, dy) > 8) gest.moved = true;
-      if (V.zoom > 1.001) { stage().scrollLeft = gest.sl - dx; stage().scrollTop = gest.stp - dy; }
+      if (stage().classList.contains('zoomed')) { stage().scrollLeft = gest.sl - dx; stage().scrollTop = gest.stp - dy; }
     }
   });
   const endPointer = e => {
@@ -865,7 +901,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       const r = stage().getBoundingClientRect(), fx = (e.clientX - r.left) / r.width;
       if (fx < 0.3) prev(); else if (fx > 0.7) next(); else $('viewer').classList.toggle('immersive');
       setTimeout(() => renderPage(), 0);
-    } else if (V.zoom <= 1.001 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    } else if (!stage().classList.contains('zoomed') && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0) next(); else prev();
     }
   };
