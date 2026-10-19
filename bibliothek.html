@@ -943,7 +943,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   // Gespeichert je Stück als Liste von Strichen in Seitenkoordinaten (0–1), unabhängig von Zoom und Gerät.
   // Gelöschtes wird vermerkt, damit PC und iPad ihre Änderungen ohne Verlust zusammenführen können.
   const INK = { pen: ['#1d2133', '#2d4bd0', '#c3302d', '#1d8549'], hl: ['#ffe14d', '#7ee08a', '#ff9fd0', '#8fd0ff'] };
-  const A = { data: null, editing: false, tool: 'pen', color: { pen: INK.pen[0], hl: INK.hl[0] }, digit: '1', mark: 'check', undo: [], drawing: null, saveTimer: 0, textAt: null };
+  const A = { data: null, editing: false, tool: 'pen', color: { pen: INK.pen[0], hl: INK.hl[0] }, digit: '1', mark: 'check', brk: 'open', undo: [], drawing: null, saveTimer: 0, textAt: null };
   const blankAnnot = () => ({ strokes: [], del: [], rev: 0, dirty: false });
   const sid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   function mergeAnnot(a, b) {
@@ -990,6 +990,20 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function paintStroke(ctx, st, r, from = 1) {
     const X = x => r.x + x * r.w, Y = y => r.y + y * r.h;
+    if (st.t === 'brk') {
+      // Große Übe-Klammer: senkrechter Strich, oben und unten kurze, leicht geschwungene Enden
+      const x = X(st.x), y1 = Y(st.y1), y2 = Y(st.y2), L = 0.045 * r.w * (st.d === 'close' ? -1 : 1), lift = Math.abs(L) * 0.28;
+      ctx.strokeStyle = st.c; ctx.lineWidth = st.w * r.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - L * 0.18, y1 + lift * 0.6);
+      ctx.quadraticCurveTo(x + L * 0.25, y1 - lift * 0.15, x + L, y1 - lift);
+      ctx.moveTo(x, y1);
+      ctx.lineTo(x, y2);
+      ctx.moveTo(x - L * 0.05, y2);
+      ctx.quadraticCurveTo(x + L * 0.4, y2 - lift * 0.2, x + L, y2 - lift * 0.45);
+      ctx.stroke();
+      return;
+    }
     if (st.t === 'mark') {
       // Haken (Absetzen) und Kreuz als kleine Zeichen, Größe relativ zur Seitenbreite
       const z = st.s * r.w, cx = X(st.x), cy = Y(st.y);
@@ -1039,6 +1053,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (!h) return false;
     e.preventDefault();
     if (A.tool === 'fing') { addStroke({ t: 'text', b: 1, v: A.digit, x: r4(h.nx), y: r4(h.ny), s: 0.019, c: A.color.pen, pg: h.r.pg }); return true; }
+    if (A.tool === 'brk') {
+      stage().setPointerCapture(e.pointerId);
+      A.drawing = { pid: e.pointerId, r: h.r, st: { id: sid(), t: 'brk', d: A.brk, pg: h.r.pg, c: A.color.pen, w: 0.0045, x: r4(h.nx), y1: r4(h.ny), y2: r4(h.ny) } };
+      return true;
+    }
     if (A.tool === 'mark') { addStroke({ t: 'mark', m: A.mark, x: r4(h.nx), y: r4(h.ny), s: 0.018, c: A.color.pen, pg: h.r.pg }); return true; }
     if (A.tool === 'text') { openText(e, h); return true; }
     stage().setPointerCapture(e.pointerId);
@@ -1052,6 +1071,15 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     if (!evs.length) evs.push(e);
     if (d.erase) { evs.forEach(ev => { const h = hitPage(ev); if (h) eraseAt(h); }); return; }
+    if (d.st.t === 'brk') {
+      // Klammer: nur die Höhe folgt dem Stift, die Linie bleibt senkrecht
+      const b = $('v-canvas').getBoundingClientRect();
+      d.st.y2 = r4(Math.min(1, Math.max(0, (e.clientY - b.top - d.r.y) / d.r.h)));
+      drawInk();
+      const ink = $('v-ink'), ctx = ink.getContext('2d'), k = ink.width / (parseFloat($('v-canvas').style.width) || 1);
+      ctx.save(); ctx.scale(k, k); paintStroke(ctx, d.st, d.r); ctx.restore();
+      return;
+    }
     const b = $('v-canvas').getBoundingClientRect(), from = d.st.pts.length;
     for (const ev of evs) {
       const nx = (ev.clientX - b.left - d.r.x) / d.r.w, ny = (ev.clientY - b.top - d.r.y) / d.r.h;
@@ -1069,6 +1097,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   function inkEnd() {
     const d = A.drawing; A.drawing = null;
     if (d.erase) { if (d.erase.length) { A.undo.push({ erased: d.erase }); annotChanged(); } return; }
+    if (d.st.t === 'brk') {
+      // nur angetippt: Klammer in Standardhöhe; nach oben gezogen: umdrehen
+      if (Math.abs(d.st.y2 - d.st.y1) * d.r.h < 12) d.st.y2 = r4(Math.min(1, d.st.y1 + 0.12));
+      if (d.st.y2 < d.st.y1) [d.st.y1, d.st.y2] = [d.st.y2, d.st.y1];
+    }
     addStroke(d.st);
   }
   function addStroke(st) {
@@ -1079,7 +1112,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function eraseAt(h) {
     const R = 14 / h.r.w;   // Radius ca. 14 Bildschirmpunkte
-    const hitIt = st => st.pg === h.r.pg && (st.t === 'text' || st.t === 'mark'
+    const hitIt = st => st.pg === h.r.pg && (st.t === 'brk'
+      ? Math.abs(st.x - h.nx) < R * 1.4 && h.ny > st.y1 - R && h.ny < st.y2 + R
+      : st.t === 'text' || st.t === 'mark'
       ? Math.hypot(st.x - h.nx, (st.y - h.ny) * h.r.h / h.r.w) < R * 1.6
       : st.pts.some(q => Math.hypot(q[0] - h.nx, (q[1] - h.ny) * h.r.h / h.r.w) < R + st.w / 2));
     const gone = A.data.strokes.filter(hitIt);
@@ -1138,7 +1173,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       + '<span class="sep"></span>'
       + `<span class="grp">${['1', '2', '3', '4', '5'].map(d => `<button type="button" data-digit="${d}" aria-pressed="${t === 'fing' && A.digit === d}" title="Fingersatz ${d}" aria-label="Fingersatz ${d}">${d}</button>`).join('')}`
       + `<button type="button" data-mark="check" aria-pressed="${t === 'mark' && A.mark === 'check'}" title="Haken (Absetzen)" aria-label="Haken zum Absetzen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 6"/></svg></button>`
-      + `<button type="button" data-mark="x" aria-pressed="${t === 'mark' && A.mark === 'x'}" title="Kreuz" aria-label="Kreuz"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>`
+      + `<button type="button" data-mark="x" aria-pressed="${t === 'mark' && A.mark === 'x'}" title="Kreuz" aria-label="Kreuz"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`
+      + `<button type="button" data-brk="open" aria-pressed="${t === 'brk' && A.brk === 'open'}" title="Klammer auf: von oben nach unten ziehen" aria-label="Klammer auf"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 2v20M7 3.5Q10 2.6 16 1.8M7.6 22Q11 21 16 20.8"/></svg></button>`
+      + `<button type="button" data-brk="close" aria-pressed="${t === 'brk' && A.brk === 'close'}" title="Klammer zu: von oben nach unten ziehen" aria-label="Klammer zu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M16 2v20M17 3.5Q14 2.6 8 1.8M16.4 22Q13 21 8 20.8"/></svg></button></span>`
       + '<span class="sep"></span>'
       + (t === 'erase' ? '' : `<span class="grp">${cols.map(c => `<button type="button" class="sw" data-color="${c}" aria-pressed="${c === cur}" style="background:${c}" aria-label="Farbe ${c}"></button>`).join('')}</span><span class="sep"></span>`)
       + `<span class="grp"><button type="button" id="ink-undo" title="Rückgängig" aria-label="Rückgängig">${I('undo')}</button>`
@@ -1152,6 +1189,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (b.dataset.tool) A.tool = b.dataset.tool;
     else if (b.dataset.digit) { A.tool = 'fing'; A.digit = b.dataset.digit; }
     else if (b.dataset.mark) { A.tool = 'mark'; A.mark = b.dataset.mark; }
+    else if (b.dataset.brk) { A.tool = 'brk'; A.brk = b.dataset.brk; }
     else if (b.dataset.color) A.color[A.tool === 'hl' ? 'hl' : 'pen'] = b.dataset.color;
     else if (b.id === 'ink-undo') inkUndo();
     else if (b.id === 'ink-clear') { inkClear(b); return; }
