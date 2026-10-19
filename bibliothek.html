@@ -183,6 +183,18 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .hintbubble { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(10,12,24,.8); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 0.85rem; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
 .dropzone { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 4px dashed var(--accent); pointer-events: none; }
 .dropzone div { background: var(--card); color: var(--ink); border-radius: 14px; padding: 18px 26px; font-weight: 700; font-size: 1.1rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+/* Mehrfachauswahl */
+.grid.selecting { padding-bottom: 130px; }
+.grid.selecting .card { position: relative; }
+.card .tick { display: none; position: absolute; left: 16px; top: 16px; z-index: 2; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; background: rgba(10,12,24,.35); box-shadow: 0 1px 3px rgba(0,0,0,.3); place-items: center; color: #fff; }
+.grid.selecting .card .tick { display: grid; }
+.card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.card[aria-pressed="true"] .tick { background: var(--accent); }
+.card .tick svg { width: 16px; height: 16px; }
+.selbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,.2); width: max-content; max-width: calc(100% - 24px); }
+.selbar b { padding: 0 6px; }
+@media (max-width: 760px) { .selbar { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); } }
+.bulk-hint { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
 .batch-list { display: grid; gap: 8px; max-height: 40vh; overflow: auto; padding-right: 4px; }
 .batch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
 .batch-row small { grid-column: 1 / -1; color: var(--muted); overflow-wrap: anywhere; }
@@ -222,6 +234,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <label class="search"><span id="s-icon"></span><input id="q" type="search" placeholder="Titel, Komponist oder Sammlung suchen" aria-label="Suchen"></label>
     <label class="btn primary" for="pdf-in" id="pdf-btn">PDF importieren</label>
     <label class="btn" for="img-in" id="scan-btn">Scannen</label>
+    <button type="button" class="btn" id="sel-btn" aria-pressed="false">Auswählen</button>
     <input class="file-in" id="pdf-in" type="file" accept="application/pdf,.pdf" multiple>
     <input class="file-in" id="img-in" type="file" accept="image/*" multiple>
   </div>
@@ -231,6 +244,41 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" hidden></div>
 </div>
+<div class="selbar" id="selbar" hidden>
+  <b id="sel-count">0 ausgewählt</b>
+  <button type="button" class="btn small" id="sel-all">Alle angezeigten</button>
+  <button type="button" class="btn small" id="sel-none">Keine</button>
+  <button type="button" class="btn small primary" id="sel-edit" disabled>Gemeinsam ändern</button>
+  <button type="button" class="btn small" id="sel-done">Fertig</button>
+</div>
+
+<!-- Mehrere Stücke gemeinsam ändern -->
+<dialog class="form-dlg" id="bulk" aria-labelledby="bk-h">
+  <form method="dialog" id="bk-form">
+    <h2 id="bk-h">Stücke ändern</h2>
+    <p class="hint" id="bk-names"></p>
+    <p class="hint">Nur was du hier einstellst, wird geändert. Leere Felder und „–“ lassen die Angaben der Stücke, wie sie sind.</p>
+    <div class="two">
+      <label class="field"><span>Komponist</span><input type="text" id="bk-composer" list="dl-composer" autocomplete="off" placeholder="nicht ändern"></label>
+      <label class="field"><span>Genre</span><input type="text" id="bk-genre" list="dl-genre" autocomplete="off" placeholder="nicht ändern"></label>
+    </div>
+    <div class="field"><span>Schwierigkeit</span><div class="seg" id="bk-diff"></div></div>
+    <div class="field"><span>Stand</span><div class="seg" id="bk-status"></div></div>
+    <div class="two">
+      <label class="field"><span>Zu Sammlungen hinzufügen</span><input type="text" id="bk-add" list="dl-coll" autocomplete="off" placeholder="z. B. Repertoire"></label>
+      <label class="field"><span>Aus Sammlungen entfernen</span><input type="text" id="bk-rem" list="dl-coll" autocomplete="off" placeholder="mit Komma trennen"></label>
+    </div>
+    <div class="field"><span>Wiederholungsplan</span><div class="seg" id="bk-plan"></div></div>
+    <p class="hint" id="bk-info"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="bk-delete">Alle löschen</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="bk-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary" id="bk-save">Übernehmen</button>
+    </div>
+  </form>
+</dialog>
+<datalist id="dl-coll"></datalist>
 
 <!-- Angaben zum Stück -->
 <dialog class="form-dlg" id="editor" aria-labelledby="ed-h">
@@ -494,7 +542,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     list.sort(by[view.sort] || by.title);
     if ($('count')) $('count').textContent = `${list.length} ${list.length === 1 ? 'Stück' : 'Stücke'}`;
     $('grid').innerHTML = list.length ? list.map(p => `
-      <button type="button" class="card" data-id="${p.id}">
+      <button type="button" class="card" data-id="${p.id}"${SEL.on ? ` aria-pressed="${SEL.ids.has(p.id)}"` : ''}>
+        <span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
         <span class="cover" data-cover="${p.id}">${p.fileId || p.local ? 'Wird geladen …' : ''}</span>
         <h3>${esc(p.title)}</h3>
         <span class="who">${esc([p.composer, p.genre, p.pages ? `${p.pages} ${p.pages === 1 ? 'Seite' : 'Seiten'}` : ''].filter(Boolean).join(' · '))}</span>
@@ -502,7 +551,10 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
           <span class="pill ${p.status || 'learn'}">${STATE[p.status || 'learn']}</span>${NL.rep.inPlan(p) && NL.rep.daysUntil(p) <= 0 && !NL.rep.ratedToday(p) ? '<span class="pill due">fällig</span>' : ''}</span>
         <span class="last">${I('clock')}${ago(p.opened)}${NL.rep.inPlan(p) ? ` · ${NL.rep.dueText(p)}` : ''}</span>
       </button>`).join('') : '<p class="muted">Keine Stücke passen zu diesem Filter.</p>';
-    $('grid').querySelectorAll('.card').forEach(c => c.addEventListener('click', () => openViewer(c.dataset.id)));
+    listed = list.map(p => p.id);
+    $('grid').classList.toggle('selecting', SEL.on);
+    $('grid').querySelectorAll('.card').forEach(c => c.addEventListener('click', () => SEL.on ? toggleSel(c) : openViewer(c.dataset.id)));
+    selInfo();
     for (const p of list) {
       const box = document.querySelector(`[data-cover="${p.id}"]`);
       if (!box) continue;
@@ -515,6 +567,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   function renderLists() {
     const ps = pieces();
     $('dl-composer').innerHTML = uniq(ps.map(p => p.composer)).map(c => `<option value="${esc(c)}">`).join('');
+    $('dl-coll').innerHTML = uniq(['Repertoire', 'Unterricht', ...ps.flatMap(p => p.collections || [])]).map(c => `<option value="${esc(c)}">`).join('');
     $('dl-genre').innerHTML = uniq(['Klassik', 'Filmmusik', 'Neoklassik', 'Pop', 'Jazz', ...ps.map(p => p.genre)]).map(c => `<option value="${esc(c)}">`).join('');
   }
   $('q').addEventListener('input', renderGrid);
@@ -581,6 +634,77 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     const p = edit.piece;
     p.deleted = true; touch(p);
     closeEditor('deleted');
+  });
+
+  // ---------- Mehrere Stücke gemeinsam ändern ----------
+  const SEL = { on: false, ids: new Set() };
+  let listed = [];
+  function selInfo() {
+    const n = [...SEL.ids].filter(id => lib.pieces[id] && !lib.pieces[id].deleted).length;
+    $('selbar').hidden = !SEL.on;
+    $('sel-count').textContent = `${n} ausgewählt`;
+    $('sel-edit').disabled = !n;
+    $('sel-btn').setAttribute('aria-pressed', SEL.on);
+  }
+  function toggleSel(card) {
+    const id = card.dataset.id, on = !SEL.ids.has(id);
+    on ? SEL.ids.add(id) : SEL.ids.delete(id);
+    card.setAttribute('aria-pressed', on);
+    selInfo();
+  }
+  function setSelecting(on) { SEL.on = on; if (!on) SEL.ids.clear(); renderGrid(); }
+  $('sel-btn').addEventListener('click', () => setSelecting(!SEL.on));
+  $('sel-done').addEventListener('click', () => setSelecting(false));
+  $('sel-all').addEventListener('click', () => { listed.forEach(id => SEL.ids.add(id)); renderGrid(); });
+  $('sel-none').addEventListener('click', () => { SEL.ids.clear(); renderGrid(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && SEL.on && !document.querySelector('dialog[open]')) setSelecting(false); });
+  seg('bk-diff', 'bdiff', [['', '–'], ...[1, 2, 3, 4, 5].map(n => [n, n])]);
+  seg('bk-status', 'bkstat', [['', '–'], ...Object.entries(STATE)]);
+  seg('bk-plan', 'bplan', [['', '–'], ['on', 'Im Plan'], ['off', 'Pausiert']]);
+  const splitList = v => uniq(v.split(',').map(x => x.trim()));
+  function openBulk() {
+    const ps = [...SEL.ids].map(id => lib.pieces[id]).filter(p => p && !p.deleted);
+    if (!ps.length) return;
+    $('bk-h').textContent = `${ps.length} ${ps.length === 1 ? 'Stück' : 'Stücke'} ändern`;
+    const names = ps.map(p => p.title);
+    $('bk-names').textContent = names.slice(0, 6).join(', ') + (names.length > 6 ? ` und ${names.length - 6} weitere` : '');
+    ['bk-composer', 'bk-genre', 'bk-add', 'bk-rem'].forEach(id => { $(id).value = ''; });
+    ['bdiff', 'bkstat', 'bplan'].forEach(n => { document.querySelector(`input[name="${n}"][value=""]`).checked = true; });
+    $('bk-info').textContent = '';
+    const d = $('bk-delete'); d.classList.remove('armed'); d.textContent = 'Alle löschen';
+    $('bulk').showModal();
+  }
+  $('sel-edit').addEventListener('click', openBulk);
+  $('bk-cancel').addEventListener('click', () => $('bulk').close());
+  function bulkDone(text) { $('bulk').close(); saveLib(); setSelecting(false); render(); syncFiles(); toast(text); }
+  $('bk-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const ps = [...SEL.ids].map(id => lib.pieces[id]).filter(p => p && !p.deleted);
+    const val = n => (document.querySelector(`input[name="${n}"]:checked`) || {}).value || '';
+    const composer = $('bk-composer').value.trim(), genre = $('bk-genre').value.trim();
+    const diff = val('bdiff'), status = val('bkstat'), plan = val('bplan');
+    const add = splitList($('bk-add').value), rem = splitList($('bk-rem').value).map(c => c.toLowerCase());
+    if (!composer && !genre && !diff && !status && !plan && !add.length && !rem.length) { $('bk-info').textContent = 'Du hast noch nichts zum Ändern eingestellt.'; return; }
+    let n = 0;
+    for (const p of ps) {
+      const before = JSON.stringify(p), oldName = fileName(p);
+      if (composer) p.composer = composer;
+      if (genre) p.genre = genre;
+      if (diff) p.difficulty = +diff;
+      if (status) p.status = status;
+      if (plan) { p.rep = p.rep || {}; p.rep.paused = plan === 'off'; }
+      if (add.length || rem.length) p.collections = uniq([...(p.collections || []), ...add].filter(c => !rem.includes(c.toLowerCase())));
+      if (p.fileId && fileName(p) !== oldName) p.rename = true;
+      if (JSON.stringify(p) !== before) { touch(p); n++; }
+    }
+    bulkDone(`${n} ${n === 1 ? 'Stück' : 'Stücke'} geändert.`);
+  });
+  $('bk-delete').addEventListener('click', async () => {
+    const b = $('bk-delete');
+    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = `Wirklich ${SEL.ids.size} löschen?`; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Alle löschen'; }, 3500); return; }
+    const ps = [...SEL.ids].map(id => lib.pieces[id]).filter(p => p && !p.deleted);
+    for (const p of ps) { p.deleted = true; touch(p); await removeLocal(p.id); }
+    bulkDone(`${ps.length} ${ps.length === 1 ? 'Stück' : 'Stücke'} gelöscht.`);
   });
 
   // ---------- Import ----------
@@ -665,7 +789,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   // Dateien von PC oder iPad (Dateien-App, Split View) auf die Seite ziehen
   let dragDepth = 0;
   const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
-  const anyOpen = () => ['viewer', 'scanner', 'editor', 'batch'].some(id => $(id).open);
+  const anyOpen = () => ['viewer', 'scanner', 'editor', 'batch', 'bulk'].some(id => $(id).open);
   document.addEventListener('dragenter', e => { if (!hasFiles(e) || anyOpen()) return; e.preventDefault(); dragDepth++; $('dropzone').hidden = false; });
   document.addEventListener('dragover', e => { if (!hasFiles(e) || anyOpen()) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
   document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('dropzone').hidden = true; });
