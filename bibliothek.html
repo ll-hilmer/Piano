@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500&family=Figtree:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="shared.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
 <style>
 /* Bibliothek: Suchleiste mit Import und Scannen, Filter, Raster aus Notenblatt-Karten.
    Darüber liegen drei Ebenen: Angaben zum Stück, Scanner (Ecken ziehen, Noten säubern) und die Notenansicht. */
@@ -102,16 +102,32 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .iconbtn { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 7px; display: grid; cursor: pointer; color: var(--ink); }
 .iconbtn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-/* Notenansicht */
-.stage { position: relative; overflow: hidden; display: grid; place-items: center; background: #6d7186; touch-action: pan-y pinch-zoom; }
-.stage canvas { background: var(--sheet); box-shadow: 0 2px 16px rgba(0,0,0,.35); display: block; }
-.stage .msg { color: #fff; font-weight: 600; }
-.tapzone { position: absolute; top: 0; bottom: 0; width: 30%; border: 0; background: transparent; cursor: pointer; }
-.tapzone.prev { left: 0; } .tapzone.next { right: 0; }
+/* Notenansicht: Blätterflächen links und rechts, Mitte blendet die Leisten aus; Zoomen mit zwei Fingern */
+.stage { position: relative; overflow: hidden; background: #6d7186; touch-action: none; user-select: none; -webkit-user-select: none; }
+.stage.zoomed { overflow: auto; }
+.sheetwrap { min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 8px; width: max-content; }
+.stage canvas { background: var(--sheet); box-shadow: 0 2px 16px rgba(0,0,0,.35); display: block; flex: none; }
+.stage .msg { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 600; text-align: center; padding: 20px; }
 .pager {
   display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--card); border-top: 1px solid var(--line);
   padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); font-weight: 600; font-variant-numeric: tabular-nums;
 }
+.pager .zoom { font-size: 0.8rem; color: var(--muted); min-width: 4ch; }
+#viewer.immersive .topbar, #viewer.immersive .pager { display: none; }
+#viewer.immersive { grid-template-rows: minmax(0, 1fr); }
+.vpanel {
+  position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 5;
+  width: min(340px, calc(100vw - 24px)); background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 14px; display: grid; gap: 12px;
+}
+.vpanel .field > span { font-size: 0.8rem; }
+.hintbubble { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(10,12,24,.8); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 0.85rem; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
+.dropzone { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 4px dashed var(--accent); pointer-events: none; }
+.dropzone div { background: var(--card); color: var(--ink); border-radius: 14px; padding: 18px 26px; font-weight: 700; font-size: 1.1rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+.batch-list { display: grid; gap: 8px; max-height: 40vh; overflow: auto; padding-right: 4px; }
+.batch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.batch-row small { grid-column: 1 / -1; color: var(--muted); overflow-wrap: anywhere; }
+.batch-row input { width: 100%; border: 1px solid var(--line); background: var(--paper); border-radius: 9px; padding: 7px 9px; min-width: 0; }
 
 /* Scanner */
 .scan-stage { position: relative; overflow: hidden; display: grid; place-items: center; background: #2a2d3a; touch-action: none; }
@@ -187,15 +203,40 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   <div class="topbar">
     <button type="button" class="iconbtn" id="v-close" aria-label="Schließen"></button>
     <div class="title" id="v-title"></div>
+    <button type="button" class="btn small" id="v-opts" aria-expanded="false">Ansicht</button>
     <button type="button" class="btn small" id="v-edit">Angaben</button>
   </div>
-  <div class="stage" id="v-stage">
-    <canvas id="v-canvas"></canvas>
-    <button type="button" class="tapzone prev" id="v-prev" aria-label="Vorige Seite"></button>
-    <button type="button" class="tapzone next" id="v-next" aria-label="Nächste Seite"></button>
+  <div class="stage" id="v-stage" aria-label="Noten. Rechts tippen: weiter, links tippen: zurück, Mitte: Leisten ein- oder ausblenden.">
+    <div class="sheetwrap" id="v-wrap"><canvas id="v-canvas"></canvas></div>
+    <div class="msg" id="v-msg" hidden></div>
+    <div class="hintbubble" id="v-hint" hidden></div>
+    <div class="vpanel" id="v-panel" hidden>
+      <div class="field"><span>Seiten</span><div class="seg" id="v-layout"></div></div>
+      <div class="field"><span>Blättern</span><div class="seg" id="v-turn"></div></div>
+      <p class="hint">„Halbe Seite“ zeigt beim Weiterblättern erst die obere Hälfte der nächsten Seite, während du unten noch zu Ende spielst. Gilt bei einer Seite.</p>
+      <div class="field"><span>Zoom</span><div class="actions"><button type="button" class="btn small" id="v-zout" aria-label="Verkleinern">−</button><span id="v-zval">100 %</span><button type="button" class="btn small" id="v-zin" aria-label="Vergrößern">+</button><button type="button" class="btn small" id="v-zfit">Einpassen</button></div></div>
+      <p class="hint">Blätterpedal: sendet es Pfeiltasten oder Bild auf/ab, funktioniert es direkt. Leertaste blättert ebenfalls weiter.</p>
+    </div>
   </div>
-  <div class="pager"><button type="button" class="iconbtn" id="v-back" aria-label="Vorige Seite"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Nächste Seite"></button></div>
+  <div class="pager"><button type="button" class="iconbtn" id="v-back" aria-label="Zurückblättern"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Weiterblättern"></button><span class="zoom" id="v-zoomtag"></span></div>
 </dialog>
+
+<!-- Mehrere PDFs auf einmal -->
+<dialog class="form-dlg" id="batch" aria-labelledby="b-h">
+  <form method="dialog" id="b-form">
+    <h2 id="b-h">Stücke importieren</h2>
+    <p class="hint">Titel und Komponist je Stück, darunter Angaben für alle. Ändern kannst du alles später über „Angaben“.</p>
+    <div class="batch-list" id="b-list"></div>
+    <div class="two">
+      <label class="field"><span>Genre (für alle)</span><input type="text" id="b-genre" list="dl-genre" autocomplete="off"></label>
+      <label class="field"><span>Sammlungen (für alle)</span><input type="text" id="b-coll" autocomplete="off" placeholder="z. B. Repertoire"></label>
+    </div>
+    <div class="field"><span>Stand (für alle)</span><div class="seg" id="b-status"></div></div>
+    <p class="hint" id="b-info"></p>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="b-cancel">Abbrechen</button><button type="submit" class="btn primary" id="b-save">Alle importieren</button></div>
+  </form>
+</dialog>
+<div class="dropzone" id="dropzone" hidden><div id="drop-text">PDFs hier ablegen</div></div>
 
 <!-- Scanner -->
 <dialog class="full" id="scanner" aria-labelledby="sc-title">
@@ -232,11 +273,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 
   // ---------- PDF.js (Notenansicht und Deckblätter) ----------
   const pdfjs = window.pdfjsLib;
-  if (pdfjs) {
-    const src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    try { pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([`importScripts('${src}');`], { type: 'text/javascript' })); }
-    catch (e) { pdfjs.GlobalWorkerOptions.workerSrc = src; }
-  }
+  // Liegt mit auf der eigenen Webseite, damit die Notenansicht auch offline startet
+  if (pdfjs) pdfjs.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
   const openPdf = async blob => pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
 
   // ---------- Speicher auf dem Gerät (IndexedDB): PDFs und Deckblätter ----------
@@ -331,6 +369,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       $('grid').innerHTML = '';
       $('empty').innerHTML = `${I('bibliothek', 'big')}<h2>Noch keine Noten</h2>
         <p>Importiere deine Noten als PDF oder fotografiere ausgedruckte Blätter. Die Noten werden in deinem Google-Drive-Ordner „Klavier-App“ gesichert und sind auf PC und iPad verfügbar.</p>
+        <p>Am PC kannst du PDFs auch einfach hierher ziehen, gern mehrere auf einmal.</p>
         <p><b>Tipp fürs iPad:</b> In der App „Dateien“ unter ⋯ → „Dokumente scannen“ erkennt das iPad die Ecken automatisch. Das fertige PDF holst du dann hier mit „PDF importieren“.</p>
         <div class="row"><label class="btn primary" for="pdf-in">${I('upload')}PDF importieren</label><label class="btn" for="img-in">${I('camera')}Scannen</label></div>`;
       return;
@@ -441,24 +480,95 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 
   // ---------- Import ----------
   const nameFromFile = f => f.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
-  async function addPdf(blob, defaults, info) {
+  // PDF prüfen, Deckblatt erzeugen und auf dem Gerät ablegen (noch nicht in der Bibliothek)
+  async function preparePdf(blob, title) {
     const id = newId();
-    const p = { id, title: defaults.title || 'Ohne Titel', composer: '', genre: '', difficulty: 3, status: 'learn', collections: [], added: Date.now(), local: true, size: blob.size };
+    const p = { id, title: title || 'Ohne Titel', composer: '', genre: '', difficulty: 3, status: 'learn', collections: [], added: Date.now(), local: true, size: blob.size };
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
     try { p.pages = await makeThumb(id, blob); }
-    catch (e) { toast(`„${p.title}“ ist kein lesbares PDF.`); return null; }
+    catch (e) { return null; }
     await idb.put('files', id, blob);
-    const ok = await openEditor(p, true, info);
-    if (!ok) { await idb.del('files', id); await idb.del('thumbs', id); return null; }
-    lib.pieces[id] = p; touch(p);
-    saveLib(); render();
-    syncFiles();
     return p;
+  }
+  const discard = async p => { await idb.del('files', p.id); await idb.del('thumbs', p.id); };
+  function commit(list) {
+    list.forEach(p => { lib.pieces[p.id] = p; touch(p); });
+    saveLib(); render(); syncFiles();
+  }
+  async function addPdf(blob, defaults, info) {
+    const p = await preparePdf(blob, defaults.title);
+    if (!p) { toast(`„${defaults.title}“ ist kein lesbares PDF.`); return null; }
+    const ok = await openEditor(p, true, info);
+    if (!ok) { await discard(p); return null; }
+    commit([p]);
+    return p;
+  }
+  // Mehrere PDFs: eine Liste statt vieler Fenster
+  seg('b-status', 'bstat', Object.entries(STATE));
+  // „Titel - Komponist.pdf“ bzw. „Komponist - Titel.pdf“: bekannte Komponisten entscheiden die Reihenfolge
+  function guess(f) {
+    const parts = nameFromFile(f).split(/\s+[-–]\s+/);
+    if (parts.length !== 2) return { title: nameFromFile(f), composer: '' };
+    const known = uniq(pieces().map(p => p.composer)).map(c => c.toLowerCase());
+    const isComp = x => known.some(k => k && (k === x.toLowerCase() || k.split(' ').pop() === x.toLowerCase()));
+    return isComp(parts[0]) && !isComp(parts[1]) ? { title: parts[1], composer: parts[0] } : { title: parts[0], composer: parts[1] };
+  }
+  async function importMany(files) {
+    const box = $('b-list');
+    $('b-h').textContent = `${files.length} Stücke importieren`;
+    box.innerHTML = files.map((f, i) => `<div class="batch-row"><small>${esc(f.name)}</small>
+      <input type="text" data-t="${i}" value="${esc(guess(f).title)}" aria-label="Titel ${i + 1}" placeholder="Titel">
+      <input type="text" data-c="${i}" value="${esc(guess(f).composer)}" list="dl-composer" aria-label="Komponist ${i + 1}" placeholder="Komponist"></div>`).join('');
+    $('b-genre').value = ''; $('b-coll').value = ''; $('b-info').textContent = '';
+    document.querySelector('input[name="bstat"][value="learn"]').checked = true;
+    $('b-save').disabled = false;
+    $('batch').showModal();
+    const go = await new Promise(res => {
+      $('b-form').onsubmit = e => { e.preventDefault(); res(true); };
+      $('b-cancel').onclick = () => res(false);
+      $('batch').oncancel = e => { e.preventDefault(); res(false); };
+    });
+    if (!go) { $('batch').close(); return; }
+    $('b-save').disabled = true;
+    const genre = $('b-genre').value.trim(), colls = uniq($('b-coll').value.split(',').map(x => x.trim()));
+    const status = document.querySelector('input[name="bstat"]:checked').value;
+    const done = [], bad = [];
+    for (const [i, f] of files.entries()) {
+      $('b-info').textContent = `Importiere ${i + 1} von ${files.length} …`;
+      const p = await preparePdf(f, box.querySelector(`[data-t="${i}"]`).value.trim() || nameFromFile(f));
+      if (!p) { bad.push(f.name); continue; }
+      Object.assign(p, { composer: box.querySelector(`[data-c="${i}"]`).value.trim(), genre, collections: colls, status });
+      done.push(p);
+    }
+    commit(done);
+    $('batch').close();
+    toast(`${done.length} ${done.length === 1 ? 'Stück' : 'Stücke'} importiert${bad.length ? `, ${bad.length} nicht lesbar: ${bad.join(', ')}` : ''}.`);
+  }
+  async function importFiles(files) {
+    const pdfs = files.filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+    const imgs = files.filter(f => /^image\//.test(f.type));
+    if (!pdfs.length && !imgs.length) { toast('Nur PDFs (oder Fotos zum Scannen) lassen sich hier ablegen.'); return; }
+    if (pdfs.length === 1) await addPdf(pdfs[0], { title: nameFromFile(pdfs[0]) }, pdfs[0].name);
+    else if (pdfs.length > 1) await importMany(pdfs);
+    if (imgs.length) { S.pages = []; S.cur = 0; S.preview = false; $('sc-preview').setAttribute('aria-pressed', 'false'); $('scanner').showModal(); await addImages(imgs); }
   }
   $('pdf-in').addEventListener('change', async e => {
     const files = [...e.target.files];
     e.target.value = '';
-    for (const [i, f] of files.entries()) await addPdf(f, { title: nameFromFile(f) }, files.length > 1 ? `Datei ${i + 1} von ${files.length}: ${f.name}` : f.name);
+    await importFiles(files);
+  });
+  // Dateien von PC oder iPad (Dateien-App, Split View) auf die Seite ziehen
+  let dragDepth = 0;
+  const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  const anyOpen = () => ['viewer', 'scanner', 'editor', 'batch'].some(id => $(id).open);
+  document.addEventListener('dragenter', e => { if (!hasFiles(e) || anyOpen()) return; e.preventDefault(); dragDepth++; $('dropzone').hidden = false; });
+  document.addEventListener('dragover', e => { if (!hasFiles(e) || anyOpen()) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('dropzone').hidden = true; });
+  document.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); dragDepth = 0; $('dropzone').hidden = true;
+    if (anyOpen()) return;
+    importFiles([...e.dataTransfer.files]);
   });
 
   // ---------- Abgleich der PDF-Dateien mit Google Drive ----------
@@ -528,17 +638,28 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   window.addEventListener('online', () => setTimeout(syncFiles, 1500));
 
   // ---------- Notenansicht ----------
-  const V = { doc: null, page: 1, id: null, rendering: false, pending: false };
+  // Einstellungen je Gerät: Seiten (auto/1/2), Blättern (ganze/halbe Seite)
+  const VS = Object.assign({ layout: 'auto', turn: 'full' }, (() => { try { return JSON.parse(localStorage.getItem('nl-viewer') || '{}'); } catch (e) { return {}; } })());
+  const saveVS = () => { try { localStorage.setItem('nl-viewer', JSON.stringify(VS)); } catch (e) {} };
+  seg('v-layout', 'vlay', [['auto', 'Automatisch'], ['1', 'Eine'], ['2', 'Zwei']]);
+  seg('v-turn', 'vturn', [['full', 'Ganze Seite'], ['half', 'Halbe Seite']]);
+  const V = { doc: null, page: 1, half: false, zoom: 1, id: null, rendering: false, pending: false, cache: new Map() };
+  const n = () => (V.doc ? V.doc.numPages : 1);
+  const stage = () => $('v-stage');
+  // Querformat (breiter als hoch) zeigt automatisch zwei Seiten nebeneinander
+  const twoUp = () => n() > 1 && (VS.layout === '2' || (VS.layout === 'auto' && stage().clientWidth > stage().clientHeight * 1.15));
+  const halfMode = () => VS.turn === 'half' && !twoUp();
+
   async function openViewer(id) {
     const p = lib.pieces[id];
     if (!p) return;
-    V.id = id; V.page = 1;
+    V.id = id; V.page = 1; V.half = false; V.zoom = 1; V.cache.clear();
     $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`;
-    $('v-canvas').hidden = true;
-    let msg = $('v-stage').querySelector('.msg');
-    if (!msg) { msg = document.createElement('div'); msg.className = 'msg'; $('v-stage').appendChild(msg); }
+    $('v-canvas').hidden = true; $('v-panel').hidden = true; $('viewer').classList.remove('immersive');
+    const msg = $('v-msg');
     msg.textContent = 'Noten werden geladen …'; msg.hidden = false;
     $('viewer').showModal();
+    keepAwake();
     try {
       let blob = await idb.get('files', id);
       if (!blob && p.fileId) {
@@ -548,62 +669,215 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         await idb.put('files', id, blob);
       }
       if (!blob) throw new Error('Die Datei fehlt auf diesem Gerät.');
-      if (!pdfjs) throw new Error('Die Notenansicht konnte nicht geladen werden. Prüfe die Internetverbindung.');
+      if (!pdfjs) throw new Error('Die Notenansicht konnte nicht geladen werden. Lade die Seite einmal mit Internet neu.');
       if (V.doc) V.doc.destroy();
       V.doc = await openPdf(blob);
       msg.hidden = true; $('v-canvas').hidden = false;
       p.opened = Date.now(); touch(p); saveLib();
       await renderPage();
+      showHint('Rechts tippen: weiter · links: zurück · Mitte: Leisten ausblenden');
     } catch (e) { msg.textContent = e.message || 'Die Noten konnten nicht geöffnet werden.'; }
   }
+  let hintTimer = 0;
+  function showHint(t) {
+    let seen = false;
+    try { seen = localStorage.getItem('nl-viewer-hint') === '1'; localStorage.setItem('nl-viewer-hint', '1'); } catch (e) {}
+    if (seen) return;
+    $('v-hint').textContent = t; $('v-hint').hidden = false;
+    clearTimeout(hintTimer); hintTimer = setTimeout(() => { $('v-hint').hidden = true; }, 4000);
+  }
+
+  // Eine Seite in Gerätepixeln zeichnen (die letzten paar bleiben im Speicher, damit das Blättern sofort geht)
+  async function pageImage(num, scale) {
+    const key = `${num}@${scale.toFixed(3)}`;
+    if (V.cache.has(key)) return V.cache.get(key);
+    const page = await V.doc.getPage(num);
+    const vp = page.getViewport({ scale });
+    const c = document.createElement('canvas');
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    V.cache.set(key, c);
+    if (V.cache.size > 8) V.cache.delete(V.cache.keys().next().value);
+    return c;
+  }
+  async function pageSize(num) { const v = (await V.doc.getPage(num)).getViewport({ scale: 1 }); return [v.width, v.height]; }
+
   async function renderPage() {
     if (!V.doc) return;
     if (V.rendering) { V.pending = true; return; }
     V.rendering = true;
-    const page = await V.doc.getPage(V.page);
-    const st = $('v-stage');
-    const v1 = page.getViewport({ scale: 1 });
-    const fit = Math.min((st.clientWidth - 16) / v1.width, (st.clientHeight - 16) / v1.height);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    const vp = page.getViewport({ scale: fit * dpr });
-    const c = $('v-canvas');
-    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-    c.style.width = Math.round(vp.width / dpr) + 'px'; c.style.height = Math.round(vp.height / dpr) + 'px';
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
-    $('v-page').textContent = `${V.page} / ${V.doc.numPages}`;
-    V.rendering = false;
+    try {
+      const st = stage(), W = st.clientWidth - 16, H = st.clientHeight - 16;
+      const two = twoUp(), gap = two ? 12 : 0;
+      if (two && V.page >= n()) V.page = Math.max(1, n() - 1);
+      const [pw, ph] = await pageSize(V.page);
+      const fit = two ? Math.min((W - gap) / 2 / pw, H / ph) : Math.min(W / pw, H / ph);
+      const s = fit * V.zoom;
+      // Gerätepixel begrenzen (iPad: sehr große Zeichenflächen bleiben sonst leer)
+      let dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const cssW = (two ? 2 * pw : pw) * s + gap, cssH = ph * s;
+      dpr = Math.min(dpr, Math.sqrt(14e6 / (cssW * cssH)));
+      const c = $('v-canvas');
+      c.width = Math.round(cssW * dpr); c.height = Math.round(cssH * dpr);
+      c.style.width = Math.round(cssW) + 'px'; c.style.height = Math.round(cssH) + 'px';
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#6d7186'; ctx.fillRect(0, 0, c.width, c.height);
+      const k = s * dpr;
+      if (two) {
+        ctx.drawImage(await pageImage(V.page, k), 0, 0);
+        if (V.page + 1 <= n()) {
+          const [pw2, ph2] = await pageSize(V.page + 1);
+          const k2 = Math.min(pw * k / pw2, ph * k / ph2);
+          ctx.drawImage(await pageImage(V.page + 1, k2), Math.round((pw * s + gap) * dpr), 0);
+        }
+        $('v-page').textContent = `${V.page}${V.page + 1 <= n() ? '–' + (V.page + 1) : ''} / ${n()}`;
+      } else if (halfMode() && V.half && V.page < n()) {
+        // Oben schon die nächste Seite, unten noch der Rest der aktuellen
+        const cur = await pageImage(V.page, k);
+        const [pw2] = await pageSize(V.page + 1);
+        const nxt = await pageImage(V.page + 1, pw * k / pw2);
+        const mid = Math.round(c.height / 2);
+        ctx.drawImage(nxt, 0, 0, nxt.width, Math.min(nxt.height, mid), 0, 0, c.width, Math.min(nxt.height, mid));
+        ctx.drawImage(cur, 0, mid, cur.width, cur.height - mid, 0, mid, c.width, cur.height - mid);
+        ctx.fillStyle = '#2d4bd0'; ctx.fillRect(0, mid - Math.round(2 * dpr), c.width, Math.round(4 * dpr));
+        $('v-page').textContent = `${V.page + 1} oben · ${V.page} unten / ${n()}`;
+      } else {
+        ctx.drawImage(await pageImage(V.page, k), 0, 0);
+        $('v-page').textContent = `${V.page} / ${n()}`;
+      }
+      st.classList.toggle('zoomed', V.zoom > 1.001);
+      $('v-zval').textContent = $('v-zoomtag').textContent = V.zoom > 1.001 ? `${Math.round(V.zoom * 100)} %` : '';
+      if (V.zoom <= 1.001) $('v-zval').textContent = '100 %';
+      // Folgeseite schon vorbereiten
+      const ahead = V.page + (two ? 2 : 1);
+      if (ahead <= n()) pageImage(ahead, k).catch(() => {});
+    } finally {
+      V.rendering = false;
+    }
     if (V.pending) { V.pending = false; renderPage(); }
   }
-  const turn = d => { if (!V.doc) return; const n = Math.min(V.doc.numPages, Math.max(1, V.page + d)); if (n !== V.page) { V.page = n; renderPage(); } };
-  $('v-prev').addEventListener('click', () => { if (Date.now() - swiped > 400) turn(-1); });
-  $('v-next').addEventListener('click', () => { if (Date.now() - swiped > 400) turn(1); });
-  $('v-back').addEventListener('click', () => turn(-1));
-  $('v-fwd').addEventListener('click', () => turn(1));
+  function next() {
+    if (!V.doc) return;
+    if (twoUp()) { if (V.page + 2 <= n()) V.page += 2; else return; }
+    else if (halfMode()) {
+      if (!V.half && V.page < n()) V.half = true;
+      else if (V.half) { V.page++; V.half = false; }
+      else return;
+    } else if (V.page < n()) V.page++;
+    else return;
+    stage().scrollTo(0, 0);
+    renderPage();
+  }
+  function prev() {
+    if (!V.doc) return;
+    if (twoUp()) { if (V.page > 1) V.page = Math.max(1, V.page - 2); else return; }
+    else if (halfMode()) {
+      if (V.half) V.half = false;
+      else if (V.page > 1) { V.page--; V.half = true; }
+      else return;
+    } else if (V.page > 1) V.page--;
+    else return;
+    stage().scrollTo(0, 0);
+    renderPage();
+  }
+  function setZoom(z) { V.zoom = Math.min(4, Math.max(1, z)); renderPage(); }
+  $('v-back').addEventListener('click', e => { e.currentTarget.blur(); prev(); });
+  $('v-fwd').addEventListener('click', e => { e.currentTarget.blur(); next(); });
+  $('v-zin').addEventListener('click', () => setZoom(V.zoom * 1.25));
+  $('v-zout').addEventListener('click', () => setZoom(V.zoom / 1.25));
+  $('v-zfit').addEventListener('click', () => setZoom(1));
+  $('v-opts').addEventListener('click', () => {
+    const open = $('v-panel').hidden;
+    $('v-panel').hidden = !open; $('v-opts').setAttribute('aria-expanded', String(open));
+    document.querySelector(`input[name="vlay"][value="${VS.layout}"]`).checked = true;
+    document.querySelector(`input[name="vturn"][value="${VS.turn}"]`).checked = true;
+  });
+  $('v-panel').addEventListener('change', e => {
+    if (e.target.name === 'vlay') VS.layout = e.target.value;
+    if (e.target.name === 'vturn') { VS.turn = e.target.value; V.half = false; }
+    saveVS(); V.cache.clear(); renderPage();
+  });
   $('v-close').addEventListener('click', () => $('viewer').close());
-  $('viewer').addEventListener('close', () => { if (V.doc) { V.doc.destroy(); V.doc = null; } renderGrid(); });
+  $('viewer').addEventListener('close', () => {
+    if (V.doc) { V.doc.destroy(); V.doc = null; }
+    V.cache.clear();
+    if (wake) { wake.release().catch(() => {}); wake = null; }
+    renderGrid();
+  });
   $('v-edit').addEventListener('click', async () => {
     const p = lib.pieces[V.id];
     const r = await openEditor(p, false);
     if (r === 'deleted') { $('viewer').close(); await removeLocal(p.id); }
     if (r) { saveLib(); render(); syncFiles(); $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`; }
   });
+  // Tastatur und Blätterpedal (Pedale senden meist Pfeiltasten oder Bild auf/ab)
   document.addEventListener('keydown', e => {
-    if (!$('viewer').open || $('editor').open) return;
-    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); turn(1); }
-    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); turn(-1); }
+    if (!$('viewer').open || $('editor').open || e.target.matches('input, select, textarea')) return;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); prev(); }
+    else if (e.key === '+' || e.key === '=') setZoom(V.zoom * 1.25);
+    else if (e.key === '-') setZoom(V.zoom / 1.25);
   });
-  // Wischen blättert; danach wird der Tipp auf die Blätterfläche ignoriert
-  let swipe = null, swiped = 0;
-  $('v-stage').addEventListener('pointerdown', e => { swipe = { x: e.clientX, y: e.clientY }; });
-  $('v-stage').addEventListener('pointerup', e => {
-    if (!swipe) return;
-    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-    swipe = null;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { swiped = Date.now(); turn(dx < 0 ? 1 : -1); }
+  // Finger: Tippen links/rechts blättert, Mitte blendet Leisten aus, Wischen blättert,
+  // zwei Finger zoomen, mit Zoom verschiebt ein Finger die Seite
+  const pts = new Map();
+  let gest = null;
+  stage().addEventListener('pointerdown', e => {
+    if (e.target.closest('.vpanel')) return;
+    stage().setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 1) gest = { kind: 'one', x: e.clientX, y: e.clientY, t: Date.now(), sl: stage().scrollLeft, stp: stage().scrollTop, moved: false };
+    else if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      gest = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: V.zoom, w0: $('v-canvas').offsetWidth, h0: $('v-canvas').offsetHeight };
+    }
   });
-  window.addEventListener('resize', () => { if ($('viewer').open) renderPage(); });
+  stage().addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId) || !gest) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (gest.kind === 'pinch' && pts.size >= 2) {
+      const [a, b] = [...pts.values()];
+      const z = Math.min(4, Math.max(1, gest.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gest.d0));
+      const c = $('v-canvas'), f = z / gest.z0;
+      c.style.width = Math.round(gest.w0 * f) + 'px'; c.style.height = Math.round(gest.h0 * f) + 'px';
+      gest.z = z;
+    } else if (gest.kind === 'one') {
+      const dx = e.clientX - gest.x, dy = e.clientY - gest.y;
+      if (Math.hypot(dx, dy) > 8) gest.moved = true;
+      if (V.zoom > 1.001) { stage().scrollLeft = gest.sl - dx; stage().scrollTop = gest.stp - dy; }
+    }
+  });
+  const endPointer = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (!gest) return;
+    if (gest.kind === 'pinch') {
+      if (pts.size === 0) { const z = gest.z || gest.z0; gest = null; setZoom(z); }
+      return;
+    }
+    const g = gest; gest = null;
+    if (e.type === 'pointercancel') return;
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (!g.moved && Date.now() - g.t < 500) {
+      if (!$('v-panel').hidden) { $('v-panel').hidden = true; return; }
+      const r = stage().getBoundingClientRect(), fx = (e.clientX - r.left) / r.width;
+      if (fx < 0.3) prev(); else if (fx > 0.7) next(); else $('viewer').classList.toggle('immersive');
+      setTimeout(() => renderPage(), 0);
+    } else if (V.zoom <= 1.001 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) next(); else prev();
+    }
+  };
+  stage().addEventListener('pointerup', endPointer);
+  stage().addEventListener('pointercancel', endPointer);
+  new ResizeObserver(() => { if ($('viewer').open && V.doc && !gest) renderPage(); }).observe(stage());
+  // Bildschirm bleibt an, solange die Noten offen sind
+  let wake = null;
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator && $('viewer').open && document.visibilityState === 'visible') wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('viewer').open) keepAwake(); });
   async function removeLocal(id) { await idb.del('files', id).catch(() => {}); await idb.del('thumbs', id).catch(() => {}); }
 
   // ---------- Scanner: Ecken ziehen, entzerren, Noten säubern ----------
@@ -785,7 +1059,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (window.jspdf) return Promise.resolve(window.jspdf);
     return new Promise((res, rej) => {
       const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.src = 'vendor/jspdf.umd.min.js';
       s.onload = () => res(window.jspdf); s.onerror = () => rej(new Error('PDF-Erstellung konnte nicht geladen werden. Prüfe die Internetverbindung.'));
       document.head.appendChild(s);
     });
@@ -821,6 +1095,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
   }
   $('s-icon').innerHTML = I('search');
+  $('drop-text').innerHTML = `${I('upload')}PDFs hier ablegen`;
   $('pdf-btn').innerHTML = `${I('upload')}PDF importieren`;
   $('scan-btn').innerHTML = `${I('camera')}Scannen`;
   $('v-close').innerHTML = I('arrow').replace('<path d="M5 12h14M13 6l6 6-6 6"/>', '<path d="M19 12H5M11 6l-6 6 6 6"/>');

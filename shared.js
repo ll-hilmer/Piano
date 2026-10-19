@@ -290,5 +290,9 @@
     else setStatus('expired', 'Die Anmeldung ist abgelaufen. Tippen, um dich neu anzumelden.');
   }
   render();
+  // Offline: App auf dem Gerät zwischenspeichern (nur auf der eigenen Webseite, nicht in einer Vorschau)
+  if ('serviceWorker' in navigator && !NL.embedded && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
