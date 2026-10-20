@@ -210,7 +210,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .pl-big { font: 500 2.8rem var(--font-display); color: var(--accent); }
 .pill.midi { background: var(--accent-soft); color: var(--accent); }
 #pl-hint { top: 52px; bottom: auto; }
-@media (max-width: 640px) { #pl-midi { display: none; } }
+#pl-view label { padding: 4px 10px; }
+@media (max-width: 640px) { #pl-midi { display: none; } #player .topbar .title { display: none; } #pl-view { margin-left: auto; } #pl-opts { padding: 6px 8px; } }
 /* Lieblingsstücke */
 .card .fav { position: absolute; right: 16px; top: 16px; z-index: 2; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.85); color: #8a8fa3; box-shadow: 0 1px 3px rgba(0,0,0,.2); cursor: pointer; }
 .card .fav svg, #v-fav svg { width: 18px; height: 18px; }
@@ -406,6 +407,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   <div class="topbar">
     <button type="button" class="iconbtn" id="pl-close" aria-label="Zurück zu den Noten"></button>
     <div class="title" id="pl-title"></div>
+    <div class="seg" id="pl-view" role="radiogroup" aria-label="Ansicht"></div>
     <button type="button" class="btn small" id="pl-midi">E-Piano verbinden</button>
     <button type="button" class="btn small" id="pl-opts" aria-expanded="false">Einstellungen</button>
   </div>

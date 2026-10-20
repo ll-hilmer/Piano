@@ -25,7 +25,7 @@
     o = 8 + d.getUint32(4);
     const tpq = div & 0x8000 ? 0 : div;
     const tps = div & 0x8000 ? (256 - (div >> 8)) * (div & 0xff) : 0;   // seltene SMPTE-Zeitbasis: Ticks je Sekunde
-    const tempos = [], sigs = [], tracks = [];
+    const tempos = [], sigs = [], keys = [], tracks = [];
     try {
       for (let t = 0; t < ntr && o + 8 <= d.byteLength; t++) {
         const id = str(4), end = Math.min(o + 8 + d.getUint32(o + 4), d.byteLength);
@@ -41,6 +41,7 @@
             const type = d.getUint8(o++), l = vlq();
             if (type === 0x51 && l >= 3) tempos.push({ tick, us: (d.getUint8(o) << 16) | (d.getUint8(o + 1) << 8) | d.getUint8(o + 2) });
             else if (type === 0x58 && l >= 2) sigs.push({ tick, n: d.getUint8(o), dd: 2 ** d.getUint8(o + 1) });
+            else if (type === 0x59 && l >= 2) keys.push({ tick, sf: (d.getUint8(o) << 24) >> 24 });
             else if (type === 0x03) name = str(l);
             o += l;
             if (type === 0x2f) break;
@@ -81,19 +82,20 @@
     if (!raw.length) throw new Error('In dieser MIDI-Datei sind keine Noten.');
     const notes = raw.map(n => {
       const t = toSec(n.t0);
-      return { t, d: Math.max(0.06, toSec(n.t1) - t), p: n.p, v: n.v, ht: n.ht || null, hp: n.p >= 60 ? 'R' : 'L', tick: n.t0 };
+      return { t, d: Math.max(0.06, toSec(n.t1) - t), p: n.p, v: n.v, ht: n.ht || null, hp: n.p >= 60 ? 'R' : 'L', tick: n.t0, dt: n.t1 - n.t0 };
     }).sort((a, b) => a.t - b.t || a.p - b.p);
     // Takte aus den Taktangaben (ohne Angabe: 4/4)
     const endTick = Math.max(...raw.map(n => n.t1));
-    const bars = [];
-    if (tps) { for (let s = 0; s <= toSec(endTick); s += 2) bars.push(s); }
+    const bars = [], barTicks = [], tq = tpq || Math.round(tps / 2) || 480;
+    let sg = [{ tick: 0, n: 4, dd: 4 }];
+    if (tps) { for (let s = 0; s <= toSec(endTick); s += 2) { bars.push(s); barTicks.push(Math.round(s * tps)); } }
     else {
       sigs.sort((a, b) => a.tick - b.tick);
-      const sg = sigs.length && sigs[0].tick === 0 ? sigs : [{ tick: 0, n: 4, dd: 4 }, ...sigs];
+      sg = sigs.length && sigs[0].tick === 0 ? sigs : [{ tick: 0, n: 4, dd: 4 }, ...sigs];
       let tick = 0, si = 0;
       while (tick <= endTick && bars.length < 5000) {
         while (si + 1 < sg.length && sg[si + 1].tick <= tick) si++;
-        bars.push(toSec(tick));
+        bars.push(toSec(tick)); barTicks.push(tick);
         tick += Math.max(1, Math.round(sg[si].n * tpq * 4 / sg[si].dd));
         const nx = sg[si + 1];
         if (nx && nx.tick < tick) tick = nx.tick;
@@ -102,10 +104,28 @@
     const barOf = t => { let a = 0, b = bars.length - 1; while (a < b) { const m = (a + b + 1) >> 1; if (bars[m] <= t + 1e-6) a = m; else b = m - 1; } return a; };
     notes.forEach(n => { n.bar = barOf(n.t); });
     const sig0 = sigs.find(s => s.tick === 0) || { n: 4, dd: 4 };
+    // Balken-Gruppen: im 6/8-, 9/8- und 12/8-Takt je drei Achtel, sonst je Viertel
+    const beatOf = tick => {
+      let bi = 0; while (bi + 1 < barTicks.length && barTicks[bi + 1] <= tick) bi++;
+      let si = 0; while (si + 1 < sg.length && sg[si + 1].tick <= tick) si++;
+      const len = sg[si].dd === 8 && sg[si].n % 3 === 0 ? tq * 1.5 : tq;
+      return bi * 1000 + Math.floor((tick - barTicks[bi]) / len);
+    };
+    // Tonart: aus der Datei oder geschätzt (die Dur-Tonart, zu der die meisten Töne passen)
+    let key = keys.length ? Math.max(-7, Math.min(7, keys[0].sf)) : null;
+    if (key === null) {
+      const w = new Array(12).fill(0); raw.forEach(n => { w[n.p % 12] += n.t1 - n.t0; });
+      const MAJ = [0, 2, 4, 5, 7, 9, 11];
+      let best = Infinity;
+      for (const sf of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6]) {
+        const tonic = ((sf * 7) % 12 + 12) % 12, out = w.reduce((s, x, pc) => s + (MAJ.includes((pc - tonic + 12) % 12) ? 0 : x), 0);
+        if (out < best * 0.97) { best = out; key = sf; }
+      }
+    }
     return {
       notes, bars, barOf, end: Math.max(...notes.map(n => n.t + n.d)), first: notes[0].t,
       bpm: Math.round(60 / (map[0].spt * (tpq || 480))), sig: `${sig0.n}/${sig0.dd}`,
-      twoTracks: groups.length === 2, tracks: tracks.filter(t => t.notes.length).length
+      twoTracks: groups.length === 2, tracks: tracks.filter(t => t.notes.length).length, tpq: tq, key, beatOf
     };
   }
 
@@ -150,7 +170,7 @@
   })();
 
   // ---------- Zustand ----------
-  const DEF = { hands: 'both', mode: 'wait', tempo: 0.7, accomp: true, names: true, split: 'auto', vol: 0.6 };
+  const DEF = { hands: 'both', mode: 'wait', tempo: 0.7, accomp: true, names: true, split: 'auto', vol: 0.6, view: 'falling' };
   const CFG_KEY = 'nl-play';
   const cfgAll = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch (e) { return {}; } };
   const writeCfg = f => { const a = cfgAll(); f(a); try { localStorage.setItem(CFG_KEY, JSON.stringify(a)); } catch (e) {} };
@@ -182,6 +202,7 @@
     }
     S.events = ev;
     S.pn = S.song.notes.filter(practiced);
+    engrave();
     S.stats = newStats();
     resetFrom(S.pos);
   }
@@ -373,6 +394,12 @@
     if (g.roundRect) g.roundRect(x, y, w, h, Math.min(r, h / 2, w / 2)); else g.rect(x, y, w, h);
     g.fill();
   }
+  // Was als Nächstes zu spielen ist: Taste → Hand
+  function expected() {
+    const exp = new Map();
+    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev && ev.t - S.pos < 1.5 * C.tempo) for (const n of ev.notes) if (!ev.got.has(n.p)) exp.set(n.p, n.h); }
+    return exp;
+  }
   function draw(now) {
     const cv = $('pl-canvas');
     if (!cv || !$('player').open) return;
@@ -382,9 +409,16 @@
     const g = cv.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = '#10131f'; g.fillRect(0, 0, w, h);
-    const sg = S.song;
-    if (!sg) return;
-    const K = geometry(w), kbH = Math.max(64, Math.min(150, h * 0.22, K.ww * 5.6)), hy = h - kbH, pps = hy / (LOOK * C.tempo);
+    if (!S.song) return;
+    const K = geometry(w), sheet = C.view === 'sheet';
+    const kbH = Math.max(64, Math.min(sheet ? 130 : 150, h * (sheet ? 0.24 : 0.22), K.ww * 5.6)), hy = h - kbH;
+    const exp = expected();
+    if (sheet) drawSheet(g, w, hy, now); else drawFalling(g, w, hy, K);
+    drawKeys(g, K, w, hy, kbH, exp, now);
+    status(exp);
+  }
+  function drawFalling(g, w, hy, K) {
+    const sg = S.song, pps = hy / (LOOK * C.tempo);
     const yAt = t => hy - (t - S.pos) * pps;
     // Orientierung: Linie bei jedem C
     g.fillStyle = 'rgba(255,255,255,.06)';
@@ -426,9 +460,9 @@
     // Trefferlinie
     g.fillStyle = S.waiting ? 'rgba(255,214,102,.95)' : 'rgba(143,162,255,.85)';
     g.fillRect(0, hy - 2, w, 3);
-    // Tastatur
-    const exp = new Map();
-    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev && ev.t - S.pos < 1.5 * C.tempo) for (const n of ev.notes) if (!ev.got.has(n.p)) exp.set(n.p, n.h); }
+  }
+  // Tastatur
+  function drawKeys(g, K, w, hy, kbH, exp, now) {
     const keyCol = (p, bk) => {
       const d = S.down.get(p);
       if (d !== undefined) return d === 'bad' ? BAD : d === 'ok' ? OK : (bk ? '#5d6690' : '#aab4dc');
@@ -444,7 +478,6 @@
       if (p % 12 === 0 && K.ww >= 13) { g.fillStyle = '#8a8fa3'; g.font = '600 10px Figtree, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('C' + (p / 12 - 1), K.x[p] + K.ww / 2, hy + kbH - 7); g.textAlign = 'left'; }
     }
     for (let p = S.kb.lo; p <= S.kb.hi; p++) if (isBlack(p)) { g.fillStyle = keyCol(p, true); rrect(g, K.x[p], hy + 1, K.bw, kbH * 0.62, 3); }
-    status(exp);
   }
   function status(exp) {
     const sg = S.song, bar = sg.barOf(Math.max(0, S.pos)) + 1, s = S.stats;
@@ -457,6 +490,218 @@
     if (t !== S.status) { S.status = t; $('pl-status').textContent = t; }
     const seek = $('pl-seek');
     if (document.activeElement !== seek) seek.value = Math.min(bar, sg.bars.length) - 1;
+  }
+
+  // ---------- Notenblatt (wie bei Flowkey): die Noten laufen von rechts unter der Spiellinie durch ----------
+  // Schlüssel und Vorzeichen: dieselben Umrisse wie auf der Übungsseite (Schrift-Einheiten, 1000 = vier Linienabstände)
+  const TREBLE_PATH = 'M314 801Q300 854 291.0 906.0Q282 958 282 1012Q282 1059 288.5 1100.5Q295 1142 307 1177Q320 1217 341.0 1252.5Q362 1288 385.5 1311.0Q409 1334 427 1334Q451 1334 493 1249Q514 1206 524.0 1156.0Q534 1106 534 1049Q534 978 515.0 907.5Q496 837 459.5 775.0Q423 713 372 666L407 498Q422 500 432.0 501.0Q442 502 447 502Q508 502 556.0 467.5Q604 433 632.5 377.0Q661 321 661 254Q661 177 621.5 115.5Q582 54 503 25Q508 8 532 -117Q538 -147 541.0 -164.5Q544 -182 545.0 -195.0Q546 -208 546 -225Q546 -275 521.5 -314.5Q497 -354 455.5 -376.0Q414 -398 363 -398Q311 -398 271.0 -378.5Q231 -359 208.0 -324.5Q185 -290 185 -245Q185 -197 211.5 -165.0Q238 -133 287 -133Q329 -133 355.5 -163.5Q382 -194 382 -236Q382 -272 357.0 -299.0Q332 -326 292 -326H282Q308 -365 364 -365Q433 -365 472.0 -320.0Q511 -275 511 -205Q511 -188 507.0 -159.5Q503 -131 493 -91Q483 -51 477.5 -25.0Q472 1 470 12Q436 2 390 2Q304 2 222 52Q142 102 96.0 184.0Q50 266 50 361Q50 451 91 530Q132 609 192.5 675.0Q253 741 314 801ZM341 826Q364 838 390.0 870.5Q416 903 440.0 945.0Q464 987 479.0 1029.5Q494 1072 494 1106Q494 1142 483.0 1163.0Q472 1184 445 1184Q421 1184 398.5 1162.0Q376 1140 358.5 1103.5Q341 1067 331.0 1022.0Q321 977 321 930Q321 898 327.5 872.0Q334 846 341 826ZM398 379Q371 373 347.0 353.5Q323 334 308.5 306.5Q294 279 294 248Q294 223 307.0 196.5Q320 170 339 154Q352 142 365 136Q380 129 380 123Q380 120 370 117Q332 126 301.5 151.0Q271 176 253.5 211.5Q236 247 236 287Q236 330 253.5 370.0Q271 410 302.5 442.0Q334 474 374 490L345 641Q229 547 174.5 456.5Q120 366 120 277Q120 212 154.0 156.0Q188 100 247.0 65.5Q306 31 380 31Q400 31 420.5 35.0Q441 39 464 45ZM495 55Q593 97 593 227Q593 270 571.0 305.5Q549 341 512.0 362.0Q475 383 429 383Z';
+  const BASS_PATH = 'M50 123Q216 231 288 301Q336 348 373.0 408.5Q410 469 431.5 536.0Q453 603 453 669Q453 728 435.0 773.5Q417 819 383.0 845.0Q349 871 302 871Q284 871 264.5 867.0Q245 863 224 855Q181 839 158.0 813.5Q135 788 135 765Q135 756 143.0 752.0Q151 748 158 748Q168 748 183 752Q190 754 196.5 755.0Q203 756 210 756Q248 756 272.0 733.5Q296 711 296 674Q296 638 266.0 612.0Q236 586 195 586Q146 586 111.0 617.0Q76 648 76 697Q76 756 109.0 802.0Q142 848 198.5 874.0Q255 900 324 900Q400 900 460.0 867.0Q520 834 555.5 776.5Q591 719 591 646Q591 551 538 464Q511 419 476.5 379.0Q442 339 389.0 297.5Q336 256 256.0 208.0Q176 160 57 101ZM687 809Q710 809 726.0 793.0Q742 777 742 754Q742 731 726.0 715.5Q710 700 687 700Q664 700 648.0 715.5Q632 731 632 754Q632 777 648.0 793.0Q664 809 687 809ZM687 589Q710 589 726.0 573.0Q742 557 742 534Q742 511 726.0 495.5Q710 480 687 480Q664 480 648.0 495.5Q632 511 632 534Q632 557 648.0 573.0Q664 589 687 589Z';
+  const ACC_GLYPH = {
+    '0':  { d: 'M226 316V-221H195V-9L50 -46V486H83V279ZM197 84V212L81 183V56Z', right: 226, mid: 132 },
+    '1':  { d: 'M97 46V189L50 177V277L97 290V486H128V298L195 314V509H226V322L275 333V234L226 220V77L275 89V-14L226 -26V-214H195V-34L128 -52V-247H97V-59L50 -71V32ZM195 70V214L128 197V54Z', right: 275, mid: 131 },
+    '-1': { d: 'M50 615H81V225Q118 262 165 262Q197 262 223.0 240.5Q249 219 249 178Q249 146 230.0 119.0Q211 92 179 65L110 6Q91 -10 76.0 -25.5Q61 -41 50 -55ZM81 12Q107 40 125.0 63.5Q143 87 153 105Q164 124 169.5 140.0Q175 156 175 170Q175 198 162.0 210.5Q149 223 134 223Q118 223 102.5 211.5Q87 200 81 180Z', right: 249, mid: 95 }
+  };
+  const KEY_STEPS = { sharp: [38, 35, 39, 36, 33, 37, 34], flat: [34, 37, 33, 36, 32, 35, 31] };
+  const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6], FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3];   // F C G D A E H  |  B E A D G C F
+  const SPELL_SHARP = [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [3, 0], [3, 1], [4, 0], [4, 1], [5, 0], [5, 1], [6, 0]];
+  const SPELL_FLAT = [[0, 0], [1, -1], [1, 0], [2, -1], [2, 0], [3, 0], [4, -1], [4, 0], [5, -1], [5, 0], [6, -1], [6, 0]];
+  const VALUES = [[4, 'w'], [3, 'h.'], [2, 'h'], [1.5, 'q.'], [1, 'q'], [0.75, 'e.'], [0.5, 'e'], [0.25, 's']];
+  const PAPER = '#fbfaf6', INK = '#1a1d2b', GRAY = '#a3a8ba';
+  const BOTTOM = { treble: 30, bass: 18 }, MIDLINE = { treble: 34, bass: 22 };
+  let glyphs = null;
+  const glyph = d => (glyphs = glyphs || {})[d] || (glyphs[d] = new Path2D(d));
+
+  // Aus den MIDI-Tönen Notenschrift machen: Schreibweise nach Tonart, Vorzeichen je Takt, Notenwerte, Balken
+  function engrave() {
+    const sg = S.song, tpq = sg.tpq, sf = sg.key;
+    const keyAcc = [0, 0, 0, 0, 0, 0, 0];
+    (sf > 0 ? SHARP_ORDER : FLAT_ORDER).slice(0, Math.abs(sf)).forEach(l => { keyAcc[l] = sf > 0 ? 1 : -1; });
+    const spell = p => { const [l, a] = (sf < 0 ? SPELL_FLAT : SPELL_SHARP)[p % 12]; return { step: (Math.floor(p / 12) - 1) * 7 + l, acc: a, letter: l }; };
+    const chords = [];
+    for (const staff of ['treble', 'bass']) {
+      let cur = null;
+      for (const n of sg.notes) {
+        if ((n.h === 'R') !== (staff === 'treble')) continue;
+        if (cur && n.t - cur.t < 0.03) cur.notes.push(n);
+        else chords.push(cur = { t: n.t, tick: n.tick, staff, notes: [n] });
+      }
+    }
+    chords.sort((a, b) => a.t - b.t);
+    const state = {};
+    let bar = -1;
+    for (const c of chords) {
+      const b = sg.barOf(c.t);
+      if (b !== bar) { for (const k in state) delete state[k]; bar = b; }
+      c.heads = c.notes.map(n => {
+        const s = spell(n.p), k = c.staff + s.step, was = k in state ? state[k] : keyAcc[s.letter];
+        state[k] = s.acc;
+        return { n, step: s.step, acc: s.acc, show: s.acc !== was };
+      }).sort((a, b) => a.step - b.step);
+      const beats = Math.max(...c.notes.map(n => n.dt)) / tpq;
+      let best = VALUES[0];
+      for (const v of VALUES) if (Math.abs(Math.log(beats / v[0])) < Math.abs(Math.log(beats / best[0]))) best = v;
+      c.val = best[0]; c.dot = best[1].endsWith('.');
+      c.hollow = c.val >= 2; c.stem = c.val < 4; c.flags = c.val <= 0.375 ? 2 : c.val <= 0.75 ? 1 : 0;
+      const lo = c.heads[0].step, hi = c.heads[c.heads.length - 1].step;
+      c.up = (lo + hi) / 2 < MIDLINE[c.staff];
+      c.beam = null;
+    }
+    // Balken: aufeinanderfolgende Achtel und Sechzehntel innerhalb eines Schlags
+    for (const staff of ['treble', 'bass']) {
+      let grp = [];
+      const flush = () => {
+        if (grp.length >= 2) {
+          const steps = grp.flatMap(c => c.heads.map(h => h.step)), up = steps.reduce((a, b) => a + b, 0) / steps.length < MIDLINE[staff];
+          const g = grp; g.forEach(c => { c.beam = g; c.up = up; });
+        }
+        grp = [];
+      };
+      for (const c of chords) {
+        if (c.staff !== staff) continue;
+        if (!c.flags) { flush(); continue; }
+        c.bt = sg.beatOf(c.tick);
+        const prev = grp[grp.length - 1];
+        if (prev && (c.bt !== prev.bt || c.tick - prev.tick > prev.val * tpq * 1.3 + 5)) flush();
+        grp.push(c);
+      }
+      flush();
+    }
+    // Abstand: die kürzesten üblichen Notenabstände bekommen genug Platz
+    const iois = [];
+    for (let i = 1; i < chords.length; i++) { const d = (chords[i].tick - chords[i - 1].tick) / tpq; if (d > 0.05) iois.push(d); }
+    iois.sort((a, b) => a - b);
+    const minIoi = iois.length ? iois[Math.floor(iois.length * 0.1)] : 1;
+    S.spb = Math.max(4.5, Math.min(10, 2.8 / minIoi));   // Linienabstände je Schlag
+    S.chords = chords;
+  }
+  function drawSheet(g, w, hy, now) {
+    const sg = S.song, sf = sg.key, nk = Math.abs(sf);
+    g.fillStyle = PAPER; g.fillRect(0, 0, w, hy);
+    const sp = Math.max(7, Math.min(18, hy / 22, w / 45));   // Linienabstand: so groß, wie der Platz erlaubt
+    const top = Math.max(4.5 * sp, (hy - 15 * sp) / 2);
+    const bot = { treble: top + 4 * sp, bass: top + 15 * sp };
+    const yOf = (staff, step) => bot[staff] - (step - BOTTOM[staff]) * sp / 2;
+    const Kf = sp * 4 / 1000;
+    const x0 = 0.8 * sp, keyGap = (sf > 0 ? 0.96 : 0.82) * sp;
+    const tsX = x0 + 4 * sp + nk * keyGap + 0.5 * sp, left = tsX + 2.4 * sp;
+    const playX = left + Math.max(3 * sp, (w - left) * 0.2);
+    const pxs = S.spb * sp * sg.bpm / 60;
+    const xAt = t => playX + (t - S.pos) * pxs;
+    const sysTop = bot.treble - 4 * sp, sysH = bot.bass - sysTop;
+    const lines = (xa, xb) => { g.fillStyle = INK; for (const st of ['treble', 'bass']) for (let i = 0; i < 5; i++) g.fillRect(xa, Math.round(bot[st] - i * sp) - 0.5, xb - xa, 1); };
+    lines(left, w);
+    // Spiellinie
+    g.fillStyle = S.waiting ? 'rgba(240,180,40,.18)' : 'rgba(91,130,255,.12)';
+    g.fillRect(playX - 1.1 * sp, sysTop - 3 * sp, 2.2 * sp, sysH + 6 * sp);
+    g.fillStyle = S.waiting ? 'rgba(230,160,20,.95)' : 'rgba(70,110,240,.9)';
+    g.fillRect(playX - 1, sysTop - 3 * sp, 2, sysH + 6 * sp);
+    // Taktstriche und Taktnummern
+    g.font = `600 ${Math.round(sp * 0.95)}px Figtree, system-ui, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    for (let i = 0; i < sg.bars.length; i++) {
+      const x = xAt(sg.bars[i]) - 0.9 * sp;
+      if (x < left - 2 || i === 0) continue;
+      if (x > w + 2) break;
+      g.fillStyle = INK; g.fillRect(Math.round(x), sysTop, 1.3, sysH);
+      if (i) { g.fillStyle = '#8a8fa3'; g.fillText(String(i + 1), x + 2, sysTop - 1.1 * sp); }
+    }
+    // Hervorhebung: was gerade dran ist
+    const cur = new Set();
+    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev && ev.t - S.pos < 1.5 * C.tempo) ev.notes.forEach(n => { if (!ev.got.has(n.p)) cur.add(n); }); }
+    else if (C.mode === 'tempo') { const wd = WIN * C.tempo; for (let i = lowerBound(S.pn, S.pos - wd); i < S.pn.length && S.pn[i].t <= S.pos + wd; i++) if (!S.pn[i].res) cur.add(S.pn[i]); }
+    else for (let i = lowerBound(sg.notes, S.pos - 6); i < sg.notes.length && sg.notes[i].t <= S.pos; i++) if (sg.notes[i].t + sg.notes[i].d > S.pos) cur.add(sg.notes[i]);
+    const colOf = n => {
+      if (C.mode !== 'listen' && !practiced(n)) return cur.has(n) ? (n.h === 'L' ? '#7fcfae' : '#9db3ff') : GRAY;
+      if (n.res === 'hit') return '#1f9d55';
+      if (n.res === 'miss') return '#d6453f';
+      if (cur.has(n)) return n.h === 'L' ? '#13945f' : '#2f55e4';
+      return INK;
+    };
+    const rx = 0.64 * sp, ry = 0.45 * sp;
+    const v0 = S.pos - (playX - left) / pxs - 2, v1 = S.pos + (w - playX) / pxs + 0.5;
+    const tipOf = c => {
+      const ys = c.heads.map(hd => yOf(c.staff, hd.step));
+      return c.up ? Math.min(...ys) - 3.4 * sp : Math.max(...ys) + 3.4 * sp;
+    };
+    const beamY = grp => (grp[0].up ? Math.min(...grp.map(tipOf)) : Math.max(...grp.map(tipOf)));
+    const stemX = c => xAt(c.t) + (c.up ? rx * 0.92 : -rx * 0.92);
+    for (let i = lowerBound(S.chords, v0); i < S.chords.length && S.chords[i].t <= v1; i++) {
+      const c = S.chords[i], x = xAt(c.t), st = c.staff;
+      const stemCol = c.notes.every(n => C.mode !== 'listen' && !practiced(n)) ? GRAY : INK;
+      // Sekunde im Akkord: ein Kopf rückt auf die andere Seite des Halses
+      const shifted = new Set();
+      for (let k = 1; k < c.heads.length; k++) if (c.heads[k].step - c.heads[k - 1].step === 1 && !shifted.has(c.heads[k - 1])) shifted.add(c.up ? c.heads[k] : c.heads[k - 1]);
+      // Hilfslinien
+      g.fillStyle = stemCol;
+      const lo = c.heads[0].step, hi = c.heads[c.heads.length - 1].step, b0 = BOTTOM[st];
+      for (let s2 = b0 - 2; s2 >= lo; s2 -= 2) g.fillRect(x - 1.05 * rx - (shifted.size && !c.up ? 1.8 * rx : 0), yOf(st, s2) - 0.5, 2.1 * rx + (shifted.size ? 1.8 * rx : 0), 1.2);
+      for (let s2 = b0 + 10; s2 <= hi; s2 += 2) g.fillRect(x - 1.05 * rx - (shifted.size && !c.up ? 1.8 * rx : 0), yOf(st, s2) - 0.5, 2.1 * rx + (shifted.size ? 1.8 * rx : 0), 1.2);
+      // Vorzeichen in Spalten von oben nach unten
+      const placed = [];
+      [...c.heads].filter(hd => hd.show).sort((a, b) => b.step - a.step).forEach(hd => {
+        let col = 0;
+        while (placed.some(p => p.col === col && Math.abs(p.step - hd.step) < 6)) col++;
+        placed.push({ step: hd.step, col });
+        const gl = ACC_GLYPH[String(hd.acc)], right = x - rx - 0.35 * sp - col * 0.95 * sp - (shifted.size && !c.up ? 1.8 * rx : 0);
+        g.save(); g.fillStyle = colOf(hd.n); g.translate(right - gl.right * Kf, yOf(st, hd.step) + gl.mid * Kf); g.scale(Kf, -Kf); g.fill(glyph(gl.d)); g.restore();
+      });
+      // Köpfe, Punkte, Namen
+      for (const hd of c.heads) {
+        const hx = shifted.has(hd) ? x + (c.up ? 1.8 * rx : -1.8 * rx) : x, y = yOf(st, hd.step), col = colOf(hd.n);
+        g.beginPath(); g.ellipse(hx, y, rx, ry, -0.38, 0, Math.PI * 2);
+        if (c.hollow) { g.fillStyle = PAPER; g.fill(); g.lineWidth = Math.max(1.3, sp * 0.16); g.strokeStyle = col; g.stroke(); }
+        else { g.fillStyle = col; g.fill(); }
+        if (c.dot) { g.beginPath(); g.arc(hx + 1.75 * rx, y - ((hd.step - BOTTOM[st]) % 2 === 0 ? sp / 2 : 0), sp * 0.17, 0, Math.PI * 2); g.fillStyle = col; g.fill(); }
+        if (C.names && (practiced(hd.n) || C.mode === 'listen')) {
+          g.font = `700 ${Math.round(sp * 0.82)}px Figtree, system-ui, sans-serif`; g.fillStyle = col === INK ? '#6b7088' : col; g.textBaseline = 'middle';
+          g.fillText(NAMES[hd.n.p % 12], hx + 1.25 * rx + (c.dot ? 0.6 * sp : 0) + (c.up && !shifted.has(hd) && shifted.size ? 1.8 * rx : 0), y);
+          g.textBaseline = 'alphabetic';
+        }
+      }
+      // Hals, Fähnchen, Balken
+      if (c.stem) {
+        const sx = stemX(c), ys = c.heads.map(hd => yOf(st, hd.step));
+        const from = c.up ? Math.max(...ys) : Math.min(...ys), tip = c.beam ? beamY(c.beam) : tipOf(c);
+        g.fillStyle = stemCol; g.fillRect(sx - 0.6, Math.min(from, tip), 1.3, Math.abs(tip - from));
+        if (c.flags && !c.beam) {
+          const dir = c.up ? 1 : -1;
+          g.strokeStyle = stemCol; g.lineWidth = Math.max(1.4, sp * 0.22);
+          for (let f = 0; f < c.flags; f++) {
+            const ty = tip + f * 0.8 * sp * dir;
+            g.beginPath(); g.moveTo(sx, ty); g.bezierCurveTo(sx + 0.15 * sp, ty + 1.1 * sp * dir, sx + 1.25 * sp, ty + 1.5 * sp * dir, sx + 0.85 * sp, ty + 2.9 * sp * dir); g.stroke();
+          }
+        }
+        if (c.beam) {
+          const k = c.beam.indexOf(c), nx = c.beam[k + 1];
+          if (nx) {
+            const by = beamY(c.beam), th = Math.max(2.5, sp * 0.48), dir = c.up ? 1 : -1, x2 = stemX(nx);
+            g.fillStyle = stemCol;
+            g.fillRect(sx - 0.6, c.up ? by : by - th, x2 - sx + 1.3, th);
+            if (c.flags > 1 && nx.flags > 1) g.fillRect(sx - 0.6, (c.up ? by : by - th) + 0.78 * sp * dir, x2 - sx + 1.3, th);
+            else if (c.flags > 1 && (k === 0 || c.beam[k - 1].flags < 2)) g.fillRect(sx - 0.6, (c.up ? by : by - th) + 0.78 * sp * dir, Math.min(1.1 * sp, (x2 - sx) / 2), th);
+          } else if (c.flags > 1 && c.beam[k - 1].flags < 2) {
+            const by = beamY(c.beam), th = Math.max(2.5, sp * 0.48), dir = c.up ? 1 : -1;
+            g.fillStyle = stemCol; g.fillRect(sx - Math.min(1.1 * sp, (sx - stemX(c.beam[k - 1])) / 2), (c.up ? by : by - th) + 0.78 * sp * dir, Math.min(1.1 * sp, (sx - stemX(c.beam[k - 1])) / 2) + 0.7, th);
+          }
+        }
+      }
+    }
+    // Fester Anfang links: Klammer, Schlüssel, Tonart, Taktart
+    const fade = g.createLinearGradient(left, 0, left + 2.5 * sp, 0);
+    fade.addColorStop(0, PAPER); fade.addColorStop(1, 'rgba(251,250,246,0)');
+    g.fillStyle = PAPER; g.fillRect(0, 0, left, hy);
+    g.fillStyle = fade; g.fillRect(left, 0, 2.5 * sp, hy);
+    lines(x0, left);
+    g.fillStyle = INK; g.fillRect(x0, sysTop, 1.5, sysH);
+    g.save(); g.translate(x0 + 0.3 * sp, bot.treble); g.scale(Kf, -Kf); g.fill(glyph(TREBLE_PATH)); g.restore();
+    g.save(); g.translate(x0 + 0.45 * sp, bot.bass - 106 * Kf); g.scale(Kf, -Kf); g.fill(glyph(BASS_PATH)); g.restore();
+    const kind = sf > 0 ? 'sharp' : 'flat', kg = ACC_GLYPH[sf > 0 ? '1' : '-1'];
+    for (const st of ['treble', 'bass']) KEY_STEPS[kind].slice(0, nk).forEach((step, i) => {
+      g.save(); g.translate(x0 + 4 * sp + i * keyGap - 50 * Kf, yOf(st, st === 'treble' ? step : step - 14) + kg.mid * Kf); g.scale(Kf, -Kf); g.fill(glyph(kg.d)); g.restore();
+    });
+    const [tn, td] = sg.sig.split('/');
+    g.font = `800 ${Math.round(sp * 2.1)}px Georgia, "Times New Roman", serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = INK;
+    for (const st of ['treble', 'bass']) { g.fillText(tn, tsX + 0.9 * sp, bot[st] - 3 * sp); g.fillText(td, tsX + 0.9 * sp, bot[st] - sp); }
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   }
 
   // ---------- Bedienung ----------
@@ -479,8 +724,9 @@
     const was = S.playing;
     C[k] = v; saveCfg();
     if (k === 'tempo') { ui(); return; }
+    if (k === 'view') { try { localStorage.setItem('nl-play-view', v); } catch (e) {} return; }
     if (k === 'vol') { Synth.volume(v); return; }
-    if (k === 'names' || k === 'accomp') return;
+    if (k === 'names' || k === 'accomp' || k === 'view') return;
     $('pl-hint').hidden = true;
     pause();
     prepare();
@@ -491,6 +737,8 @@
   function build() {
     if (built) return;
     built = true;
+    $('pl-view').innerHTML = segHtml('plv', [['falling', 'Tasten'], ['sheet', 'Noten']], C.view);
+    $('pl-view').addEventListener('change', e => setOpt('view', e.target.value));
     $('pl-hands').innerHTML = segHtml('plh', [['L', 'Links'], ['both', 'Beide'], ['R', 'Rechts']], C.hands);
     $('pl-mode').innerHTML = segHtml('plm', [['wait', 'Warten'], ['tempo', 'Im Tempo'], ['listen', 'Anhören']], C.mode);
     $('pl-split').innerHTML = segHtml('pls', [['auto', 'Automatisch'], ['pitch', 'Trennung bei C4']], C.split);
@@ -548,14 +796,16 @@
   async function open(opts) {
     const song = parse(opts.buffer);   // wirft eine verständliche Meldung, wenn die Datei nicht passt
     S.opts = opts; S.key = opts.key; S.song = song;
-    C = { ...DEF, ...((cfgAll()[opts.key] || {}).cfg || {}) };
+    let lastView = 'falling';
+    try { lastView = localStorage.getItem('nl-play-view') || 'falling'; } catch (e) {}
+    C = { ...DEF, view: lastView, ...((cfgAll()[opts.key] || {}).cfg || {}) };
     build();
     S.kb = keyboardRange(); S.geo = null; S.loop = null; S.pass = 0; S.passNote = ''; S.counted = 0; S.status = '';
     S.down.clear(); S.lit.clear(); hideResult();
     $('pl-title').innerHTML = '';
     $('pl-title').append(opts.title || 'Mitspielen');
     if (opts.sub) { const sm = document.createElement('small'); sm.textContent = opts.sub; $('pl-title').append(sm); }
-    ['plh', 'plm', 'pls'].forEach(n => document.querySelectorAll(`input[name="${n}"]`).forEach(r => { r.checked = r.value === { plh: C.hands, plm: C.mode, pls: C.split }[n]; }));
+    ['plh', 'plm', 'pls', 'plv'].forEach(n => document.querySelectorAll(`input[name="${n}"]`).forEach(r => { r.checked = r.value === { plh: C.hands, plm: C.mode, pls: C.split, plv: C.view }[n]; }));
     $('pl-names').checked = C.names; $('pl-accomp').checked = C.accomp; $('pl-vol').value = C.vol;
     $('pl-seek').max = song.bars.length - 1;
     $('pl-info').textContent = `${song.notes.length} Töne, ${song.bars.length} Takte, ${song.sig}-Takt, Tempo ♩ ${song.bpm}. `
