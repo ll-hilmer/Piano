@@ -8,7 +8,7 @@ mkdir -p _site
 for page in index ueben theorie bibliothek; do
   { cat site/head.html; cat "$page.html"; printf '\n</body>\n</html>\n'; } > "_site/$page.html"
 done
-cp shared.js shared.css site/manifest.webmanifest site/*.png _site/
+cp shared.js mitspielen.js shared.css site/manifest.webmanifest site/*.png _site/
 cp -r vendor _site/
 # Offline-Speicher: jede Veröffentlichung bekommt eine eigene Version, damit Geräte die neue App laden
 sed "s/__BUILD__/$(git rev-parse --short HEAD 2>/dev/null || echo dev)-$(date +%s)/" sw.js > _site/sw.js

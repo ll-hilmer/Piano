@@ -89,6 +89,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .form-dlg h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; }
 .field { display: grid; gap: 5px; min-width: 0; }
 .field > span { font-size: 0.85rem; font-weight: 600; }
+.md-select { width: 100%; border: 1px solid var(--line); background: var(--paper); border-radius: 9px; padding: 9px 10px; }
 .field input[type=text] { width: 100%; border: 1px solid var(--line); background: var(--paper); border-radius: 9px; padding: 9px 10px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .seg { display: flex; flex-wrap: wrap; background: var(--paper); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
@@ -185,6 +186,31 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .hintbubble { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(10,12,24,.8); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 0.85rem; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
 .dropzone { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 4px dashed var(--accent); pointer-events: none; }
 .dropzone div { background: var(--card); color: var(--ink); border-radius: 14px; padding: 18px 26px; font-weight: 700; font-size: 1.1rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+/* Mitspielen */
+#player .topbar .title small { margin-left: 6px; }
+.pl-stage { position: relative; overflow: hidden; background: #10131f; touch-action: manipulation; }
+.pl-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pl-status { position: absolute; left: 12px; top: 10px; color: #e7e9f4; background: rgba(10,12,24,.65); border-radius: 10px; padding: 6px 12px; font-size: 0.88rem; font-weight: 600; pointer-events: none; max-width: calc(100% - 24px); }
+.pl-controls {
+  display: grid; gap: 8px; background: var(--card); border-top: 1px solid var(--line);
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+.pl-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.pl-row .seg { flex: none; }
+.pl-row input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+.pl-grp { display: flex; align-items: center; gap: 6px; }
+.pl-grp > b { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+#pl-tval { min-width: 92px; text-align: center; font-weight: 600; font-size: 0.9rem; }
+#pl-loopbox input { width: 58px; border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; background: var(--paper); }
+#pl-midi.ok { color: var(--good); border-color: var(--good); }
+.pl-result { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(10,12,24,.55); }
+.pl-result > div { background: var(--card); color: var(--ink); border-radius: 16px; padding: 22px; width: min(440px, calc(100% - 32px)); display: grid; gap: 10px; }
+.pl-result h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.6rem; }
+.pl-result p { margin: 0; }
+.pl-big { font: 500 2.8rem var(--font-display); color: var(--accent); }
+.pill.midi { background: var(--accent-soft); color: var(--accent); }
+#pl-hint { top: 52px; bottom: auto; }
+@media (max-width: 640px) { #pl-midi { display: none; } }
 /* Lieblingsstücke */
 .card .fav { position: absolute; right: 16px; top: 16px; z-index: 2; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.85); color: #8a8fa3; box-shadow: 0 1px 3px rgba(0,0,0,.2); cursor: pointer; }
 .card .fav svg, #v-fav svg { width: 18px; height: 18px; }
@@ -234,6 +260,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 
 <nav id="nl-nav"></nav>
 <script src="shared.js"></script>
+<script src="mitspielen.js"></script>
 
 <div class="wrap">
   <header>
@@ -246,7 +273,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <label class="btn primary" for="pdf-in" id="pdf-btn">PDF importieren</label>
     <label class="btn" for="img-in" id="scan-btn">Scannen</label>
     <button type="button" class="btn" id="sel-btn" aria-pressed="false">Auswählen</button>
-    <input class="file-in" id="pdf-in" type="file" accept="application/pdf,.pdf" multiple>
+    <input class="file-in" id="pdf-in" type="file" accept="application/pdf,.pdf,.mid,.midi,audio/midi" multiple>
     <input class="file-in" id="img-in" type="file" accept="image/*" multiple>
   </div>
 
@@ -328,6 +355,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <div class="title" id="v-title"></div>
     <button type="button" class="iconbtn" id="v-fav" aria-pressed="false" aria-label="Lieblingsstück"></button>
     <button type="button" class="btn small" id="v-spots-btn" hidden>Übestellen</button>
+    <button type="button" class="btn small" id="v-play-btn">Mitspielen</button>
     <button type="button" class="btn small" id="v-metro-btn" aria-pressed="false">Metronom</button>
     <button type="button" class="btn small" id="v-ink-btn" aria-pressed="false">Stift</button>
     <button type="button" class="btn small" id="v-opts" aria-expanded="false">Ansicht</button>
@@ -371,6 +399,55 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     </div>
   </div>
   <div class="pager"><button type="button" class="iconbtn" id="v-back" aria-label="Zurückblättern"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Weiterblättern"></button><span class="zoom" id="v-zoomtag"></span></div>
+</dialog>
+
+<!-- Mitspielen (fallende Noten aus der MIDI-Datei) -->
+<dialog class="full" id="player" aria-labelledby="pl-title">
+  <div class="topbar">
+    <button type="button" class="iconbtn" id="pl-close" aria-label="Zurück zu den Noten"></button>
+    <div class="title" id="pl-title"></div>
+    <button type="button" class="btn small" id="pl-midi">E-Piano verbinden</button>
+    <button type="button" class="btn small" id="pl-opts" aria-expanded="false">Einstellungen</button>
+  </div>
+  <div class="pl-stage" id="pl-stage">
+    <canvas id="pl-canvas"></canvas>
+    <div class="pl-status" id="pl-status" aria-live="polite"></div>
+    <div class="vpanel" id="pl-panel" hidden>
+      <div class="field"><span>Hände erkennen</span><div class="seg" id="pl-split"></div></div>
+      <label class="check"><input type="checkbox" id="pl-names"><span>Notennamen auf den Noten</span></label>
+      <label class="check"><input type="checkbox" id="pl-accomp"><span>Die andere Hand spielt die App</span></label>
+      <label class="field"><span>Lautstärke der App</span><input type="range" id="pl-vol" min="0" max="1" step="0.05"></label>
+      <p class="hint" id="pl-info"></p>
+      <div class="actions"><button type="button" class="btn small" id="pl-replace">Andere MIDI-Datei</button><button type="button" class="btn small danger" id="pl-remove">MIDI-Datei entfernen</button></div>
+    </div>
+    <div class="pl-result" id="pl-result" hidden></div>
+    <div class="hintbubble" id="pl-hint" hidden></div>
+  </div>
+  <div class="pl-controls">
+    <div class="pl-row">
+      <button type="button" class="btn small" id="pl-restart">Von vorn</button>
+      <button type="button" class="btn small primary" id="pl-play" aria-pressed="false">Start</button>
+      <div class="seg" id="pl-hands" role="radiogroup" aria-label="Hände"></div>
+      <div class="seg" id="pl-mode" role="radiogroup" aria-label="Modus"></div>
+      <span class="pl-grp"><b>Tempo</b><button type="button" class="btn small" id="pl-tdown" aria-label="Langsamer">−</button><span id="pl-tval">70 %</span><button type="button" class="btn small" id="pl-tup" aria-label="Schneller">+</button></span>
+      <span class="pl-grp"><button type="button" class="btn small toggle" id="pl-loop" aria-pressed="false">Schleife</button>
+        <span id="pl-loopbox" hidden>Takt <input type="number" id="pl-la" min="1" inputmode="numeric" aria-label="Schleife ab Takt"> bis <input type="number" id="pl-lb" min="1" inputmode="numeric" aria-label="Schleife bis Takt"></span></span>
+    </div>
+    <div class="pl-row"><input type="range" id="pl-seek" min="0" max="1" value="0" aria-label="Takt wählen"></div>
+  </div>
+</dialog>
+
+<!-- MIDI-Datei zuordnen -->
+<dialog class="form-dlg" id="midi-dlg" aria-labelledby="md-h">
+  <form method="dialog" id="md-form">
+    <h2 id="md-h">MIDI-Datei hinzufügen</h2>
+    <p class="hint" id="md-text"></p>
+    <label class="field" id="md-pick"><span>Gehört zu diesem Stück</span><select id="md-piece" class="md-select"></select></label>
+    <label class="btn primary" for="md-file" id="md-filebtn">MIDI-Datei wählen</label>
+    <input class="file-in" id="md-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi">
+    <p class="hint" id="md-info"></p>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="md-cancel">Abbrechen</button><button type="submit" class="btn primary" id="md-ok">Übernehmen</button></div>
+  </form>
 </dialog>
 
 <!-- Wie lief's? -->
@@ -567,7 +644,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         <h3>${esc(p.title)}</h3>
         <span class="who">${esc([p.composer, p.genre, p.pages ? `${p.pages} ${p.pages === 1 ? 'Seite' : 'Seiten'}` : ''].filter(Boolean).join(' · '))}</span>
         <span class="meta"><span class="dots" title="Schwierigkeit ${p.difficulty || 0} von 5">${[1, 2, 3, 4, 5].map(n => `<i class="${n <= (p.difficulty || 0) ? 'on' : ''}"></i>`).join('')}</span>
-          <span class="pill ${p.status || 'learn'}">${STATE[p.status || 'learn']}</span>${NL.rep.inPlan(p) && NL.rep.daysUntil(p) <= 0 && !NL.rep.ratedToday(p) ? '<span class="pill due">fällig</span>' : ''}</span>
+          <span class="pill ${p.status || 'learn'}">${STATE[p.status || 'learn']}</span>${p.midi ? '<span class="pill midi" title="Mit MIDI-Datei: Mitspielen möglich">MIDI</span>' : ''}${NL.rep.inPlan(p) && NL.rep.daysUntil(p) <= 0 && !NL.rep.ratedToday(p) ? '<span class="pill due">fällig</span>' : ''}</span>
         <span class="last">${I('clock')}${ago(p.opened)}${NL.rep.inPlan(p) ? ` · ${NL.rep.dueText(p)}` : ''}</span>
       </button>`).join('') : '<p class="muted">Keine Stücke passen zu diesem Filter.</p>';
     listed = list.map(p => p.id);
@@ -639,8 +716,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   $('ed-form').addEventListener('submit', e => {
     e.preventDefault();
     const p = edit.piece;
-    p.title = $('ed-title').value.trim() || 'Ohne Titel';
     const oldName = fileName(p);
+    p.title = $('ed-title').value.trim() || 'Ohne Titel';
     p.composer = $('ed-composer').value.trim();
     p.genre = $('ed-genre').value.trim();
     p.collections = uniq($('ed-coll').value.split(',').map(s => s.trim()));
@@ -671,6 +748,82 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   const favBtn = p => { $('v-fav').setAttribute('aria-pressed', !!p.fav); $('v-fav').title = p.fav ? 'Aus den Favoriten nehmen' : 'Als Lieblingsstück markieren'; };
   $('v-fav').addEventListener('click', () => toggleFav(V.id));
+
+  // ---------- Mitspielen (MIDI-Datei je Stück) ----------
+  // Auf dem Gerät: Eintrag „mid:<id>“ im Speicher der Noten ({ rev, blob }); in Drive neben dem PDF.
+  async function fetchMidi(p) {
+    const rec = await idb.get('files', 'mid:' + p.id).catch(() => null);
+    if (rec && rec.blob && rec.rev === p.midi.rev) return rec.blob;
+    if (!p.midiId || p.midiDirty) return rec ? rec.blob : null;
+    if (!NL.ready()) { if (rec) return rec.blob; throw new Error('offline'); }
+    const blob = await (await NL.api(`/drive/v3/files/${p.midiId}?alt=media`)).blob();
+    await idb.put('files', 'mid:' + p.id, { rev: p.midi.rev, blob });
+    return blob;
+  }
+  const words = t => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter(w => w.length > 2);
+  // Dialog: zu einem Stück eine Datei wählen (piece) oder zu einer Datei das Stück wählen (file)
+  function attachMidi(piece, file, replace = false) {
+    return new Promise(resolve => {
+      const ps = pieces();
+      if (!piece && !ps.length) { toast('Importiere zuerst das PDF des Stücks. Die MIDI-Datei gehört dann dazu.'); resolve(false); return; }
+      const fw = file ? words(file.name.replace(/\.midi?$/i, '')) : [];
+      const score = p => { const pw = words(p.title + ' ' + (p.composer || '')); return fw.filter(w => pw.includes(w)).length; };
+      $('md-h').textContent = replace ? 'Andere MIDI-Datei' : 'MIDI-Datei hinzufügen';
+      $('md-text').innerHTML = piece
+        ? `Zum Mitspielen braucht „${esc(piece.title)}“ eine MIDI-Datei mit den Noten. Du bekommst sie z. B. bei MuseScore.com (beim Stück auf „Download“ und dann „MIDI“) oder manchmal zusammen mit gekauften Noten. Die Datei wird wie deine Noten in deinem Google Drive gesichert.`
+        : `Zu welchem Stück gehört „${esc(file.name)}“?`;
+      $('md-pick').hidden = !!piece; $('md-filebtn').hidden = !!file; $('md-ok').hidden = !file; $('md-info').textContent = '';
+      if (!piece) {
+        const sorted = ps.slice().sort((a, b) => score(b) - score(a) || a.title.localeCompare(b.title, 'de'));
+        $('md-piece').innerHTML = sorted.map(p => `<option value="${p.id}">${esc(p.title)}${p.composer ? ' – ' + esc(p.composer) : ''}${p.midi ? ' (hat schon MIDI)' : ''}</option>`).join('');
+      }
+      let chosen = file;
+      const done = r => { $('midi-dlg').close(); $('md-file').value = ''; resolve(r); };
+      const take = async () => {
+        const p = piece || lib.pieces[$('md-piece').value];
+        if (!p || !chosen) return;
+        try {
+          const buf = await chosen.arrayBuffer(), song = NLPlay.parse(buf), rev = Date.now();
+          await idb.put('files', 'mid:' + p.id, { rev, blob: new Blob([buf], { type: 'audio/midi' }) });
+          p.midi = { name: chosen.name, size: buf.byteLength, rev, notes: song.notes.length };
+          p.midiDirty = !!p.midiId;
+          touch(p); saveLib(); render(); syncFiles();
+          if (!piece) toast(`MIDI-Datei gehört jetzt zu „${p.title}“. In den Noten oben auf „Mitspielen“ tippen.`);
+          done(true);
+        } catch (e) { $('md-info').textContent = e.message || 'Die Datei konnte nicht gelesen werden.'; }
+      };
+      $('md-file').onchange = e => { chosen = e.target.files[0]; if (chosen) take(); };
+      $('md-form').onsubmit = e => { e.preventDefault(); take(); };
+      $('md-cancel').onclick = () => done(false);
+      $('midi-dlg').oncancel = e => { e.preventDefault(); done(false); };
+      $('midi-dlg').showModal();
+    });
+  }
+  function removeMidi(p) {
+    idb.del('files', 'mid:' + p.id).catch(() => {});
+    if (p.midiId) p.midiTrash = p.midiId;
+    p.midiId = null; p.midi = null; p.midiDirty = false;
+    touch(p); saveLib(); render(); syncFiles();
+    toast('MIDI-Datei entfernt.');
+  }
+  async function openPlayer(id) {
+    const p = lib.pieces[id];
+    if (!p) return;
+    if (!p.midi && !(await attachMidi(p, null))) return;
+    let blob = null;
+    try { blob = await fetchMidi(p); }
+    catch (e) { toast('Die MIDI-Datei liegt nur in Google Drive. Verbinde dich mit dem Internet und melde dich an.'); return; }
+    if (!blob) { toast('Die MIDI-Datei fehlt auf diesem Gerät. Sie wird beim nächsten Abgleich geholt.'); return; }
+    try {
+      await NLPlay.open({
+        key: id, title: p.title, sub: p.composer, buffer: await blob.arrayBuffer(),
+        onPractice: () => NL.markPractice(1),
+        onReplace: async () => { $('player').close(); if (await attachMidi(p, null, true)) openPlayer(id); },
+        onRemove: () => removeMidi(p)
+      });
+    } catch (e) { toast(e.message || 'Die MIDI-Datei konnte nicht gelesen werden.'); }
+  }
+  $('v-play-btn').addEventListener('click', () => openPlayer(V.id));
 
   // ---------- Mehrere Stücke gemeinsam ändern ----------
   const SEL = { on: false, ids: new Set() };
@@ -814,9 +967,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   async function importFiles(files) {
     const pdfs = files.filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
     const imgs = files.filter(f => /^image\//.test(f.type));
-    if (!pdfs.length && !imgs.length) { toast('Nur PDFs (oder Fotos zum Scannen) lassen sich hier ablegen.'); return; }
+    const mids = files.filter(f => /\.midi?$/i.test(f.name) || /midi/.test(f.type));
+    if (!pdfs.length && !imgs.length && !mids.length) { toast('Nur PDFs, MIDI-Dateien (oder Fotos zum Scannen) lassen sich hier ablegen.'); return; }
     if (pdfs.length === 1) await addPdf(pdfs[0], { title: nameFromFile(pdfs[0]) }, pdfs[0].name);
     else if (pdfs.length > 1) await importMany(pdfs);
+    for (const f of mids) await attachMidi(null, f);
     if (imgs.length) { S.pages = []; S.cur = 0; S.preview = false; $('sc-preview').setAttribute('aria-pressed', 'false'); $('scanner').showModal(); await addImages(imgs); }
   }
   $('pdf-in').addEventListener('change', async e => {
@@ -827,7 +982,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   // Dateien von PC oder iPad (Dateien-App, Split View) auf die Seite ziehen
   let dragDepth = 0;
   const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
-  const anyOpen = () => ['viewer', 'scanner', 'editor', 'batch', 'bulk'].some(id => $(id).open);
+  const anyOpen = () => ['viewer', 'scanner', 'editor', 'batch', 'bulk', 'player', 'midi-dlg'].some(id => $(id).open);
   document.addEventListener('dragenter', e => { if (!hasFiles(e) || anyOpen()) return; e.preventDefault(); dragDepth++; $('dropzone').hidden = false; });
   document.addEventListener('dragover', e => { if (!hasFiles(e) || anyOpen()) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
   document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('dropzone').hidden = true; });
@@ -840,14 +995,17 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 
   // ---------- Abgleich der PDF-Dateien mit Google Drive ----------
   const fileName = p => `${p.title}${p.composer ? ' – ' + p.composer : ''}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
+  const midiName = p => fileName(p).replace(/\.pdf$/, '.mid');
   let filesBusy = false;
   function syncLine(text, icon = 'refresh') {
     const el = $('syncline');
     el.hidden = !text;
     el.innerHTML = text ? `${I(icon)}<span>${esc(text)}</span>` : '';
   }
+  let filesAgain = false;
   async function syncFiles() {
-    if (filesBusy) return;
+    if (filesBusy) { filesAgain = true; return; }   // läuft gerade: danach noch einmal mit dem neuesten Stand
+    filesAgain = false;
     const all = Object.values(lib.pieces);
     // Auf einem anderen Gerät gelöscht: auch hier die Datei entfernen
     for (const p of all) if (p.deleted) await removeLocal(p.id);
@@ -884,7 +1042,36 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
           p.rename = false; changed = true;
         }
       }
+      // MIDI-Dateien (Mitspielen) liegen neben dem PDF im Ordner „Klavier-App“
+      for (const p of all) {
+        const old = p.midiTrash || (p.deleted && p.midiId);
+        if (old) {
+          await NL.api(`/drive/v3/files/${old}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }).catch(e => { if (e.code !== 404) throw e; });
+          if (p.deleted) p.midiId = null;
+          p.midiTrash = null; changed = true;
+          if (p.deleted) continue;
+        }
+        if (p.deleted || !p.midi) continue;
+        if (!p.midiId || p.midiDirty) {
+          const rec = await idb.get('files', 'mid:' + p.id);
+          if (!rec || !rec.blob) continue;
+          syncLine(`Lade MIDI-Datei hoch: „${p.title}“ …`, 'upload');
+          if (p.midiId) await NL.api(`/upload/drive/v3/files/${p.midiId}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'audio/midi' }, body: rec.blob });
+          else {
+            const bd = 'nl' + Math.random().toString(36).slice(2);
+            const meta = { name: midiName(p), parents: [folder], mimeType: 'audio/midi' };
+            const body = new Blob([`--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${bd}\r\nContent-Type: audio/midi\r\n\r\n`, rec.blob, `\r\n--${bd}--`]);
+            p.midiId = (await (await NL.api('/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + bd }, body })).json()).id;
+          }
+          p.midiDirty = false; p.midiName = midiName(p); touch(p); changed = true;
+        } else if (p.midiName !== midiName(p)) {
+          await NL.api(`/drive/v3/files/${p.midiId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: midiName(p) }) }).catch(() => {});
+          p.midiName = midiName(p); touch(p); changed = true;
+        }
+      }
       if (changed) { saveLib(); renderGrid(); }
+      // Fehlende MIDI-Dateien holen (klein; so geht Mitspielen auch offline)
+      for (const p of pieces()) if (p.midi && p.midiId && !p.midiDirty) await fetchMidi(p).catch(() => {});
       // Fehlende Dateien auf dieses Gerät holen (für offline)
       const missing = [];
       for (const p of pieces()) if (p.fileId && !(await idb.get('files', p.id))) missing.push(p);
@@ -925,7 +1112,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     } catch (e) {
       syncLine(e.code === 401 ? 'Google-Anmeldung abgelaufen. Tippe oben auf das Wolken-Symbol.' : 'Abgleich der Noten unterbrochen. Er wird später fortgesetzt.', 'cloudOff');
       if (changed) saveLib();
-    } finally { filesBusy = false; }
+    } finally { filesBusy = false; if (filesAgain) setTimeout(syncFiles, 0); }
   }
   document.addEventListener('nl-synced', () => { lib = readLib(); lib.pieces = lib.pieces || {}; render(); syncFiles(); });
   document.addEventListener('nl-status', e => { if (e.detail.status === 'ok') syncFiles(); });
@@ -1757,7 +1944,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   });
   // Tastatur und Blätterpedal (Pedale senden meist Pfeiltasten oder Bild auf/ab)
   document.addEventListener('keydown', e => {
-    if (!$('viewer').open || $('editor').open || e.target.matches('input, select, textarea')) return;
+    if (!$('viewer').open || $('editor').open || $('player').open || $('midi-dlg').open || e.target.matches('input, select, textarea')) return;
     if (A.editing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); inkUndo(); return; }
     if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
     else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); prev(); }
@@ -1829,7 +2016,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     try { if ('wakeLock' in navigator && $('viewer').open && document.visibilityState === 'visible') wake = await navigator.wakeLock.request('screen'); } catch (e) {}
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('viewer').open) keepAwake(); });
-  async function removeLocal(id) { for (const st of ['files', 'thumbs', 'annots']) await idb.del(st, id).catch(() => {}); }
+  async function removeLocal(id) { for (const st of ['files', 'thumbs', 'annots']) await idb.del(st, id).catch(() => {}); await idb.del('files', 'mid:' + id).catch(() => {}); }
 
   // ---------- Scanner: Ecken ziehen, entzerren, Noten säubern ----------
   const S = { pages: [], cur: 0, preview: false, drag: -1 };
@@ -2052,6 +2239,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   $('v-close').innerHTML = I('arrow').replace('<path d="M5 12h14M13 6l6 6-6 6"/>', '<path d="M19 12H5M11 6l-6 6 6 6"/>');
   $('sc-close').innerHTML = $('v-close').innerHTML;
   $('v-fav').innerHTML = I('star');
+  $('pl-close').innerHTML = $('v-close').innerHTML;
   $('v-back').innerHTML = $('v-close').innerHTML;
   $('v-fwd').innerHTML = I('arrow');
   ['pdf-btn', 'scan-btn'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(id).click(); } }));

@@ -4,7 +4,7 @@ const VERSION = '__BUILD__';
 const CACHE = 'notenleser-' + VERSION;
 const FONTS = 'notenleser-fonts';
 const CORE = [
-  './', 'index.html', 'ueben.html', 'theorie.html', 'bibliothek.html', 'shared.js', 'shared.css',
+  './', 'index.html', 'ueben.html', 'theorie.html', 'bibliothek.html', 'shared.js', 'mitspielen.js', 'shared.css',
   'manifest.webmanifest', 'icon-192.png', 'apple-touch-icon.png',
   'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'vendor/jspdf.umd.min.js'
 ];
