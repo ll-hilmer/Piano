@@ -468,7 +468,7 @@
       if (d !== undefined) return d === 'bad' ? BAD : d === 'ok' ? OK : (bk ? '#5d6690' : '#aab4dc');
       const l = S.lit.get(p);
       if (l && l.until > now) return l.h === 'L' ? HL : HR;
-      if (exp.has(p)) return exp.get(p) === 'L' ? (bk ? '#1f7a56' : '#bfeedb') : (bk ? '#3550b8' : '#cbd6ff');
+      if (exp.has(p)) return bk ? '#b56a00' : '#ffd79a';   // als Nächstes dran: orange wie die Spiellinie
       return bk ? '#1b1e2b' : '#f4f5f8';
     };
     g.fillStyle = '#0b0d16'; g.fillRect(0, hy + 1, w, kbH);
@@ -485,7 +485,7 @@
     if (C.mode === 'wait') t += ` · ✓ ${s.ok} · ✗ ${s.bad}`;
     if (C.mode === 'tempo') t += ` · ✓ ${s.hit} · verpasst ${s.miss}${s.bad ? ` · ✗ ${s.bad}` : ''}`;
     if (S.passNote && S.loop) t += ` · ${S.passNote}`;
-    if (S.waiting && exp.size) t += ` · Spiele: ${[...exp.keys()].sort((a, b) => a - b).map(p => NAMES[p % 12]).join(' ')}`;
+    if (S.waiting && exp.size && C.names) t += ` · Spiele: ${[...exp.keys()].sort((a, b) => a - b).map(p => NAMES[p % 12]).join(' ')}`;
     if (!S.playing && !S.result) t += C.mode === 'wait' ? (S.midiState === 'ok' ? ' · Leertaste oder erster Ton startet' : ' · Leertaste startet') : ' · Leertaste startet';
     if (t !== S.status) { S.status = t; $('pl-status').textContent = t; }
     const seek = $('pl-seek');
@@ -605,15 +605,16 @@
       if (i) { g.fillStyle = '#8a8fa3'; g.fillText(String(i + 1), x + 2, sysTop - 1.1 * sp); }
     }
     // Hervorhebung: was gerade dran ist
-    const cur = new Set();
-    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev && ev.t - S.pos < 1.5 * C.tempo) ev.notes.forEach(n => { if (!ev.got.has(n.p)) cur.add(n); }); }
+    const cur = new Set(), got = new Set();
+    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev) ev.notes.forEach(n => { if (ev.got.has(n.p)) got.add(n); else if (ev.t - S.pos < 1.5 * C.tempo) cur.add(n); }); }
     else if (C.mode === 'tempo') { const wd = WIN * C.tempo; for (let i = lowerBound(S.pn, S.pos - wd); i < S.pn.length && S.pn[i].t <= S.pos + wd; i++) if (!S.pn[i].res) cur.add(S.pn[i]); }
     else for (let i = lowerBound(sg.notes, S.pos - 6); i < sg.notes.length && sg.notes[i].t <= S.pos; i++) if (sg.notes[i].t + sg.notes[i].d > S.pos) cur.add(sg.notes[i]);
+    // Grün heißt nur „richtig gespielt“; was als Nächstes dran ist, ist orange wie die Spiellinie
     const colOf = n => {
-      if (C.mode !== 'listen' && !practiced(n)) return cur.has(n) ? (n.h === 'L' ? '#7fcfae' : '#9db3ff') : GRAY;
-      if (n.res === 'hit') return '#1f9d55';
+      if (C.mode !== 'listen' && !practiced(n)) return GRAY;
+      if (n.res === 'hit' || got.has(n)) return '#1f9d55';
       if (n.res === 'miss') return '#d6453f';
-      if (cur.has(n)) return n.h === 'L' ? '#13945f' : '#2f55e4';
+      if (cur.has(n)) return '#d97a00';
       return INK;
     };
     const rx = 0.64 * sp, ry = 0.45 * sp;
@@ -711,6 +712,7 @@
     $('pl-play').setAttribute('aria-pressed', S.playing);
     $('pl-tval').textContent = `${Math.round(C.tempo * 100)} %${S.song ? ` · ♩ ${Math.round(S.song.bpm * C.tempo)}` : ''}`;
     $('pl-loop').setAttribute('aria-pressed', !!S.loop);
+    $('pl-namebtn').setAttribute('aria-pressed', !!C.names);
     $('pl-loopbox').hidden = !S.loop;
     if (S.loop) { $('pl-la').value = S.loop.a + 1; $('pl-lb').value = S.loop.b + 1; }
   }
@@ -745,7 +747,8 @@
     $('pl-hands').addEventListener('change', e => setOpt('hands', e.target.value));
     $('pl-mode').addEventListener('change', e => setOpt('mode', e.target.value));
     $('pl-split').addEventListener('change', e => setOpt('split', e.target.value));
-    $('pl-names').addEventListener('change', e => setOpt('names', e.target.checked));
+    $('pl-names').addEventListener('change', e => { setOpt('names', e.target.checked); ui(); });
+    $('pl-namebtn').addEventListener('click', () => { setOpt('names', !C.names); $('pl-names').checked = C.names; ui(); });
     $('pl-accomp').addEventListener('change', e => setOpt('accomp', e.target.checked));
     $('pl-vol').addEventListener('input', e => setOpt('vol', +e.target.value));
     $('pl-play').addEventListener('click', () => (S.playing ? pause() : play()));
