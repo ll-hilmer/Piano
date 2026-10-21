@@ -134,7 +134,17 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   position: absolute; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--card); color: var(--ink);
   border: 1px solid var(--line); border-radius: 14px; padding: 6px 8px; box-shadow: 0 6px 24px rgba(0,0,0,.28);
 }
-.metrobar { top: 10px; right: max(12px, env(safe-area-inset-right, 0px)); }
+.metrobar { bottom: 70px; right: max(12px, env(safe-area-inset-right, 0px)); max-width: calc(100% - 24px); }
+/* Metronom-Knopf: immer unten rechts auf den Noten, auch wenn die Leisten ausgeblendet sind */
+.vmfab {
+  position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 14px; z-index: 4;
+  display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 999px; padding: 8px 14px 8px 10px; font-weight: 700; font-variant-numeric: tabular-nums; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer;
+}
+.vmfab svg { width: 22px; height: 22px; }
+.vmfab.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.vmfab:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+#viewer.inking .vmfab, #viewer.inking .metrobar { display: none; }
 .spotbar { left: 50%; transform: translateX(-50%); bottom: 14px; max-width: calc(100% - 24px); justify-content: center; }
 .metrobar input { width: 4.2em; text-align: center; font-weight: 700; border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px; background: var(--paper); }
 .metrobar select { border: 1px solid var(--line); border-radius: 8px; padding: 5px; background: var(--paper); }
@@ -357,7 +367,6 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <button type="button" class="iconbtn" id="v-fav" aria-pressed="false" aria-label="Lieblingsstück"></button>
     <button type="button" class="btn small" id="v-spots-btn" hidden>Übestellen</button>
     <button type="button" class="btn small" id="v-play-btn">Mitspielen</button>
-    <button type="button" class="btn small" id="v-metro-btn" aria-pressed="false">Metronom</button>
     <button type="button" class="btn small" id="v-ink-btn" aria-pressed="false">Stift</button>
     <button type="button" class="btn small" id="v-opts" aria-expanded="false">Ansicht</button>
     <button type="button" class="btn small" id="v-edit">Angaben</button>
@@ -372,6 +381,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <button type="button" class="btn small primary" id="vm-go">Start</button>
       <span class="beat" id="vm-dot"></span>
     </div>
+    <button type="button" class="vmfab" id="v-metro-btn" aria-expanded="false" aria-controls="v-metro" title="Metronom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3h5l4.5 18H5z"/><path d="M12 17l5-10"/><path d="M7.5 17h9"/></svg><span id="v-metro-txt">80</span></button>
     <div class="spotbar" id="v-spotbar" hidden></div>
     <button type="button" class="backjump" id="v-backjump" hidden></button>
     <div class="vpanel" id="v-spots" hidden>
@@ -1091,12 +1101,16 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         if ($('viewer').open && V.id === p.id) continue;      // offenes Stück erst nach dem Schließen
         const a = await idb.get('annots', p.id);
         const remoteNewer = p.annotId && (p.annotRev || 0) > ((a && a.rev) || 0);
-        if (!(a && a.dirty) && !remoteNewer) continue;
+        // Markierungen, die nie mit der aktuellen Drive-Datei abgeglichen wurden (z. B. haben PC und iPad
+        // gleichzeitig je eine eigene Datei angelegt): einmal vergleichen und Fehlendes hochladen
+        const unchecked = a && ((a.strokes || []).length || (a.del || []).length) && a.fid !== (p.annotId || null);
+        if (!(a && a.dirty) && !remoteNewer && !unchecked) continue;
         syncLine(`Markierungen: „${p.title}“ …`, 'pencil');
         let remote = null;
         if (p.annotId) { try { remote = await (await NL.api(`/drive/v3/files/${p.annotId}?alt=media`)).json(); } catch (e) { if (e.code !== 404) throw e; p.annotId = null; } }
         const merged = mergeAnnot(a, remote);
-        if (a && a.dirty) {
+        const behind = !remote || merged.strokes.length !== (remote.strokes || []).length || merged.del.length !== (remote.del || []).length;
+        if ((a && a.dirty) || (behind && (merged.strokes.length || merged.del.length))) {
           const body = JSON.stringify({ strokes: merged.strokes, del: merged.del, rev: merged.rev });
           if (p.annotId) await NL.api(`/upload/drive/v3/files/${p.annotId}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
           else {
@@ -1107,7 +1121,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
           // neuer Zeitstempel erst nach dem Hochladen: dann holen die anderen Geräte garantiert den neuen Stand
           p.annotRev = Date.now(); touch(p); annChanged = true;
         }
-        merged.dirty = false; merged.rev = Math.max(merged.rev || 0, p.annotRev || 0);
+        merged.dirty = false; merged.fid = p.annotId || null; merged.rev = Math.max(merged.rev || 0, p.annotRev || 0);
         await idb.put('annots', p.id, merged);
       }
       if (annChanged) saveLib();
@@ -1360,7 +1374,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   $('viewer').addEventListener('close', () => {
     if (V.cropEdit) endCrop(false);
     if (V.activeSpot) endSpot();
-    showMetro(false);
+    showMetro(false, true);
     if (A.editing) setEditing(false);
     saveAnnot();
     if (V.doc) { V.doc.destroy(); V.doc = null; }
@@ -1728,15 +1742,22 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     M.on = true; M.k = 0; M.next = M.ctx.currentTime + 0.08;
     mTick(); M.timer = setInterval(mTick, 25);
     $('vm-go').textContent = 'Stopp';
+    mFab();
   }
-  function mStop() { M.on = false; clearInterval(M.timer); $('vm-go').textContent = 'Start'; }
+  function mStop() { M.on = false; clearInterval(M.timer); $('vm-go').textContent = 'Start'; mFab(); }
+  function mFab() {
+    $('v-metro-txt').textContent = mBpm();
+    $('v-metro-btn').classList.toggle('on', !!M.on);
+    $('v-metro-btn').setAttribute('aria-label', `Metronom, ${mBpm()} Schläge pro Minute${M.on ? ', läuft' : ''}`);
+  }
   function mSetBpm(v, save = true) {
     $('vm-bpm').value = Math.min(240, Math.max(30, Math.round(+v || 80)));
+    mFab();
     if (!save) return;
     clearTimeout(M.saveT);
     M.saveT = setTimeout(() => { const p = lib.pieces[V.id]; if (p && !V.activeSpot) { p.bpm = mBpm(); touch(p); saveLib(); } }, 800);
   }
-  function showMetro(on) { $('v-metro').hidden = !on; $('v-metro-btn').setAttribute('aria-pressed', String(on)); if (!on) mStop(); }
+  function showMetro(on, stop = false) { $('v-metro').hidden = !on; $('v-metro-btn').setAttribute('aria-expanded', String(on)); if (stop) mStop(); }
   $('v-metro-btn').addEventListener('click', e => { e.currentTarget.blur(); showMetro($('v-metro').hidden); });
   $('vm-go').addEventListener('click', () => (M.on ? mStop() : mStart()));
   $('vm-down').addEventListener('click', () => mSetBpm(mBpm() - 4));
@@ -1959,7 +1980,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const pts = new Map();
   let gest = null;
   stage().addEventListener('pointerdown', e => {
-    if (e.target.closest('.vpanel, .inkbar, #v-textin, #v-cropsvg, .spotbar, .backjump, .metrobar')) return;
+    if (e.target.closest('.vpanel, .inkbar, #v-textin, #v-cropsvg, .spotbar, .backjump, .metrobar, .vmfab')) return;
     if (e.pointerType === 'pen' && !VS.penSeen) { VS.penSeen = true; VS.penOnly = true; saveVS(); }
     if (A.editing && inkPointer(e)) return;
     stage().setPointerCapture(e.pointerId);
