@@ -1346,5 +1346,6 @@ th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; colo
   requestAnimationFrame(toStart);
   window.addEventListener('load', toStart);
   window.addEventListener('pageshow', e => { if (e.persisted) toStart(); });
+  NL.timer.float();
 })();
 </script>

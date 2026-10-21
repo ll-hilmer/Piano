@@ -72,3 +72,34 @@
   .nl-sync span { display: none; }
   .nl-sync { padding: 6px; }
 }
+
+/* Fokus-Timer */
+.nlt-wrap { position: relative; font-family: var(--font-body); }
+.nlt-pill {
+  display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 8px 14px 8px 10px;
+  font: 700 0.95rem var(--font-body); font-variant-numeric: tabular-nums; box-shadow: 0 6px 20px rgba(0,0,0,.22); cursor: pointer;
+  background: linear-gradient(90deg, var(--accent-soft) var(--p, 0%), var(--card) var(--p, 0%));
+}
+.nlt-pill .ic { width: 20px; height: 20px; }
+.nlt-pill.done { background: var(--good); border-color: var(--good); color: var(--card); }
+.nlt-pill:focus-visible, .nlt-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.nlt-ps { font-size: 0.75rem; color: var(--muted); letter-spacing: -1px; }
+.nlt-pop {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 50; display: grid; gap: 10px; width: max-content; max-width: min(330px, calc(100vw - 32px));
+  background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+.nlt-down .nlt-pop { bottom: auto; top: calc(100% + 8px); }
+.nlt-right .nlt-pop { left: auto; right: 0; }
+.nlt-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.nlt-btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 7px 12px; font: 600 0.9rem var(--font-body); cursor: pointer; text-decoration: none; }
+.nlt-btn.pri { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.nlt-title { font-weight: 700; }
+.nlt-sub { color: var(--muted); font-size: 0.88rem; margin: 0; max-width: 60ch; }
+.nlt-card { display: grid; gap: 10px; }
+.nlt-big { font: 500 2.4rem var(--font-display); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.nlt-big small { font: 600 0.9rem var(--font-body); color: var(--muted); }
+.nlt-ok { color: var(--good); font-size: 1.8rem; }
+.nlt-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.nlt-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .5s linear; }
+.nlt-float { position: fixed; z-index: 39; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 760px) { .nlt-float { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); } }

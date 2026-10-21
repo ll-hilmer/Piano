@@ -379,6 +379,108 @@
   window.addEventListener('online', () => { if (cfg.connected) NL.sync(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && cfg.dirty) NL.sync(); });
 
+  // ---------- Fokus-Timer ----------
+  // Läuft seitenübergreifend: gespeichert wird nur, wann er endet ({ dur, end } bzw. pausiert { dur, left, paused }).
+  // Am Ende ein sanfter Dreiklang; die Einheit zählt für die Übe-Serie.
+  const TKEY = 'nl-timer';
+  const T = { els: [], iv: 0, ac: null };
+  const tState = () => readJSON(TKEY, null);
+  const tLeft = s => (!s || s.done ? 0 : s.paused ? s.left : Math.max(0, s.end - Date.now()));
+  const tFmt = ms => { const x = Math.ceil(ms / 1000); return `${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}`; };
+  const tMin = s => Math.round(s.dur / 60000);
+  function tWrite(st) { if (st) writeJSON(TKEY, st); else { try { localStorage.removeItem(TKEY); } catch (e) {} } tRender(); }
+  function tUnlock() { try { T.ac = T.ac || new (window.AudioContext || window.webkitAudioContext)(); if (T.ac.state === 'suspended') T.ac.resume(); } catch (e) {} }
+  function tChime() {
+    tUnlock();
+    if (!T.ac) return;
+    const t0 = T.ac.currentTime + 0.05;
+    [[1046.5, 0], [1318.5, 0.2], [1568, 0.4]].forEach(([f, d]) => {
+      const o = T.ac.createOscillator(), g = T.ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t0 + d); g.gain.linearRampToValueAtTime(0.16, t0 + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 1.8);
+      o.connect(g); g.connect(T.ac.destination); o.start(t0 + d); o.stop(t0 + d + 1.9);
+    });
+  }
+  // Auf dem iPad darf Ton erst nach einer Berührung der Seite kommen: dabei schon vorbereiten
+  document.addEventListener('pointerdown', () => { if (tState()) tUnlock(); }, { capture: true, passive: true });
+  window.addEventListener('storage', e => { if (e.key === TKEY) tRender(); });
+  function tFinish(st) {
+    writeJSON(TKEY, { dur: st.dur, done: st.end });
+    NL.markPractice(1);
+    if (Date.now() - st.end < 20000) tChime();
+    T.els.forEach(el => { if (el.kind === 'pill') el.open = true; });
+    tRender();
+    document.dispatchEvent(new CustomEvent('nl-timer-done'));
+  }
+  function tTick() {
+    const st = tState();
+    if (st && !st.done && !st.paused && st.end <= Date.now()) { tFinish(st); return; }
+    if (st && st.done && Date.now() - st.done > 10 * 60000) { tWrite(null); return; }   // Erfolgsmeldung nach 10 Minuten wieder weg
+    const left = tLeft(st), pc = st && !st.done ? Math.min(100, 100 * (1 - left / st.dur)) : 0;
+    T.els.forEach(el => {
+      el.box.querySelectorAll('[data-t]').forEach(x => { x.textContent = tFmt(left); });
+      el.box.querySelectorAll('[data-p]').forEach(x => { x.style.width = pc + '%'; });
+      el.box.querySelectorAll('.nlt-pill.run').forEach(x => x.style.setProperty('--p', pc + '%'));
+    });
+  }
+  const tBtn = (a, label, pri = false, extra = '') => `<button type="button" class="nlt-btn${pri ? ' pri' : ''}" data-a="${a}" ${extra}>${label}</button>`;
+  const tChoices = (rec = 15) => `<div class="nlt-row">${[5, 10, 15, 20].map(m => tBtn('start', `${m} Min.`, m === rec, `data-min="${m}"`)).join('')}</div>`;
+  function tControls(st) {
+    return `<div class="nlt-row">${st.paused ? tBtn('resume', 'Weiter', true) : tBtn('pause', 'Pause')}${tBtn('add', '+5 Min.')}${tBtn('stop', 'Beenden')}</div>`;
+  }
+  function tRenderOne(el) {
+    const st = tState(), mode = !st ? 'idle' : st.done ? 'done' : st.paused ? 'paused' : 'run';
+    if (el.kind === 'card') {
+      el.box.innerHTML = mode === 'idle'
+        ? `<p class="nlt-sub">Konzentriert spielen, ohne auf die Uhr zu schauen. Der Timer läuft weiter, wenn du in die Bibliothek oder zu den Übungen wechselst.</p>${tChoices()}`
+        : mode === 'done'
+          ? `<div class="nlt-big nlt-ok">✓ ${tMin(st)} Minuten geschafft</div><p class="nlt-sub">Zählt für deine Übe-Serie.</p><div class="nlt-row">${tBtn('start', `Nochmal ${tMin(st)} Min.`, true, `data-min="${tMin(st)}"`)}${tBtn('stop', 'OK')}</div>`
+          : `<div class="nlt-big"><span data-t></span>${mode === 'paused' ? ' <small>pausiert</small>' : ''}</div><div class="nlt-bar"><i data-p></i></div>${tControls(st)}`;
+    } else {
+      el.box.hidden = mode === 'idle' && !el.idle;
+      if (mode === 'idle' && !el.idle) el.open = false;
+      const pill = mode === 'idle'
+        ? `<button type="button" class="nlt-pill" data-a="toggle" aria-expanded="${!!el.open}" title="Fokus-Timer">${NL.icon('clock')}<span>Timer</span></button>`
+        : mode === 'done'
+          ? `<button type="button" class="nlt-pill done" data-a="toggle" aria-expanded="${!!el.open}">✓ Geschafft</button>`
+          : `<button type="button" class="nlt-pill run" data-a="toggle" aria-expanded="${!!el.open}" aria-label="Fokus-Timer${mode === 'paused' ? ', pausiert' : ''}">${NL.icon('clock')}<span data-t></span>${mode === 'paused' ? '<span class="nlt-ps">II</span>' : ''}</button>`;
+      const pop = !el.open ? '' : `<div class="nlt-pop" role="dialog" aria-label="Fokus-Timer">${
+        mode === 'idle' ? `<b class="nlt-title">Fokus-Timer</b><p class="nlt-sub">Wie lange willst du konzentriert üben?</p>${tChoices()}`
+        : mode === 'done' ? `<b class="nlt-title">✓ ${tMin(st)} Minuten geschafft!</b><p class="nlt-sub">Zählt für deine Übe-Serie.</p><div class="nlt-row">${tBtn('start', `Nochmal ${tMin(st)} Min.`, true, `data-min="${tMin(st)}"`)}${tBtn('stop', 'OK')}</div>`
+        : `<b class="nlt-title">Fokus: noch <span data-t></span>${mode === 'paused' ? ' (pausiert)' : ''}</b>${tControls(st)}`}</div>`;
+      el.box.innerHTML = pill + pop;
+    }
+  }
+  function tRender() { T.els.forEach(tRenderOne); tTick(); }
+  function tAction(el, b) {
+    const st = tState(), a = b.dataset.a;
+    b.blur();
+    if (a === 'toggle') { el.open = !el.open; tRenderOne(el); tTick(); return; }
+    if (a === 'start') { tUnlock(); const m = +b.dataset.min; T.els.forEach(x => { x.open = false; }); tWrite({ dur: m * 60000, end: Date.now() + m * 60000 }); return; }
+    if (a === 'pause' && st && !st.paused && !st.done) tWrite({ dur: st.dur, left: tLeft(st), paused: true });
+    if (a === 'resume' && st && st.paused) tWrite({ dur: st.dur, end: Date.now() + st.left });
+    if (a === 'add' && st && !st.done) { st.dur += 300000; if (st.paused) st.left += 300000; else st.end += 300000; tWrite(st); }
+    if (a === 'stop') { T.els.forEach(x => { x.open = false; }); tWrite(null); }
+  }
+  // kind: 'card' (große Karte, z. B. auf „Heute“) oder 'pill' (kleiner Knopf; idle: auch zeigen, wenn kein Timer läuft)
+  NL.timer = {
+    mount(box, { kind = 'pill', idle = false } = {}) {
+      const el = { box, kind, idle, open: false };
+      T.els.push(el);
+      box.classList.add('nlt', kind === 'card' ? 'nlt-card' : 'nlt-wrap');
+      box.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b && box.contains(b)) tAction(el, b); });
+      if (!T.iv) {
+        T.iv = setInterval(tTick, 500);
+        document.addEventListener('pointerdown', e => { T.els.forEach(x => { if (x.open && !x.box.contains(e.target)) { x.open = false; tRenderOne(x); tTick(); } }); });
+      }
+      tRenderOne(el); tTick();
+      return el;
+    },
+    // schwebender Knopf unten links (nur sichtbar, solange ein Timer läuft)
+    float() { const d = document.createElement('div'); d.className = 'nlt-float'; document.body.append(d); return NL.timer.mount(d); },
+    state: tState
+  };
+
   function init() {
     const b = document.getElementById('nl-sync');
     if (b) b.addEventListener('click', () => {

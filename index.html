@@ -128,6 +128,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     <div class="daily" id="daily"></div>
   </section>
 
+  <section class="panel" aria-labelledby="h-focus">
+    <h2 id="h-focus"><span id="focus-icon"></span>Fokus-Timer</h2>
+    <div id="focus"></div>
+  </section>
+
   <section class="panel" id="spots-card" aria-labelledby="h-spots" hidden>
     <h2 id="h-spots"><span id="spots-icon"></span>Übestellen</h2>
     <div class="next spotnext" id="spotlist"></div>
@@ -357,6 +362,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     list.sort((a, b) => (a.sp.last || 0) - (b.sp.last || 0));
     $('spots-card').hidden = !list.length;
     $('spots-icon').innerHTML = I('clock');
+    $('focus-icon').innerHTML = I('clock');
+    NL.timer.mount($('focus'), { kind: 'card' });
+    document.addEventListener('nl-timer-done', renderStats);
     $('spotlist').innerHTML = list.slice(0, 4).map(({ p, id, sp }) => `<a href="bibliothek.html#spot-${p.id}-${id}"><b>${esc(sp.name)} · ${esc(p.title)}</b><span>heute <b>${sp.cur}</b> bpm, Ziel ${sp.target}</span></a>`).join('');
   }
   renderDaily();

@@ -3212,5 +3212,6 @@ kbd { font-family: var(--font-body); font-size: 0.8em; border: 1px solid var(--l
   requestAnimationFrame(toTop);
   window.addEventListener('load', toTop);
   window.addEventListener('pageshow', e => { if (e.persisted) toTop(); });
+  NL.timer.float();
 })();
 </script>

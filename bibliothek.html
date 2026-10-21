@@ -144,7 +144,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .vmfab svg { width: 22px; height: 22px; }
 .vmfab.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
 .vmfab:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-#viewer.inking .vmfab, #viewer.inking .metrobar { display: none; }
+#viewer.inking .vmfab, #viewer.inking .metrobar, #viewer.inking .vtimer { display: none; }
+.vtimer { position: absolute; z-index: 4; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 14px; }
+.pltimer { position: absolute; z-index: 5; right: 12px; top: 10px; }
 .spotbar { left: 50%; transform: translateX(-50%); bottom: 14px; max-width: calc(100% - 24px); justify-content: center; }
 .metrobar input { width: 4.2em; text-align: center; font-weight: 700; border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px; background: var(--paper); }
 .metrobar select { border: 1px solid var(--line); border-radius: 8px; padding: 5px; background: var(--paper); }
@@ -382,6 +384,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <span class="beat" id="vm-dot"></span>
     </div>
     <button type="button" class="vmfab" id="v-metro-btn" aria-expanded="false" aria-controls="v-metro" title="Metronom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3h5l4.5 18H5z"/><path d="M12 17l5-10"/><path d="M7.5 17h9"/></svg><span id="v-metro-txt">80</span></button>
+    <div class="vtimer" id="v-timer"></div>
     <div class="spotbar" id="v-spotbar" hidden></div>
     <button type="button" class="backjump" id="v-backjump" hidden></button>
     <div class="vpanel" id="v-spots" hidden>
@@ -432,6 +435,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <p class="hint" id="pl-info"></p>
       <div class="actions"><button type="button" class="btn small" id="pl-replace">Andere MIDI-Datei</button><button type="button" class="btn small danger" id="pl-remove">MIDI-Datei entfernen</button></div>
     </div>
+    <div class="pltimer nlt-down nlt-right" id="pl-timer"></div>
     <div class="pl-result" id="pl-result" hidden></div>
     <div class="hintbubble" id="pl-hint" hidden></div>
   </div>
@@ -1980,7 +1984,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const pts = new Map();
   let gest = null;
   stage().addEventListener('pointerdown', e => {
-    if (e.target.closest('.vpanel, .inkbar, #v-textin, #v-cropsvg, .spotbar, .backjump, .metrobar, .vmfab')) return;
+    if (e.target.closest('.vpanel, .inkbar, #v-textin, #v-cropsvg, .spotbar, .backjump, .metrobar, .vmfab, .nlt')) return;
     if (e.pointerType === 'pen' && !VS.penSeen) { VS.penSeen = true; VS.penOnly = true; saveVS(); }
     if (A.editing && inkPointer(e)) return;
     stage().setPointerCapture(e.pointerId);
@@ -2264,6 +2268,10 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   $('sc-close').innerHTML = $('v-close').innerHTML;
   $('v-fav').innerHTML = I('star');
   $('pl-close').innerHTML = $('v-close').innerHTML;
+  // Fokus-Timer: in der Notenansicht und beim Mitspielen startbar, sonst nur sichtbar, solange er läuft
+  NL.timer.mount($('v-timer'), { idle: true });
+  NL.timer.mount($('pl-timer'), { idle: true });
+  NL.timer.float();
   $('v-back').innerHTML = $('v-close').innerHTML;
   $('v-fwd').innerHTML = I('arrow');
   ['pdf-btn', 'scan-btn'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(id).click(); } }));
