@@ -114,7 +114,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 @media (max-width: 640px) {
   #viewer .topbar { gap: 6px; }
   #viewer .topbar .title { min-width: 70px; }
-  #viewer .topbar .btn.small { padding: 6px 7px; font-size: 0.78rem; }
+  #viewer .topbar .btn.small { padding: 7px; font-size: 0.78rem; gap: 4px; }
+  #viewer .topbar .btn.small .lbl { display: none; }
+  #viewer .topbar .title { min-width: 0 !important; }
+  .pager #v-zoomtag { display: none; }
+  .pager .nlt-pill > span:not([data-t]):not(.nlt-ps) { display: none; }
   #viewer .topbar .iconbtn { padding: 5px; }
   #v-fav { display: none; }
 }
@@ -134,7 +138,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   position: absolute; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--card); color: var(--ink);
   border: 1px solid var(--line); border-radius: 14px; padding: 6px 8px; box-shadow: 0 6px 24px rgba(0,0,0,.28);
 }
-.metrobar { bottom: 70px; right: max(12px, env(safe-area-inset-right, 0px)); max-width: calc(100% - 24px); }
+.metrobar { bottom: 12px; right: max(12px, env(safe-area-inset-right, 0px)); max-width: calc(100% - 24px); }
 /* Metronom-Knopf: immer unten rechts auf den Noten, auch wenn die Leisten ausgeblendet sind */
 .vmfab {
   position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 14px; z-index: 4;
@@ -144,8 +148,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .vmfab svg { width: 22px; height: 22px; }
 .vmfab.on { background: var(--accent); border-color: var(--accent); color: var(--card); }
 .vmfab:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-#viewer.inking .vmfab, #viewer.inking .metrobar, #viewer.inking .vtimer { display: none; }
-.vtimer { position: absolute; z-index: 4; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 14px; }
+#viewer.inking .metrobar { display: none; }
 .pltimer { position: absolute; z-index: 5; right: 12px; top: 10px; }
 .spotbar { left: 50%; transform: translateX(-50%); bottom: 14px; max-width: calc(100% - 24px); justify-content: center; }
 .metrobar input { width: 4.2em; text-align: center; font-weight: 700; border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px; background: var(--paper); }
@@ -168,9 +171,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 #v-cropsvg circle { fill: #fff; stroke: #2d4bd0; stroke-width: 3; cursor: grab; }
 #viewer.inking .stage { cursor: crosshair; }
 .inkbar {
-  position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
+  position: absolute; left: 0; right: 0; margin-inline: auto; width: fit-content; bottom: 12px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
   background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 8px; box-shadow: 0 6px 24px rgba(0,0,0,.28); max-width: calc(100% - 24px);
 }
+.inkbar.top { top: 12px; bottom: auto; }
+.inkbar .now { padding: 0 6px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
 .inkbar button { border: 1px solid transparent; background: transparent; color: var(--ink); border-radius: 9px; min-width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; font-weight: 700; padding: 0 6px; }
 .inkbar button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .inkbar button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
@@ -183,11 +188,20 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 #v-textin { position: absolute; z-index: 3; font: 600 16px var(--font-body); padding: 4px 6px; border: 2px solid var(--accent); border-radius: 6px; background: #fff; color: #1d2133; min-width: 120px; }
 .stage .msg { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 600; text-align: center; padding: 20px; }
 .pager {
-  display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--card); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; background: var(--card); border-top: 1px solid var(--line);
+  padding-inline: max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px));
   padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); font-weight: 600; font-variant-numeric: tabular-nums;
 }
 .pager .zoom { font-size: 0.8rem; color: var(--muted); min-width: 4ch; }
+.pg-mid { display: flex; align-items: center; gap: 14px; }
+.pg-side { display: flex; min-width: 0; }
+.pg-r { justify-content: flex-end; }
+.pager .vmfab { position: static; box-shadow: none; padding: 6px 12px 6px 9px; }
+.pager .nlt-pill { box-shadow: none; padding: 6px 12px 6px 9px; }
 #viewer.immersive .topbar, #viewer.immersive .pager { display: none; }
+.full[open] { grid-template-columns: minmax(0, 1fr); }
+#viewer .topbar { min-width: 0; }
+#viewer .topbar .btn.small .ic { width: 17px; height: 17px; }
 #viewer.immersive { grid-template-rows: minmax(0, 1fr); }
 .vpanel {
   position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 5;
@@ -383,8 +397,6 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <button type="button" class="btn small primary" id="vm-go">Start</button>
       <span class="beat" id="vm-dot"></span>
     </div>
-    <button type="button" class="vmfab" id="v-metro-btn" aria-expanded="false" aria-controls="v-metro" title="Metronom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3h5l4.5 18H5z"/><path d="M12 17l5-10"/><path d="M7.5 17h9"/></svg><span id="v-metro-txt">80</span></button>
-    <div class="vtimer" id="v-timer"></div>
     <div class="spotbar" id="v-spotbar" hidden></div>
     <button type="button" class="backjump" id="v-backjump" hidden></button>
     <div class="vpanel" id="v-spots" hidden>
@@ -412,7 +424,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <p class="hint">Blätterpedal: sendet es Pfeiltasten oder Bild auf/ab, funktioniert es direkt. Leertaste blättert ebenfalls weiter.</p>
     </div>
   </div>
-  <div class="pager"><button type="button" class="iconbtn" id="v-back" aria-label="Zurückblättern"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Weiterblättern"></button><span class="zoom" id="v-zoomtag"></span></div>
+  <div class="pager">
+    <div class="pg-side"><div class="vtimer nlt-up" id="v-timer"></div></div>
+    <div class="pg-mid"><button type="button" class="iconbtn" id="v-back" aria-label="Zurückblättern"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Weiterblättern"></button><span class="zoom" id="v-zoomtag"></span></div>
+    <div class="pg-side pg-r"><button type="button" class="vmfab" id="v-metro-btn" aria-expanded="false" aria-controls="v-metro" title="Metronom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3h5l4.5 18H5z"/><path d="M12 17l5-10"/><path d="M7.5 17h9"/></svg><span id="v-metro-txt">80</span></button></div>
+  </div>
 </dialog>
 
 <!-- Mitspielen (fallende Noten aus der MIDI-Datei) -->
@@ -1443,6 +1459,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
         ctx.fillRect(r.x + sp.open.x * r.w, r.y + y0 * r.h, (sp.close.x - sp.open.x) * r.w, (y1 - y0) * r.h);
       }
       if (visible()) A.data.strokes.filter(x => x.pg === r.pg && x.t !== 'link').forEach(x => paintStroke(ctx, x, r));
+      if (A.sel && A.sel.pg === r.pg) {
+        const s = A.sel, cx = r.x + (s.x ?? (s.pts ? s.pts[0][0] : 0)) * r.w, cy = r.y + (s.t === 'brk' ? (s.y1 + s.y2) / 2 : s.y ?? (s.pts ? s.pts[0][1] : 0)) * r.h;
+        ctx.save(); ctx.strokeStyle = 'rgba(45, 75, 208, .8)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx, cy, 16, 0, 7); ctx.stroke(); ctx.restore();
+      }
       A.data.strokes.filter(x => x.t === 'link').forEach(x => {
         if (x.pg === r.pg) linkMark(ctx, r.x + x.x * r.w, r.y + x.y * r.h, true);
         if (x.to.pg === r.pg) linkMark(ctx, r.x + x.to.x * r.w, r.y + x.to.y * r.h, false);
@@ -1511,7 +1532,15 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     const h = hitPage(e);
     if (!h) return false;
     e.preventDefault();
-    if (A.tool === 'fing') { addStroke({ t: 'text', b: 1, v: A.digit, x: r4(h.nx), y: r4(h.ny), s: 0.019, c: A.color.pen, pg: h.r.pg }); return true; }
+    if (A.tool === 'fing') { const st = { t: 'text', b: 1, v: A.digit, x: r4(h.nx), y: r4(h.ny), s: 0.019, c: A.color.pen, pg: h.r.pg }; snapFinger(st, h.r); addStroke(st); return true; }
+    if (A.tool === 'move') {
+      const st = pickStroke(h);
+      if (!st) return false;            // daneben getippt: Seite verschieben wie sonst
+      stage().setPointerCapture(e.pointerId);
+      A.drawing = { pid: e.pointerId, move: st, orig: JSON.parse(JSON.stringify(st)), r: h.r, nx: h.nx, ny: h.ny, moved: false };
+      A.sel = st; drawInk();
+      return true;
+    }
     if (A.tool === 'link') {
       const pt = { pg: h.r.pg, x: r4(h.nx), y: r4(h.ny) };
       if (!A.linkFrom) { A.linkFrom = pt; linkHint('Jetzt das Ziel antippen. Du kannst vorher mit den Pfeilen unten blättern.'); drawInk(); }
@@ -1533,6 +1562,16 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function inkMove(e) {
     const d = A.drawing;
+    if (d.move) {
+      const b = $('v-canvas').getBoundingClientRect();
+      const dx = (e.clientX - b.left - d.r.x) / d.r.w - d.nx, dy = (e.clientY - b.top - d.r.y) / d.r.h - d.ny;
+      if (!d.moved && Math.hypot(dx * d.r.w, dy * d.r.h) < 3) return;
+      d.moved = true;
+      shiftStroke(d.move, d.orig, dx, dy);
+      if (d.move.t === 'text' && d.move.b) snapFinger(d.move, d.r);
+      drawInk();
+      return;
+    }
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     if (!evs.length) evs.push(e);
     if (d.erase) { evs.forEach(ev => { const h = hitPage(ev); if (h) eraseAt(h); }); return; }
@@ -1561,6 +1600,17 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   function inkEnd() {
     const d = A.drawing; A.drawing = null;
+    if (d.move) {
+      A.sel = null;
+      if (!d.moved) { drawInk(); return; }
+      // Verschoben = alter Strich gelöscht, neuer gesetzt: so kommt die neue Lage sicher auf allen Geräten an
+      const st = d.move, i = A.data.strokes.indexOf(st), nu = { ...st, id: sid() };
+      if (i >= 0) A.data.strokes[i] = nu;
+      A.data.del.push(d.orig.id);
+      A.undo.push({ add: nu.id, erased: [d.orig] });
+      annotChanged();
+      return;
+    }
     if (d.erase) { if (d.erase.length) { A.undo.push({ erased: d.erase }); annotChanged(); } return; }
     if (d.st.t === 'brk') {
       // nur angetippt: Klammer in Standardhöhe; nach oben gezogen: umdrehen
@@ -1574,6 +1624,44 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     A.data.strokes.push(st);
     A.undo.push({ add: st.id });
     annotChanged();
+  }
+  // Verschieben: den nächstgelegenen Eintrag unter dem Finger finden (Abstand in Bildschirmpunkten)
+  function pickStroke(h) {
+    const W = h.r.w, H = h.r.h, px = h.nx * W, py = h.ny * H;
+    const dist = st => {
+      if (st.t === 'text') {
+        const size = (st.b ? Math.min(st.s, 0.019) : st.s) * W, half = st.b ? 0 : String(st.v).length * size * 0.28;
+        return Math.max(0, Math.hypot(st.x * W + half - px, st.y * H - py) - (st.b ? size * 0.5 : half));
+      }
+      if (st.t === 'mark') return Math.hypot(st.x * W - px, st.y * H - py);
+      if (st.t === 'link') return Math.hypot(st.x * W - px, st.y * H - py);
+      if (st.t === 'brk') return py >= st.y1 * H - 8 && py <= st.y2 * H + 8 ? Math.abs(st.x * W - px) : Infinity;
+      return Math.min(...st.pts.map(q => Math.hypot(q[0] * W - px, q[1] * H - py)));
+    };
+    let best = null, bd = 24;
+    for (const st of A.data.strokes) if (st.pg === h.r.pg) { const dd = dist(st); if (dd < bd) { bd = dd; best = st; } }
+    return best;
+  }
+  function shiftStroke(st, o, dx, dy) {
+    const cl = v => r4(Math.min(1, Math.max(0, v)));
+    if (st.t === 'brk') { st.x = cl(o.x + dx); st.y1 = cl(o.y1 + dy); st.y2 = cl(o.y2 + dy); }
+    else if (st.pts) st.pts = o.pts.map(q => [cl(q[0] + dx), cl(q[1] + dy), q[2]]);
+    else { st.x = cl(o.x + dx); st.y = cl(o.y + dy); }
+  }
+  // Fingersätze eines Akkords: liegt ein anderer Fingersatz knapp darüber oder darunter, genau mittig in eine Spalte
+  // mit gleichmäßigem Zeilenabstand setzen (so stehen 1-3-5 sauber übereinander)
+  function snapFinger(st, r) {
+    const lh = 0.019 * 1.15, toW = r.h / r.w;     // Zeilenhöhe in Seitenbreiten; Höhe → Breite
+    let best = null;
+    for (const o of A.data.strokes) {
+      if (o === st || o.t !== 'text' || !o.b || o.pg !== st.pg) continue;
+      const dx = Math.abs(o.x - st.x), dy = (st.y - o.y) * toW;
+      if (dx < 0.02 && Math.abs(dy) < lh * 2.4 && (!best || Math.abs(dy) < Math.abs(best.dy))) best = { o, dy };
+    }
+    if (!best) return;
+    st.x = best.o.x;
+    const k = Math.min(2, Math.max(1, Math.round(Math.abs(best.dy) / lh)));
+    st.y = r4(best.o.y + (best.dy < 0 ? -1 : 1) * k * lh / toW);
   }
   function eraseAt(h) {
     const R = 14 / h.r.w;   // Radius ca. 14 Bildschirmpunkte
@@ -1631,10 +1719,24 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (commit && v && h) addStroke({ t: 'text', v, x: r4(h.nx), y: r4(h.ny), s: 0.022, c: A.color.pen, pg: h.r.pg });
   }
   // Werkzeugleiste
+  const UP = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+  const DOWN = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  const TOOL_NAME = { pen: 'Stift', hl: 'Textmarker', erase: 'Radierer', text: 'Text', move: 'Verschieben', link: 'Sprungmarke', mark: 'Zeichen', brk: 'Klammer' };
   function renderInkbar() {
     const t = A.tool, cols = t === 'hl' ? INK.hl : INK.pen, cur = t === 'hl' ? A.color.hl : A.color.pen;
+    const top = VS.inkPos === 'top', bar = $('v-inkbar');
+    bar.classList.toggle('top', top);
+    // Lage: Pfeil zeigt, wohin die Leiste wandert; Einklappen lässt nur das Nötigste stehen
+    const posBtn = `<button type="button" id="ink-pos" title="${top ? 'Leiste nach unten' : 'Leiste nach oben'}" aria-label="${top ? 'Leiste nach unten' : 'Leiste nach oben'}">${top ? DOWN : UP}</button>`;
+    if (VS.inkMin) {
+      bar.innerHTML = `<span class="grp">${posBtn}<button type="button" id="ink-min" title="Werkzeuge zeigen" aria-label="Werkzeuge zeigen">${I('pencil')}</button></span>`
+        + `<span class="now">${t === 'fing' ? 'Fingersatz ' + A.digit : TOOL_NAME[t] || ''}</span>`
+        + `<span class="grp"><button type="button" id="ink-undo" title="Rückgängig" aria-label="Rückgängig">${I('undo')}</button><button type="button" class="done" id="ink-done">Fertig</button></span>`;
+      return;
+    }
     const tb = (tool, icon, label) => `<button type="button" data-tool="${tool}" aria-pressed="${t === tool}" title="${label}" aria-label="${label}">${I(icon)}</button>`;
-    $('v-inkbar').innerHTML = `<span class="grp">${tb('pen', 'pencil', 'Stift') + tb('hl', 'highlighter', 'Textmarker') + tb('erase', 'eraser', 'Radierer') + tb('text', 'text', 'Text')}</span>`
+    bar.innerHTML = `<span class="grp">${posBtn}<button type="button" id="ink-min" title="Leiste einklappen" aria-label="Leiste einklappen">${top ? UP : DOWN}</button></span><span class="sep"></span>`
+      + `<span class="grp">${tb('pen', 'pencil', 'Stift') + tb('hl', 'highlighter', 'Textmarker') + tb('erase', 'eraser', 'Radierer') + tb('text', 'text', 'Text') + tb('move', 'move', 'Verschieben: Eintrag antippen und ziehen')}</span>`
       + '<span class="sep"></span>'
       + `<span class="grp">${['1', '2', '3', '4', '5'].map(d => `<button type="button" data-digit="${d}" aria-pressed="${t === 'fing' && A.digit === d}" title="Fingersatz ${d}" aria-label="Fingersatz ${d}">${d}</button>`).join('')}`
       + `<button type="button" data-mark="check" aria-pressed="${t === 'mark' && A.mark === 'check'}" title="Haken (Absetzen)" aria-label="Haken zum Absetzen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 6"/></svg></button>`
@@ -1643,7 +1745,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       + `<button type="button" data-brk="open" aria-pressed="${t === 'brk' && A.brk === 'open'}" title="Klammer auf: von oben nach unten ziehen" aria-label="Klammer auf"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"><path d="M15 3H8v18h7"/></svg></button>`
       + `<button type="button" data-brk="close" aria-pressed="${t === 'brk' && A.brk === 'close'}" title="Klammer zu: von oben nach unten ziehen" aria-label="Klammer zu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"><path d="M9 3h7v18H9"/></svg></button></span>`
       + '<span class="sep"></span>'
-      + (t === 'erase' ? '' : `<span class="grp">${cols.map(c => `<button type="button" class="sw" data-color="${c}" aria-pressed="${c === cur}" style="background:${c}" aria-label="Farbe ${c}"></button>`).join('')}</span><span class="sep"></span>`)
+      + (t === 'erase' || t === 'move' ? '' : `<span class="grp">${cols.map(c => `<button type="button" class="sw" data-color="${c}" aria-pressed="${c === cur}" style="background:${c}" aria-label="Farbe ${c}"></button>`).join('')}</span><span class="sep"></span>`)
       + `<span class="grp"><button type="button" id="ink-undo" title="Rückgängig" aria-label="Rückgängig">${I('undo')}</button>`
       + `<button type="button" id="ink-clear" title="Markierungen dieser Seite löschen" aria-label="Seite leeren">${I('trash')}</button>`
       + `<button type="button" class="done" id="ink-done">Fertig</button></span>`;
@@ -1658,6 +1760,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     else if (b.dataset.brk) { A.tool = 'brk'; A.brk = b.dataset.brk; }
     else if (b.dataset.color) A.color[A.tool === 'hl' ? 'hl' : 'pen'] = b.dataset.color;
     else if (b.id === 'ink-undo') inkUndo();
+    else if (b.id === 'ink-pos') { VS.inkPos = VS.inkPos === 'top' ? 'bottom' : 'top'; saveVS(); }
+    else if (b.id === 'ink-min') { VS.inkMin = !VS.inkMin; saveVS(); }
     else if (b.id === 'ink-clear') { inkClear(b); return; }
     else if (b.id === 'ink-done') { setEditing(false); return; }
     renderInkbar();
@@ -1799,7 +1903,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (changed) { p.spots = spots; touch(p); saveLib(); }
     const cnt = Object.keys(spots).length;
     $('v-spots-btn').hidden = !cnt;
-    $('v-spots-btn').textContent = cnt ? `Übestellen (${cnt})` : 'Übestellen';
+    $('v-spots-btn').innerHTML = `${I('flame')}<span class="lbl">Übestellen</span>${cnt ? ` ${cnt}` : ''}`;
   }
   function renderSpots() {
     const p = lib.pieces[V.id], spots = Object.entries((p && p.spots) || {}).sort((a, b) => a[1].n - b[1].n);
@@ -2267,6 +2371,11 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   $('v-close').innerHTML = I('arrow').replace('<path d="M5 12h14M13 6l6 6-6 6"/>', '<path d="M19 12H5M11 6l-6 6 6 6"/>');
   $('sc-close').innerHTML = $('v-close').innerHTML;
   $('v-fav').innerHTML = I('star');
+  // Leistenknöpfe: Symbol und Wort (auf dem Handy nur das Symbol)
+  [['v-play-btn', 'play', 'Mitspielen'], ['v-ink-btn', 'pencil', 'Stift'], ['v-opts', 'eye', 'Ansicht'], ['v-edit', 'info', 'Angaben']]
+    .forEach(([id, ic, label]) => { $(id).innerHTML = `${I(ic)}<span class="lbl">${label}</span>`; $(id).setAttribute('aria-label', label); $(id).title = label; });
+  // Timer fertig, während die Leisten ausgeblendet sind: Leisten zeigen, damit die Meldung zu sehen ist
+  document.addEventListener('nl-timer-done', () => $('viewer').classList.remove('immersive'));
   $('pl-close').innerHTML = $('v-close').innerHTML;
   // Fokus-Timer: in der Notenansicht und beim Mitspielen startbar, sonst nur sichtbar, solange er läuft
   NL.timer.mount($('v-timer'), { idle: true });
