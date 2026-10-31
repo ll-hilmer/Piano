@@ -586,6 +586,7 @@
     const tsX = x0 + 4 * sp + nk * keyGap + 0.5 * sp, left = tsX + 2.4 * sp;
     const playX = left + Math.max(3 * sp, (w - left) * 0.2);
     const pxs = S.spb * sp * sg.bpm / 60;
+    S.pxs = pxs; S.sheetH = hy;   // fürs Wischen: so viele Bildpunkte je Sekunde
     const xAt = t => playX + (t - S.pos) * pxs;
     const sysTop = bot.treble - 4 * sp, sysH = bot.bass - sysTop;
     const lines = (xa, xb) => { g.fillStyle = INK; for (const st of ['treble', 'bass']) for (let i = 0; i < 5; i++) g.fillRect(xa, Math.round(bot[st] - i * sp) - 0.5, xb - xa, 1); };
@@ -776,6 +777,24 @@
       S.opts.onRemove && S.opts.onRemove();
     });
     $('pl-stage').addEventListener('pointerdown', e => { if (e.target.closest('.vpanel, .pl-result')) return; $('pl-panel').hidden = true; });
+    // Notenblatt: über die Noten wischen spult – nach links zurück, nach rechts vor, so weit wie gewischt
+    let swipe = null;
+    $('pl-stage').addEventListener('pointerdown', e => {
+      if (C.view !== 'sheet' || !S.song || e.target.closest('.vpanel, .pl-result, .nlt') || e.clientY - $('pl-stage').getBoundingClientRect().top > (S.sheetH || 0)) return;
+      swipe = { id: e.pointerId, x: e.clientX, pos: S.pos, moved: false };
+      try { $('pl-stage').setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    $('pl-stage').addEventListener('pointermove', e => {
+      if (!swipe || swipe.id !== e.pointerId || !S.pxs) return;
+      const dx = e.clientX - swipe.x;
+      if (!swipe.moved && Math.abs(dx) < 8) return;
+      if (!swipe.moved) { swipe.moved = true; if (S.playing) pause(); hideResult(); }
+      const sg = S.song;
+      resetFrom(Math.max(sg.first - lead(), Math.min(sg.end, swipe.pos + dx / S.pxs)));
+    });
+    const endSwipe = e => { if (swipe && swipe.id === e.pointerId) swipe = null; };
+    $('pl-stage').addEventListener('pointerup', endSwipe);
+    $('pl-stage').addEventListener('pointercancel', endSwipe);
     $('player').addEventListener('close', () => {
       pause();
       cancelAnimationFrame(S.raf);
