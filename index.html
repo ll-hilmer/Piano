@@ -39,7 +39,7 @@ button { font: inherit; cursor: pointer; }
 .resume b { display: block; font-size: 1.2rem; }
 
 /* Schnellstart */
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .tile {
   display: grid; gap: 6px; justify-items: start; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--card); color: var(--ink); text-decoration: none; font-weight: 600; min-width: 0;
@@ -189,9 +189,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
     ['music', 'Einzelnoten', 'Beide Schlüssel', 'ueben-noten'],
     ['bibliothek', 'Stücke', 'Echte Musik im Takt', 'ueben-stuecke'],
     ['chord', 'Akkordsymbole', 'Am, G7, F/A …', 'ueben-akkordsymbole'],
-    ['clock', 'Rhythmus', 'Nur tippen', 'ueben-rhythmus']
+    ['clock', 'Rhythmus', 'Nur tippen', 'ueben-rhythmus'],
+    ['play', 'Vom Blatt', 'Neue Stücke am E-Piano', 'bibliothek.html#vomblatt']
   ];
-  $('tiles').innerHTML = QUICK.map(([ic, t, s, id]) => `<a class="tile" href="ueben.html#${id}">${I(ic)}<span>${t}</span><small>${s}</small></a>`).join('');
+  $('tiles').innerHTML = QUICK.map(([ic, t, s, id]) => `<a class="tile" href="${id.includes('.html') ? id : 'ueben.html#' + id}">${I(ic)}<span>${t}</span><small>${s}</small></a>`).join('');
   $('cal-icon').innerHTML = I('calendar');
   $('konto-icon').innerHTML = I('cloud');
   $('resume-icon').innerHTML = I('play');

@@ -160,6 +160,13 @@
         voices.push({ g, end: t + len + 0.6 });
         voices = voices.filter(v => v.end > t);
       },
+      // kurzer Klick zum Einzählen und als Metronom (betonte Eins höher)
+      click(accent) {
+        const a = ctx(), t = a.currentTime, o = a.createOscillator(), g = a.createGain();
+        o.type = 'sine'; o.frequency.value = accent ? 1760 : 1320;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(accent ? 0.35 : 0.22, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.08);
+      },
       stop() {
         if (!ac) return;
         const t = ac.currentTime;
@@ -247,7 +254,7 @@
   }
 
   // ---------- Zustand ----------
-  const DEF = { hands: 'both', mode: 'wait', tempo: 0.7, accomp: true, names: true, fingers: true, split: 'auto', vol: 0.6, view: 'falling' };
+  const DEF = { hands: 'both', mode: 'wait', tempo: 0.7, accomp: true, names: true, fingers: true, split: 'auto', vol: 0.6, view: 'falling', click: false, ladder: false, ladderTo: 1 };
   const CFG_KEY = 'nl-play';
   const cfgAll = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch (e) { return {}; } };
   const writeCfg = f => { const a = cfgAll(); f(a); try { localStorage.setItem(CFG_KEY, JSON.stringify(a)); } catch (e) {} };
@@ -265,7 +272,10 @@
     if (S.loop) return [sg.bars[S.loop.a], S.loop.b + 1 < sg.bars.length ? sg.bars[S.loop.b + 1] : sg.end];
     return [Math.min(0, sg.first), sg.end];
   };
-  const lead = () => 1.2 * C.tempo;
+  const barLen = () => { const b = S.song.bars; return b.length > 1 ? b[1] - b[0] : 240 / S.song.bpm; };
+  // Vorlauf: im Tempo ein ganzer Takt zum Einzählen, sonst kurz
+  const lead = () => (C.mode === 'tempo' ? Math.max(barLen(), 1.2 * C.tempo) : 1.2 * C.tempo);
+  const beatInfo = () => { const [nn, dd] = S.song.sig.split('/').map(Number); return { beat: 60 / S.song.bpm * 4 / (dd || 4), per: nn || 4 }; };
 
   function prepare() {
     for (const n of S.song.notes) n.h = C.split === 'pitch' ? n.hp : (n.ht || n.hp);
@@ -293,6 +303,7 @@
     for (const n of S.song.notes) if (n.t >= pos - 1e-4) n.res = null;
     S.ni = lowerBound(S.song.notes, pos);
     S.mi = lowerBound(S.pn, pos - WIN * C.tempo);
+    S.lastClick = -Infinity;
   }
 
   // ---------- Ablauf ----------
@@ -350,6 +361,14 @@
         if (!n.res) { n.res = 'miss'; S.stats.miss++; barStat(n.bar).miss++; }
       }
     }
+    // Einzählen im Tempo (ein Takt vorweg) und auf Wunsch Metronom-Klick beim Spielen
+    if (C.mode !== 'listen' && (C.click || (C.mode === 'tempo' && S.pos < sg.first))) {
+      const { beat, per } = beatInfo();
+      for (let k = Math.max(Math.ceil((S.pos - 1e-6) / beat), S.lastClick + 1); k * beat <= next; k++) {
+        S.lastClick = k;
+        if (C.click || k * beat < sg.first - 1e-3) Synth.click(((k % per) + per) % per === 0);
+      }
+    }
     S.pos = next;
     if (S.loop && S.pos >= b) loopWrap();
     else if (!S.loop && S.pos >= sg.end + 0.3 * C.tempo) finish();
@@ -360,10 +379,21 @@
     if (C.mode === 'wait') { const total = s.ok + s.bad; return total ? Math.round(100 * s.ok / total) : null; }
     return null;
   }
+  const flash = (t, ms = 3200) => { const h = $('pl-hint'); h.textContent = t; h.hidden = false; clearTimeout(S.hintT); S.hintT = setTimeout(() => { h.hidden = true; }, ms); };
   function loopWrap() {
     S.pass++;
-    const q = pct();
+    const q = pct(), st = S.stats;
     S.passNote = q === null ? '' : `Durchgang ${S.pass}: ${q} % richtig`;
+    // Tempo-Leiter: sauberer Durchgang → 5 % schneller, bis zum Ziel
+    if (C.ladder && q !== null) {
+      const clean = C.mode === 'wait' ? st.bad === 0 : q >= 95 && st.bad <= 1, pc = x => Math.round(x * 100) + ' %';
+      if (clean && C.tempo < C.ladderTo - 1e-6) {
+        C.tempo = Math.min(C.ladderTo, Math.round((C.tempo + 0.05) * 100) / 100); saveCfg(); ui();
+        S.passNote += ` · weiter mit ${pc(C.tempo)}`;
+        flash(`Sauber! Weiter mit ${pc(C.tempo)} Tempo`);
+      } else if (clean) flash(`Sitzt im Zieltempo (${pc(C.ladderTo)})!`);
+      else flash(`Noch einmal bei ${pc(C.tempo)} – ${C.mode === 'wait' ? 'ohne falschen Ton' : 'mit 95 % Treffern'} geht es schneller.`);
+    }
     S.stats = newStats();
     resetFrom(range()[0] - 0.8 * C.tempo);
   }
@@ -376,6 +406,12 @@
     const k = C.mode + '-' + C.hands;
     let best = 0;
     writeCfg(a => { const e = a[S.key] = a[S.key] || {}; e.best = e.best || {}; best = e.best[k] || 0; if (q !== null && q > best) e.best[k] = q; });
+    const res = q === null ? null : { t: Date.now(), mode: C.mode, hands: C.hands, tempo: Math.round(C.tempo * 100), pct: q };
+    if (res && S.opts.onResult) S.opts.onResult(res);
+    let sightMsg = '';
+    if (S.opts.kind === 'blatt' && res) sightMsg = sightResult(res);
+    const hist = (S.opts.history ? S.opts.history() : []).filter(r => r.mode === C.mode && r.hands === C.hands).slice(-12);
+    renderHistList();
     const hands = { both: 'beide Hände', R: 'rechte Hand', L: 'linke Hand' }[C.hands];
     const lines = C.mode === 'wait'
       ? [`${s.ok} Töne richtig, ${s.bad} ${s.bad === 1 ? 'falscher' : 'falsche'}`]
@@ -387,14 +423,32 @@
       <p class="hint">${C.mode === 'wait' ? 'Wartemodus' : 'Im Tempo'} · ${hands} · ${Math.round(C.tempo * 100)} % Tempo${q !== null && q > best && best ? ` · neuer Bestwert (vorher ${best} %)` : best && q !== null && q <= best ? ` · Bestwert ${best} %` : ''}</p>
       ${lines.filter(Boolean).map(l => `<p>${l}</p>`).join('')}
       ${worst.length ? `<p>Am schwierigsten: Takt ${worst.map(b => b + 1).join(', ')}</p>` : ''}
-      <div class="actions">${worst.length ? `<button type="button" class="btn" id="pl-rloop">Takt ${worst[0] + 1}${worst[0] + 1 < S.song.bars.length ? '–' + (worst[0] + 2) : ''} üben</button>` : ''}<span class="spacer"></span><button type="button" class="btn primary" id="pl-ragain">Nochmal</button></div>
+      ${sightMsg ? `<p><b>${sightMsg}</b></p>` : ''}
+      ${histHtml(hist)}
+      <div class="actions">${S.opts.kind === 'blatt' ? '<button type="button" class="btn primary" id="pl-rnext">Nächstes Stück</button>' : ''}${worst.length && S.opts.kind !== 'blatt' ? `<button type="button" class="btn" id="pl-rloop">Takt ${worst[0] + 1}${worst[0] + 1 < S.song.bars.length ? '–' + (worst[0] + 2) : ''} üben</button>` : ''}<span class="spacer"></span><button type="button" class="btn${S.opts.kind === 'blatt' ? '' : ' primary'}" id="pl-ragain">Nochmal</button></div>
     </div>`;
     box.hidden = false; S.result = true;
     $('pl-ragain').addEventListener('click', () => { restart(); if (C.mode === 'tempo') play(); });
-    if (worst.length) $('pl-rloop').addEventListener('click', () => { setLoop(worst[0], Math.min(S.song.bars.length - 1, worst[0] + 1)); restart(); });
+    if ($('pl-rnext')) $('pl-rnext').addEventListener('click', () => sight());
+    if ($('pl-rloop')) $('pl-rloop').addEventListener('click', () => { setLoop(worst[0], Math.min(S.song.bars.length - 1, worst[0] + 1)); restart(); });
     ui();
   }
   function hideResult() { $('pl-result').hidden = true; S.result = false; }
+  // Verlauf: ein Balken je Durchgang (gleicher Modus, gleiche Hände), dazu der Vergleich in Worten
+  const dDate = t => new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
+  function histHtml(h) {
+    if (h.length < 2) return '';
+    const a = h[0], z = h[h.length - 1];
+    return `<div class="pl-hist" role="img" aria-label="Verlauf der letzten ${h.length} Durchgänge: von ${a.pct} % auf ${z.pct} %">${h.map((r, i) => `<span title="${dDate(r.t)}: ${r.pct} % richtig bei ${r.tempo} % Tempo" style="height:${Math.max(4, r.pct)}%"${i === h.length - 1 ? ' class="now"' : ''}></span>`).join('')}</div>
+      <p class="hint">${dDate(a.t)}: ${a.pct} % bei ${a.tempo} % Tempo → jetzt: ${z.pct} % bei ${z.tempo} % Tempo</p>`;
+  }
+  const MODE_NAME = { wait: 'Warten', tempo: 'Im Tempo' }, HAND_NAME = { both: 'beide', R: 'rechts', L: 'links' };
+  function renderHistList() {
+    const h = (S.opts && S.opts.history ? S.opts.history() : []).slice(-6).reverse();
+    $('pl-histlist').innerHTML = h.length
+      ? `<table class="pl-htab"><thead><tr><th>Datum</th><th>Modus</th><th>Hände</th><th>Tempo</th><th>Richtig</th></tr></thead><tbody>${h.map(r => `<tr><td>${dDate(r.t)}</td><td>${MODE_NAME[r.mode] || ''}</td><td>${HAND_NAME[r.hands] || ''}</td><td>${r.tempo} %</td><td><b>${r.pct} %</b></td></tr>`).join('')}</tbody></table>`
+      : '<p class="hint">Noch keine Durchgänge. Nach jedem ganz gespielten Stück steht hier dein Ergebnis.</p>';
+  }
 
   // ---------- E-Piano ----------
   function noteOn(p) {
@@ -816,6 +870,9 @@
     $('pl-play').setAttribute('aria-pressed', S.playing);
     $('pl-tval').textContent = `${Math.round(C.tempo * 100)} %${S.song ? ` · ♩ ${Math.round(S.song.bpm * C.tempo)}` : ''}`;
     $('pl-loop').setAttribute('aria-pressed', !!S.loop);
+    $('pl-ladder').setAttribute('aria-pressed', !!C.ladder);
+    $('pl-ladderto').hidden = !C.ladder; $('pl-ladderto').value = String(Math.round(C.ladderTo * 100));
+    $('pl-click').checked = !!C.click;
     $('pl-namebtn').setAttribute('aria-pressed', !!C.names);
     $('pl-fingbtn').setAttribute('aria-pressed', !!C.fingers);
     $('pl-loopbox').hidden = !S.loop;
@@ -833,7 +890,7 @@
     if (k === 'tempo') { ui(); return; }
     if (k === 'view') { try { localStorage.setItem('nl-play-view', v); } catch (e) {} return; }
     if (k === 'vol') { Synth.volume(v); return; }
-    if (k === 'names' || k === 'accomp' || k === 'view' || k === 'fingers') return;
+    if (['names', 'accomp', 'view', 'fingers', 'click', 'ladder', 'ladderTo'].includes(k)) { ui(); return; }
     $('pl-hint').hidden = true;
     pause();
     prepare();
@@ -855,6 +912,9 @@
     $('pl-names').addEventListener('change', e => { setOpt('names', e.target.checked); ui(); });
     $('pl-namebtn').addEventListener('click', () => { setOpt('names', !C.names); $('pl-names').checked = C.names; ui(); });
     $('pl-fingbtn').addEventListener('click', () => { setOpt('fingers', !C.fingers); ui(); });
+    $('pl-ladder').addEventListener('click', () => { setOpt('ladder', !C.ladder); if (C.ladder) flash(`Tempo-Leiter: Nach jedem sauberen Durchgang der Schleife geht es 5 % schneller, bis ${Math.round(C.ladderTo * 100)} %.`, 4500); });
+    $('pl-ladderto').addEventListener('change', e => setOpt('ladderTo', +e.target.value / 100));
+    $('pl-click').addEventListener('change', e => setOpt('click', e.target.checked));
     $('pl-accomp').addEventListener('change', e => setOpt('accomp', e.target.checked));
     $('pl-vol').addEventListener('input', e => setOpt('vol', +e.target.value));
     $('pl-play').addEventListener('click', () => (S.playing ? pause() : play()));
@@ -925,7 +985,9 @@
     S.opts = opts; S.key = opts.key; S.song = song;
     let lastView = 'falling';
     try { lastView = localStorage.getItem('nl-play-view') || 'falling'; } catch (e) {}
-    C = { ...DEF, view: lastView, ...((cfgAll()[opts.key] || {}).cfg || {}) };
+    const blatt = opts.kind === 'blatt';
+    C = { ...DEF, view: lastView, ...(blatt ? { view: 'sheet', mode: 'tempo', tempo: 1, names: false, fingers: false, click: true } : {}), ...((cfgAll()[opts.key] || {}).cfg || {}) };
+    $('pl-replace').hidden = $('pl-remove').hidden = blatt;
     build();
     S.kb = keyboardRange(); S.geo = null; S.loop = null; S.pass = 0; S.passNote = ''; S.counted = 0; S.status = '';
     S.down.clear(); S.lit.clear(); hideResult();
@@ -938,6 +1000,7 @@
     $('pl-info').textContent = `${song.notes.length} Töne, ${song.bars.length} Takte, ${song.sig}-Takt, Tempo ♩ ${song.bpm}. `
       + (song.twoTracks ? 'Zwei Spuren erkannt: die höhere ist die rechte, die tiefere die linke Hand.' : 'Hände werden beim eingestrichenen C (C4) getrennt.');
     $('pl-panel').hidden = true;
+    renderHistList();
     S.pos = song.first - lead();
     prepare();
     $('player').showModal();
@@ -959,5 +1022,100 @@
     clearTimeout(S.hintT); S.hintT = setTimeout(() => { hint.hidden = true; }, 5000);
   }
 
-  window.NLPlay = { open, parse, test: { noteOn, noteOff, fingerHand, S, get C() { return C; } } };
+  // ---------- Vom Blatt spielen: kurze neue Stücke auf deiner Stufe ----------
+  // Die App schreibt ein kleines Stück als MIDI-Datei (Melodie rechts, Bass links) und öffnet es im Notenblatt.
+  // Gespielt wird einmal im Tempo; ab 90 % geht es eine Stufe höher, unter 60 % eine tiefer.
+  const R4 = [[2, 2], [1, 1, 2], [2, 1, 1], [4], [1, 1, 1, 1], [3, 1]];
+  const LEVELS = [null,
+    { name: 'rechte Hand, Fünftonlage', keys: [0], lo: 0, hi: 4, lh: 0, leap: 1, bars: 4, bpm: 60 },
+    { name: 'rechte Hand, kleine Sprünge', keys: [0, 1, -1], lo: 0, hi: 5, lh: 0, leap: 2, bars: 4, bpm: 66 },
+    { name: 'beide Hände, ruhiger Bass', keys: [0, 1, -1], lo: 0, hi: 5, lh: 1, leap: 2, bars: 4, bpm: 60 },
+    { name: 'Achtel, Umfang einer Oktave', keys: [0, 1, -1, 2], lo: -1, hi: 7, lh: 1, leap: 3, bars: 8, bpm: 66, eighths: true, three: true },
+    { name: 'bewegter Bass, punktierte Noten', keys: [0, 1, -1, 2, -2], lo: -2, hi: 7, lh: 2, leap: 4, bars: 8, bpm: 72, eighths: true, dotted: true, three: true },
+    { name: 'mehr Tonarten und Bewegung', keys: [0, 1, -1, 2, -2, 3, -3], lo: -3, hi: 9, lh: 3, leap: 4, bars: 8, bpm: 80, eighths: true, dotted: true, three: true }];
+  const MAX_LEVEL = LEVELS.length - 1;
+  function rng(seed) { let x = (seed >>> 0) || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+  function writeMidi({ bpm, num, den, sf, tracks }, tpq = 480) {
+    const u32 = n => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+    const vlq = n => { const b = [n & 127]; while ((n >>>= 7)) b.unshift((n & 127) | 128); return b; };
+    const trk = evs => {
+      evs.sort((a, b) => a[0] - b[0] || a[2] - b[2]);
+      const out = []; let last = 0;
+      for (const [t, data] of evs) { out.push(...vlq(t - last), ...data); last = t; }
+      out.push(0, 0xff, 0x2f, 0);
+      return [0x4d, 0x54, 0x72, 0x6b, ...u32(out.length), ...out];
+    };
+    const us = Math.round(60e6 / bpm);
+    const cond = trk([[0, [0xff, 0x51, 3, (us >> 16) & 255, (us >> 8) & 255, us & 255], 0], [0, [0xff, 0x58, 4, num, Math.log2(den), 24, 8], 0], [0, [0xff, 0x59, 2, sf & 255, 0], 0]]);
+    const music = tracks.map((ns, ch) => trk(ns.flatMap(n => [[n.tick, [0x90 | ch, n.p, 80], 1], [n.tick + n.dur - 10, [0x80 | ch, n.p, 0], 0]])));
+    const bytes = [0x4d, 0x54, 0x68, 0x64, ...u32(6), 0, 1, 0, 1 + tracks.length, (tpq >> 8) & 255, tpq & 255, ...cond, ...music.flat()];
+    return new Uint8Array(bytes).buffer;
+  }
+  function makeSight(level, seed) {
+    const L = LEVELS[level], R = rng(seed), pick = a => a[Math.floor(R() * a.length)];
+    const sf = pick(L.keys), num = L.three && R() < 0.3 ? 3 : 4, tpq = 480;
+    const MAJ = [0, 2, 4, 5, 7, 9, 11], tonicPc = ((sf * 7) % 12 + 12) % 12;
+    const tonic = 60 + tonicPc - (tonicPc > 6 ? 12 : 0);       // Grundton um das eingestrichene C
+    const pitch = d => tonic + Math.floor(d / 7) * 12 + MAJ[((d % 7) + 7) % 7];   // Tonleiterstufe → Taste
+    const pats = num === 3
+      ? [[3], [2, 1], [1, 1, 1], [1, 2]].concat(L.eighths ? [[0.5, 0.5, 1, 1]] : [], L.dotted ? [[1.5, 0.5, 1]] : [])
+      : R4.concat(L.eighths ? [[0.5, 0.5, 1, 2], [1, 0.5, 0.5, 2], [0.5, 0.5, 0.5, 0.5, 2]] : [], L.dotted ? [[1.5, 0.5, 2], [1.5, 0.5, 1, 1]] : []);
+    const prog = L.bars === 4 ? [0, 3, 4, 0] : [0, 3, 4, 0, 5, 3, 4, 0];   // I – IV – V – I (…)
+    const rh = [], lh = [];
+    let d = pick([0, 2, 4].filter(x => x >= L.lo && x <= L.hi)), t = 0;
+    for (let b = 0; b < L.bars; b++) {
+      const last = b === L.bars - 1, pat = last ? [num] : pick(pats), cd = prog[b];
+      pat.forEach((len, i) => {
+        if (b || i) {
+          if (last) d = L.hi >= 7 && Math.abs(d - 7) < Math.abs(d) ? 7 : 0;     // Schluss auf dem Grundton
+          else if (i === 0 && R() < 0.55) {
+            // auf der Eins gern ein Akkordton
+            const cands = [cd, cd + 2, cd + 4, cd - 7, cd - 5, cd - 3, cd + 7].filter(x => x >= L.lo && x <= L.hi);
+            if (cands.length) d = cands.reduce((a, x) => (Math.abs(x - d) < Math.abs(a - d) ? x : a));
+          } else {
+            const w = R(), size = w < 0.65 ? 1 : w < 0.9 || L.leap < 3 ? Math.min(2, L.leap) : 2 + Math.floor(R() * (L.leap - 1));
+            let dir = R() < 0.5 ? -1 : 1;
+            if (d + dir * size > L.hi || d + dir * size < L.lo) dir = -dir;
+            d = Math.max(L.lo, Math.min(L.hi, d + dir * size));
+          }
+        }
+        rh.push({ tick: Math.round(t * tpq), dur: Math.round(len * tpq), p: pitch(d) });
+        t += len;
+      });
+      if (L.lh) {
+        let root = pitch(cd) - 12; while (root > 52) root -= 12; while (root < 40) root += 12;
+        const fifth = root + 7, bt = (t - num) * tpq, q = tpq;
+        const lhPat = L.lh === 1 ? [[root, num]] : L.lh === 2 ? (num === 3 ? [[root, 2], [fifth, 1]] : [[root, 2], [fifth, 2]])
+          : (num === 3 ? [[root, 1], [fifth, 1], [fifth, 1]] : [[root, 1], [fifth, 1], [root + 12, 1], [fifth, 1]]);
+        let o = 0;
+        for (const [p, len] of last ? [[root, num]] : lhPat) { lh.push({ tick: Math.round(bt + o * q), dur: Math.round(len * q), p }); o += len; }
+      }
+    }
+    return writeMidi({ bpm: L.bpm, num, den: 4, sf, tracks: L.lh ? [rh, lh] : [rh] }, tpq);
+  }
+  const SIGHT_KEY = 'nl-blatt';
+  const sightState = () => { try { return JSON.parse(localStorage.getItem(SIGHT_KEY) || '{}'); } catch (e) { return {}; } };
+  function sightResult(res) {
+    if (res.mode !== 'tempo') return 'Die Stufe passt sich an, wenn du im Tempo spielst.';
+    const st = sightState(), lv = S.opts.level;
+    st.hist = (st.hist || []).concat({ t: res.t, pct: res.pct, level: lv, mode: 'tempo', hands: res.hands, tempo: res.tempo }).slice(-60);
+    let msg;
+    if (res.pct >= 90 && lv < MAX_LEVEL) { st.level = lv + 1; msg = `Stark! Das nächste Stück kommt auf Stufe ${lv + 1}.`; }
+    else if (res.pct < 60 && lv > 1) { st.level = lv - 1; msg = `Das nächste Stück wird eine Stufe leichter (Stufe ${lv - 1}).`; }
+    else { st.level = lv; msg = `Das nächste Stück bleibt auf Stufe ${lv}.`; }
+    try { localStorage.setItem(SIGHT_KEY, JSON.stringify(st)); } catch (e) {}
+    return msg;
+  }
+  async function sight(level) {
+    const st = sightState();
+    const lv = Math.min(MAX_LEVEL, Math.max(1, level || st.level || 1)), seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
+    if ($('player').open) { pause(); $('player').close(); }
+    await open({
+      key: 'blatt', kind: 'blatt', level: lv, title: 'Vom Blatt spielen', sub: `Stufe ${lv}: ${LEVELS[lv].name}`, buffer: makeSight(lv, seed),
+      history: () => sightState().hist || [],
+      onPractice: () => { try { window.NL && NL.markPractice(1); } catch (e) {} }
+    });
+  }
+
+  window.NLPlay = { open, parse, sight, test: { noteOn, noteOff, fingerHand, makeSight, S, get C() { return C; } } };
 })();

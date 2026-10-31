@@ -240,6 +240,15 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .pl-result p { margin: 0; }
 .pl-big { font: 500 2.8rem var(--font-display); color: var(--accent); }
 .pill.midi { background: var(--accent-soft); color: var(--accent); }
+/* Verlauf: ein Balken je Durchgang, der neueste kräftig */
+.pl-hist { display: flex; align-items: flex-end; gap: 2px; height: 56px; border-bottom: 1px solid var(--line); }
+.pl-hist span { flex: 1; max-width: 22px; background: color-mix(in srgb, var(--accent) 40%, var(--card)); border-radius: 4px 4px 0 0; }
+.pl-hist span.now { background: var(--accent); }
+.pl-htab { width: 100%; border-collapse: collapse; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.pl-htab th { text-align: left; color: var(--muted); font-weight: 600; padding: 2px 4px; }
+.pl-htab td { padding: 3px 4px; border-top: 1px solid var(--line); }
+#pl-panel { max-height: calc(100% - 20px); overflow-y: auto; }
+#pl-ladderto { border: 1px solid var(--line); border-radius: 8px; padding: 5px; background: var(--paper); }
 #pl-hint { top: 52px; bottom: auto; }
 #pl-view label { padding: 4px 10px; }
 @media (max-width: 640px) { #pl-midi { display: none; } #player .topbar .title { display: none; } #pl-view { margin-left: auto; } #pl-opts { padding: 6px 8px; } }
@@ -305,6 +314,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     <label class="btn primary" for="pdf-in" id="pdf-btn">PDF importieren</label>
     <label class="btn" for="img-in" id="scan-btn">Scannen</label>
     <button type="button" class="btn" id="sel-btn" aria-pressed="false">Auswählen</button>
+    <button type="button" class="btn" id="blatt-btn" title="Kurze neue Stücke vom Blatt spielen, mit Auswertung am E-Piano">Vom Blatt</button>
     <input class="file-in" id="pdf-in" type="file" accept="application/pdf,.pdf,.mid,.midi,audio/midi" multiple>
     <input class="file-in" id="img-in" type="file" accept="image/*" multiple>
   </div>
@@ -454,6 +464,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <div class="field"><span>Hände erkennen</span><div class="seg" id="pl-split"></div></div>
       <label class="check"><input type="checkbox" id="pl-names"><span>Notennamen auf den Noten</span></label>
       <label class="check"><input type="checkbox" id="pl-accomp"><span>Die andere Hand spielt die App</span></label>
+      <label class="check"><input type="checkbox" id="pl-click"><span>Metronom-Klick beim Spielen <small class="muted">(eingezählt wird im Tempo immer)</small></span></label>
+      <div class="field"><span>Dein Verlauf</span><div id="pl-histlist"></div></div>
       <label class="field"><span>Lautstärke der App</span><input type="range" id="pl-vol" min="0" max="1" step="0.05"></label>
       <p class="hint" id="pl-info"></p>
       <p class="hint">Fingersatz: ein berechneter Vorschlag für gebundenes Spiel (bequeme Spreizung, Daumen möglichst auf weißen Tasten, wenig Umsetzen). Probier ihn aus und übernimm, was für deine Hand passt.</p>
@@ -473,7 +485,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <button type="button" class="btn small toggle" id="pl-namebtn" aria-pressed="true" title="Notennamen (C, D, E …) auf den Noten zeigen oder ausblenden">Namen</button>
       <button type="button" class="btn small toggle" id="pl-fingbtn" aria-pressed="true" title="Fingersatz-Vorschlag (1 = Daumen … 5 = kleiner Finger) zeigen oder ausblenden">Finger</button>
       <span class="pl-grp"><button type="button" class="btn small toggle" id="pl-loop" aria-pressed="false">Schleife</button>
-        <span id="pl-loopbox" hidden>Takt <input type="number" id="pl-la" min="1" inputmode="numeric" aria-label="Schleife ab Takt"> bis <input type="number" id="pl-lb" min="1" inputmode="numeric" aria-label="Schleife bis Takt"></span></span>
+        <span id="pl-loopbox" hidden>Takt <input type="number" id="pl-la" min="1" inputmode="numeric" aria-label="Schleife ab Takt"> bis <input type="number" id="pl-lb" min="1" inputmode="numeric" aria-label="Schleife bis Takt">
+          <button type="button" class="btn small toggle" id="pl-ladder" aria-pressed="false" title="Nach jedem sauberen Durchgang 5 % schneller, bis zum Zieltempo">Tempo-Leiter</button>
+          <select id="pl-ladderto" aria-label="Zieltempo der Tempo-Leiter" hidden><option value="80">bis 80 %</option><option value="90">bis 90 %</option><option value="100">bis 100 %</option><option value="110">bis 110 %</option><option value="120">bis 120 %</option></select></span></span>
     </div>
     <div class="pl-row"><input type="range" id="pl-seek" min="0" max="1" value="0" aria-label="Takt wählen"></div>
   </div>
@@ -860,6 +874,9 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       await NLPlay.open({
         key: id, title: p.title, sub: p.composer, buffer: await blob.arrayBuffer(),
         onPractice: () => NL.markPractice(1),
+        // Ergebnisse je Stück (mit Drive abgeglichen): Verlauf im Mitspielen
+        onResult: r => { const q = lib.pieces[id]; if (!q) return; q.plays = (q.plays || []).concat(r).slice(-60); touch(q); saveLib(); },
+        history: () => (lib.pieces[id] || {}).plays || [],
         onReplace: async () => { $('player').close(); if (await attachMidi(p, null, true)) openPlayer(id); },
         onRemove: () => removeMidi(p)
       });
@@ -2422,6 +2439,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
     openViewer(sm[1]).then(() => startSpot(sm[2]));
   }
+  $('blatt-btn').addEventListener('click', () => NLPlay.sight());
+  if (location.hash === '#vomblatt') { try { history.replaceState(null, '', location.pathname); } catch (e) {} NLPlay.sight(); }
   const m = location.hash.match(/^#play-(\w+)$/);
   if (m && lib.pieces[m[1]] && !lib.pieces[m[1]].deleted) {
     try { fromHeute = sessionStorage.getItem('nl-from-heute') === '1'; sessionStorage.removeItem('nl-from-heute'); } catch (e) {}
