@@ -169,8 +169,85 @@
     };
   })();
 
+  // ---------- Fingersatz-Vorschlag ----------
+  // Für jede Hand der bequemste Fingersatz für gebundenes Spiel: dynamische Programmierung über die Akkorde,
+  // Kosten für Spreizen, Unter-/Übersetzen, Daumen auf schwarzen Tasten, schwache Finger und Lagenwechsel.
+  // Abstände je Fingerpaar in Halbtönen (rechte Hand, nach Parncutt u. a.; links gespiegelt):
+  // kleinster möglicher, kleinster bequemer, entspannt von, entspannt bis, größter bequemer, größter möglicher
+  const SPAN = { 12: [-5, -3, 1, 5, 8, 10], 13: [-4, -2, 3, 7, 10, 12], 14: [-3, -1, 5, 9, 12, 14], 15: [-1, 1, 7, 10, 13, 15],
+    23: [1, 1, 1, 2, 3, 5], 24: [1, 1, 3, 4, 5, 7], 25: [2, 2, 5, 6, 8, 10], 34: [1, 1, 1, 2, 2, 4], 35: [1, 1, 3, 4, 5, 7], 45: [1, 1, 1, 2, 3, 5] };
+  // Lage auf der Tastatur in weißen Tasten (schwarze dazwischen): so ist die Fünftonlage C–G für jede Hand „natürlich“
+  const WK = [0, 0.5, 1, 1.5, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6];
+  const wk = p => Math.floor(p / 12) * 7 + WK[p % 12];
+  const CROSS = [0, 0, 3, 2, 2.2, 8];      // Daumen unter Finger 2–5 (bzw. Finger über den Daumen): 3 und 4 sind üblich
+  // s: Abstand vom Ton des Fingers fa zum Ton von fb (gespiegelte Tonhöhe)
+  function pairCost(fa, fb, s, chord) {
+    if (fa === fb) return 50;
+    if (fa > fb) { [fa, fb] = [fb, fa]; s = -s; }
+    const [mnP, mnC, mnR, mxR, mxC, mxP] = SPAN[fa * 10 + fb];
+    let c = 0;
+    if (s < mnP || s > mxP) c += chord ? 100 : 20 + 3 * (s < mnP ? mnP - s : s - mxP);
+    if (fa === 1 && s < 0) {
+      if (chord) return c + 100;             // im Akkord kreuzt nichts
+      return c + CROSS[fb] + 0.5 * Math.max(0, -s - 2);   // Untersetzen: eigene, feste Kosten
+    }
+    if (s < mnC) c += 2 * (mnC - s); else if (s > mxC) c += 2 * (s - mxC);
+    if (s < mnR) c += mnR - s; else if (s > mxR) c += s - mxR;
+    if (chord) c += 0.4 * Math.abs(fb - fa - s / 2);   // Akkorde: Terz ↔ jeder zweite Finger (1-3-5)
+    if (fa === 3 && fb === 4) c += 0.3;      // 3–4 ist die schwächste Verbindung
+    return c;
+  }
+  const keyCost = (f, p) => (isBlack(p) ? (f === 1 ? 2 : f === 5 ? 1 : 0) : 0) + (f === 4 ? 0.1 : 0);
+  const COMBOS = [[], [], [], [], [], []];
+  (function rec(start, acc) { if (acc.length) COMBOS[acc.length].push(acc.slice()); for (let f = start; f <= 5; f++) { acc.push(f); rec(f + 1, acc); acc.pop(); } })(1, []);
+  function fingerHand(notes, right) {
+    const q = n => (right ? n.p : -n.p);   // linke Hand gespiegelt: dann gelten dieselben Regeln
+    const trans = (f1, n1, f2, n2, chords) => {
+      const d = q(n2) - q(n1);
+      // gleicher Finger, andere Taste: nicht gebunden – bei Akkordwechseln aber normal
+      if (f1 === f2) return d === 0 ? 1 : chords ? 0.3 + 0.1 * Math.abs(d) : 12 + Math.abs(d);
+      let c = pairCost(f1, f2, d);
+      const s = f1 < f2 ? d : -d;
+      if (Math.min(f1, f2) === 1 && s < 0 && isBlack((f1 === 1 ? n1 : n2).p)) c += 2;
+      return c;
+    };
+    const ch = [];
+    for (const n of notes) { n.fing = 0; const c = ch[ch.length - 1]; if (c && n.t - c.t < 0.03) c.ns.push(n); else ch.push({ t: n.t, ns: [n] }); }
+    let prev = null;
+    for (const c of ch) {
+      c.ns.sort((a, b) => q(a) - q(b));
+      if (c.ns.length > 5) c.ns = [...c.ns.slice(0, 2), ...c.ns.slice(-3)];   // mehr als fünf Töne: die äußeren
+      c.end = Math.max(...c.ns.map(n => n.t + n.d));
+      c.st = COMBOS[c.ns.length].map(fs => {
+        let own = 0;
+        fs.forEach((f, i) => { own += keyCost(f, c.ns[i].p); if (i) own += pairCost(fs[i - 1], f, q(c.ns[i]) - q(c.ns[i - 1]), true); });
+        return { fs, own, hand: fs.reduce((s, f, i) => s + (right ? wk(c.ns[i].p) : -wk(c.ns[i].p)) - (f - 1), 0) / fs.length, cost: Infinity, from: 0 };
+      });
+      if (!prev) c.st.forEach(s => { s.cost = s.own; });
+      else {
+        const free = c.t - prev.end > 0.3 ? 0.25 : 1;   // nach einer Pause darf die Hand neu ansetzen
+        for (const s of c.st) for (let j = 0; j < prev.st.length; j++) {
+          const ps = prev.st[j], a = ps.fs.length - 1, b = s.fs.length - 1;
+          // Hauptstimme (rechts oben, links unten) gebunden, dazu die Gegenseite und die Lage der Hand
+          const chords = a > 0 && b > 0;
+          let t = trans(ps.fs[a], prev.ns[a], s.fs[b], c.ns[b], chords);
+          if (a || b) t += 0.5 * trans(ps.fs[0], prev.ns[0], s.fs[0], c.ns[0], chords);
+          t = (t + 0.3 * Math.abs(s.hand - ps.hand)) * free;
+          if (ps.cost + t + s.own < s.cost) { s.cost = ps.cost + t + s.own; s.from = j; }
+        }
+      }
+      prev = c;
+    }
+    if (!prev) return;
+    let s = prev.st.reduce((a, b) => (b.cost < a.cost ? b : a));
+    for (let i = ch.length - 1; i >= 0; i--) {
+      ch[i].ns.forEach((n, j) => { n.fing = s.fs[j]; });
+      if (i) s = ch[i - 1].st[s.from];
+    }
+  }
+
   // ---------- Zustand ----------
-  const DEF = { hands: 'both', mode: 'wait', tempo: 0.7, accomp: true, names: true, split: 'auto', vol: 0.6, view: 'falling' };
+  const DEF = { hands: 'both', mode: 'wait', tempo: 0.7, accomp: true, names: true, fingers: true, split: 'auto', vol: 0.6, view: 'falling' };
   const CFG_KEY = 'nl-play';
   const cfgAll = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch (e) { return {}; } };
   const writeCfg = f => { const a = cfgAll(); f(a); try { localStorage.setItem(CFG_KEY, JSON.stringify(a)); } catch (e) {} };
@@ -192,6 +269,8 @@
 
   function prepare() {
     for (const n of S.song.notes) n.h = C.split === 'pitch' ? n.hp : (n.ht || n.hp);
+    fingerHand(S.song.notes.filter(n => n.h === 'R'), true);
+    fingerHand(S.song.notes.filter(n => n.h === 'L'), false);
     // Akkorde der geübten Hand(en): im Wartemodus geht es weiter, wenn alle Töne eines Akkords gespielt sind
     const ev = [];
     for (const n of S.song.notes) {
@@ -397,7 +476,8 @@
   // Was als Nächstes zu spielen ist: Taste → Hand
   function expected() {
     const exp = new Map();
-    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev && ev.t - S.pos < 1.5 * C.tempo) for (const n of ev.notes) if (!ev.got.has(n.p)) exp.set(n.p, n.h); }
+    S.expF = new Map();
+    if (C.mode === 'wait') { const ev = S.events[S.evi]; if (ev && ev.t - S.pos < 1.5 * C.tempo) for (const n of ev.notes) if (!ev.got.has(n.p)) { exp.set(n.p, n.h); S.expF.set(n.p, n.fing); } }
     return exp;
   }
   function draw(now) {
@@ -450,10 +530,12 @@
       g.fillStyle = n.res === 'miss' ? BAD : n.h === 'L' ? HL : HR;
       rrect(g, x, y0, nw, Math.max(3, y1 - y0), 5);
       if (bk) { g.fillStyle = 'rgba(0,0,0,.22)'; rrect(g, x, y0, nw, Math.max(3, y1 - y0), 5); }
-      if (C.names && mine && y1 - y0 >= 15) {
-        const name = NAMES[n.p % 12];
+      if ((C.names || (C.fingers && n.fing)) && mine && y1 - y0 >= 15) {
+        const name = NAMES[n.p % 12], f = C.fingers && n.fing ? String(n.fing) : '';
         g.font = `700 ${nw >= 20 ? 12 : 10}px Figtree, system-ui, sans-serif`;
-        if (g.measureText(name).width <= nw - 2) { g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(name, x + nw / 2, y1 - 5); g.textAlign = 'left'; }
+        let label = [f, C.names ? name : ''].filter(Boolean).join(' ');
+        if (g.measureText(label).width > nw - 2) label = f || name;
+        if (g.measureText(label).width <= nw - 2) { g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(label, x + nw / 2, y1 - 5); g.textAlign = 'left'; }
       }
       g.globalAlpha = 1;
     }
@@ -478,6 +560,14 @@
       if (p % 12 === 0 && K.ww >= 13) { g.fillStyle = '#8a8fa3'; g.font = '600 10px Figtree, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('C' + (p / 12 - 1), K.x[p] + K.ww / 2, hy + kbH - 7); g.textAlign = 'left'; }
     }
     for (let p = S.kb.lo; p <= S.kb.hi; p++) if (isBlack(p)) { g.fillStyle = keyCol(p, true); rrect(g, K.x[p], hy + 1, K.bw, kbH * 0.62, 3); }
+    // Fingersatz auf den Tasten, die als Nächstes dran sind
+    if (C.fingers && S.expF) for (const [p, f] of S.expF) {
+      if (!f || K.x[p] === undefined || S.down.has(p)) continue;
+      const bk = isBlack(p), cx = K.x[p] + (bk ? K.bw : K.ww) / 2, cy = bk ? hy + kbH * 0.62 - 12 : hy + kbH - 26, r = Math.min(10, (bk ? K.bw : K.ww) / 2 - 1);
+      g.fillStyle = exp.get(p) === 'L' ? HL : HR; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; g.font = `700 ${Math.round(r * 1.3)}px Figtree, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(f), cx, cy + 0.5);
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    }
   }
   function status(exp) {
     const sg = S.song, bar = sg.barOf(Math.max(0, S.pos)) + 1, s = S.stats;
@@ -659,6 +749,19 @@
           g.textBaseline = 'alphabetic';
         }
       }
+      // Fingersatz: rechte Hand über dem Violin-, linke unter dem Bass-System; der obere Ton steht oben
+      if (C.fingers && (C.mode === 'listen' || c.notes.some(practiced)) && c.heads.some(hd => hd.n.fing)) {
+        const ys = c.heads.map(hd => yOf(st, hd.step)), tip = c.stem ? (c.beam ? beamY(c.beam) : tipOf(c)) : null, lh = sp * 1.1;
+        g.font = `800 ${Math.round(sp * 1.05)}px Figtree, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        if (st === 'treble') {
+          const y0 = Math.min(...ys, c.stem && c.up ? tip : Infinity, bot.treble - 4 * sp) - 1.1 * sp;
+          c.heads.filter(hd => hd.n.fing).forEach((hd, i) => { g.fillStyle = colOf(hd.n) === INK ? '#3a4a8c' : colOf(hd.n); g.fillText(String(hd.n.fing), x, y0 - i * lh); });
+        } else {
+          const y0 = Math.max(...ys, c.stem && !c.up ? tip : -Infinity, bot.bass) + 1.1 * sp;
+          [...c.heads].reverse().filter(hd => hd.n.fing).forEach((hd, i) => { g.fillStyle = colOf(hd.n) === INK ? '#3a4a8c' : colOf(hd.n); g.fillText(String(hd.n.fing), x, y0 + i * lh); });
+        }
+        g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+      }
       // Hals, Fähnchen, Balken
       if (c.stem) {
         const sx = stemX(c), ys = c.heads.map(hd => yOf(st, hd.step));
@@ -714,6 +817,7 @@
     $('pl-tval').textContent = `${Math.round(C.tempo * 100)} %${S.song ? ` · ♩ ${Math.round(S.song.bpm * C.tempo)}` : ''}`;
     $('pl-loop').setAttribute('aria-pressed', !!S.loop);
     $('pl-namebtn').setAttribute('aria-pressed', !!C.names);
+    $('pl-fingbtn').setAttribute('aria-pressed', !!C.fingers);
     $('pl-loopbox').hidden = !S.loop;
     if (S.loop) { $('pl-la').value = S.loop.a + 1; $('pl-lb').value = S.loop.b + 1; }
   }
@@ -729,7 +833,7 @@
     if (k === 'tempo') { ui(); return; }
     if (k === 'view') { try { localStorage.setItem('nl-play-view', v); } catch (e) {} return; }
     if (k === 'vol') { Synth.volume(v); return; }
-    if (k === 'names' || k === 'accomp' || k === 'view') return;
+    if (k === 'names' || k === 'accomp' || k === 'view' || k === 'fingers') return;
     $('pl-hint').hidden = true;
     pause();
     prepare();
@@ -750,6 +854,7 @@
     $('pl-split').addEventListener('change', e => setOpt('split', e.target.value));
     $('pl-names').addEventListener('change', e => { setOpt('names', e.target.checked); ui(); });
     $('pl-namebtn').addEventListener('click', () => { setOpt('names', !C.names); $('pl-names').checked = C.names; ui(); });
+    $('pl-fingbtn').addEventListener('click', () => { setOpt('fingers', !C.fingers); ui(); });
     $('pl-accomp').addEventListener('change', e => setOpt('accomp', e.target.checked));
     $('pl-vol').addEventListener('input', e => setOpt('vol', +e.target.value));
     $('pl-play').addEventListener('click', () => (S.playing ? pause() : play()));
@@ -854,5 +959,5 @@
     clearTimeout(S.hintT); S.hintT = setTimeout(() => { hint.hidden = true; }, 5000);
   }
 
-  window.NLPlay = { open, parse, test: { noteOn, noteOff, S, get C() { return C; } } };
+  window.NLPlay = { open, parse, test: { noteOn, noteOff, fingerHand, S, get C() { return C; } } };
 })();

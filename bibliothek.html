@@ -456,6 +456,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <label class="check"><input type="checkbox" id="pl-accomp"><span>Die andere Hand spielt die App</span></label>
       <label class="field"><span>Lautstärke der App</span><input type="range" id="pl-vol" min="0" max="1" step="0.05"></label>
       <p class="hint" id="pl-info"></p>
+      <p class="hint">Fingersatz: ein berechneter Vorschlag für gebundenes Spiel (bequeme Spreizung, Daumen möglichst auf weißen Tasten, wenig Umsetzen). Probier ihn aus und übernimm, was für deine Hand passt.</p>
       <div class="actions"><button type="button" class="btn small" id="pl-replace">Andere MIDI-Datei</button><button type="button" class="btn small danger" id="pl-remove">MIDI-Datei entfernen</button></div>
     </div>
     <div class="pltimer nlt-down nlt-right" id="pl-timer"></div>
@@ -470,6 +471,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <div class="seg" id="pl-mode" role="radiogroup" aria-label="Modus"></div>
       <span class="pl-grp"><b>Tempo</b><button type="button" class="btn small" id="pl-tdown" aria-label="Langsamer">−</button><span id="pl-tval">70 %</span><button type="button" class="btn small" id="pl-tup" aria-label="Schneller">+</button></span>
       <button type="button" class="btn small toggle" id="pl-namebtn" aria-pressed="true" title="Notennamen (C, D, E …) auf den Noten zeigen oder ausblenden">Namen</button>
+      <button type="button" class="btn small toggle" id="pl-fingbtn" aria-pressed="true" title="Fingersatz-Vorschlag (1 = Daumen … 5 = kleiner Finger) zeigen oder ausblenden">Finger</button>
       <span class="pl-grp"><button type="button" class="btn small toggle" id="pl-loop" aria-pressed="false">Schleife</button>
         <span id="pl-loopbox" hidden>Takt <input type="number" id="pl-la" min="1" inputmode="numeric" aria-label="Schleife ab Takt"> bis <input type="number" id="pl-lb" min="1" inputmode="numeric" aria-label="Schleife bis Takt"></span></span>
     </div>
