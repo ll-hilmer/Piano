@@ -51,9 +51,10 @@ self.addEventListener('fetch', e => {
     })());
     return;
   }
-  // Übrige Dateien: sofort aus dem Zwischenspeicher, im Hintergrund auffrischen
+  // Übrige Dateien: sofort aus dem Zwischenspeicher, im Hintergrund auffrischen.
+  // Mit Versionskennung (?v=…) nur genau diese Fassung – nie ein altes Skript zu einer neuen Seite.
   e.respondWith(caches.open(CACHE).then(async c => {
-    const hit = await c.match(req, { ignoreSearch: true });
+    const hit = await c.match(req, { ignoreSearch: !url.searchParams.has('v') });
     const fresh = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => null);
     return hit || (await fresh) || Response.error();
   }));

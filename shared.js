@@ -507,6 +507,14 @@
   // Offline: App auf dem Gerät zwischenspeichern (nur auf der eigenen Webseite, nicht in einer Vorschau)
   if ('serviceWorker' in navigator && !NL.embedded && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+    // Neue Version direkt nach dem Öffnen übernommen: einmal neu laden, damit alles zusammenpasst
+    // (nur in den ersten Sekunden und wenn gerade nichts geöffnet ist)
+    const t0 = Date.now(), hadCtl = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadCtl || Date.now() - t0 > 15000 || document.querySelector('dialog[open]')) return;
+      try { if (sessionStorage.getItem('nl-reloaded') === '1') return; sessionStorage.setItem('nl-reloaded', '1'); } catch (e) { return; }
+      location.reload();
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
