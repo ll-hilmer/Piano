@@ -777,7 +777,7 @@
       S.opts.onRemove && S.opts.onRemove();
     });
     $('pl-stage').addEventListener('pointerdown', e => { if (e.target.closest('.vpanel, .pl-result')) return; $('pl-panel').hidden = true; });
-    // Notenblatt: über die Noten wischen spult – nach links zurück, nach rechts vor, so weit wie gewischt
+    // Notenblatt: über die Noten wischen spult wie beim Blättern – nach links wischen geht vorwärts, nach rechts zurück
     let swipe = null;
     $('pl-stage').addEventListener('pointerdown', e => {
       if (C.view !== 'sheet' || !S.song || e.target.closest('.vpanel, .pl-result, .nlt') || e.clientY - $('pl-stage').getBoundingClientRect().top > (S.sheetH || 0)) return;
@@ -790,7 +790,7 @@
       if (!swipe.moved && Math.abs(dx) < 8) return;
       if (!swipe.moved) { swipe.moved = true; if (S.playing) pause(); hideResult(); }
       const sg = S.song;
-      resetFrom(Math.max(sg.first - lead(), Math.min(sg.end, swipe.pos + dx / S.pxs)));
+      resetFrom(Math.max(sg.first - lead(), Math.min(sg.end, swipe.pos - dx / S.pxs)));
     });
     const endSwipe = e => { if (swipe && swipe.id === e.pointerId) swipe = null; };
     $('pl-stage').addEventListener('pointerup', endSwipe);
