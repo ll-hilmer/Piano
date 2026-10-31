@@ -317,7 +317,10 @@
     Object.entries(L.pieces || {}).forEach(([id, p]) => { const o = pieces[id]; if (!o || (p.updated || 0) >= (o.updated || 0)) pieces[id] = p; });
     // Stück des Tages: die zuletzt gesetzte Wahl gilt auf allen Geräten
     const daily = !L.daily ? R.daily : !R.daily ? L.daily : (L.daily.t || 0) >= (R.daily.t || 0) ? L.daily : R.daily;
-    return { pieces, daily, _mod: Math.max(L._mod || 0, R._mod || 0) };
+    // Aufnahmen: jede einzeln (neuester Stand gewinnt), damit Aufnahmen verschiedener Geräte nie verloren gehen
+    const recs = { ...(R.recs || {}) };
+    Object.entries(L.recs || {}).forEach(([id, r]) => { const o = recs[id]; if (!o || (r.updated || 0) >= (o.updated || 0)) recs[id] = r; });
+    return { pieces, daily, recs, _mod: Math.max(L._mod || 0, R._mod || 0) };
   }
   NL.mergeLibrary = mergeLibrary;
   function mergeAll(local, remote) {

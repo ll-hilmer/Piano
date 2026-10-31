@@ -197,6 +197,18 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
 .pg-r { justify-content: flex-end; }
 .pager .vmfab { position: static; box-shadow: none; padding: 6px 12px 6px 9px; }
 .pager .nlt-pill { box-shadow: none; padding: 6px 12px 6px 9px; }
+.pg-side { gap: 8px; align-items: center; }
+.vrec { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 6px 12px 6px 10px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; }
+.vrec .dot { width: 12px; height: 12px; border-radius: 50%; background: #d23b33; flex: none; }
+.vrec.on { background: #d23b33; border-color: #d23b33; color: #fff; }
+.vrec.on .dot { background: #fff; border-radius: 2px; }
+.vrec:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+#v-recs { left: max(12px, env(safe-area-inset-left, 0px)); right: auto; top: auto; bottom: 12px; max-height: calc(100% - 24px); overflow-y: auto; align-content: start; }
+.reclist { display: grid; gap: 8px; }
+.recrow { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 8px; align-items: center; border-top: 1px solid var(--line); padding-top: 8px; }
+.recrow small { display: block; color: var(--muted); }
+.recrow audio { grid-column: 1 / -1; width: 100%; }
+@media (max-width: 640px) { .vrec .lbl:not(.time) { display: none; } .vrec { padding: 7px; } }
 #viewer.immersive .topbar, #viewer.immersive .pager { display: none; }
 .full[open] { grid-template-columns: minmax(0, 1fr); }
 #viewer[open], #viewer.immersive[open] { grid-template-rows: auto auto minmax(0, 1fr) auto; }
@@ -415,6 +427,12 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       <button type="button" class="btn small primary" id="vm-go">Start</button>
       <span class="beat" id="vm-dot"></span>
     </div>
+    <div class="vpanel vrecpanel" id="v-recs" hidden>
+      <div class="actions"><b>Aufnahmen</b><span class="spacer"></span><button type="button" class="btn small" id="v-recs-close">Schließen</button></div>
+      <button type="button" class="btn primary" id="v-recgo">Aufnahme starten</button>
+      <p class="hint">Nimm dich auf und hör mit etwas Abstand hin – vieles fällt erst beim Zuhören auf. Die Aufnahmen werden in deinem Drive-Ordner „Klavier-App“ gesichert (höchstens 10 Minuten je Aufnahme).</p>
+      <div class="reclist" id="v-reclist"></div>
+    </div>
     <div class="spotbar" id="v-spotbar" hidden></div>
     <button type="button" class="backjump" id="v-backjump" hidden></button>
     <div class="vpanel" id="v-spots" hidden>
@@ -442,7 +460,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     </div>
   </div>
   <div class="pager">
-    <div class="pg-side"><div class="vtimer nlt-up" id="v-timer"></div></div>
+    <div class="pg-side"><div class="vtimer nlt-up" id="v-timer"></div><button type="button" class="vrec" id="v-rec" aria-expanded="false" aria-controls="v-recs" title="Aufnahmen"><span class="dot" aria-hidden="true"></span><span class="lbl" id="v-rec-txt">Aufnehmen</span></button></div>
     <div class="pg-mid"><button type="button" class="iconbtn" id="v-back" aria-label="Zurückblättern"></button><span id="v-page">1 / 1</span><button type="button" class="iconbtn" id="v-fwd" aria-label="Weiterblättern"></button><span class="zoom" id="v-zoomtag"></span></div>
     <div class="pg-side pg-r"><button type="button" class="vmfab" id="v-metro-btn" aria-expanded="false" aria-controls="v-metro" title="Metronom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3h5l4.5 18H5z"/><path d="M12 17l5-10"/><path d="M7.5 17h9"/></svg><span id="v-metro-txt">80</span></button></div>
   </div>
@@ -599,6 +617,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   const LIB_KEY = 'nl-library';
   const readLib = () => { try { return JSON.parse(localStorage.getItem(LIB_KEY) || 'null') || { pieces: {} }; } catch (e) { return { pieces: {} }; } };
   let lib = readLib();
+  lib.recs = lib.recs || {};
   lib.pieces = lib.pieces || {};
   function saveLib() {
     lib._mod = Date.now();
@@ -804,6 +823,115 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
   }
   const favBtn = p => { $('v-fav').setAttribute('aria-pressed', !!p.fav); $('v-fav').title = p.fav ? 'Aus den Favoriten nehmen' : 'Als Lieblingsstück markieren'; };
   $('v-fav').addEventListener('click', () => toggleFav(V.id));
+
+  // ---------- Aufnahmen: sich selbst zuhören ----------
+  // Ton übers Mikrofon, je Stück gespeichert: auf dem Gerät („rec:<id>“) und im Drive-Ordner; die Liste steht in lib.recs
+  const REC = { mr: null, chunks: [], t0: 0, timer: 0, stream: null, pid: null };
+  const REC_MAX = 10 * 60;   // höchstens 10 Minuten (bleibt so unter der Grenze für einfaches Hochladen)
+  const recsOf = pid => Object.values(lib.recs || {}).filter(r => r.pid === pid && !r.deleted).sort((a, b) => b.t - a.t);
+  const fmtDur = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  const recExt = m => (/mp4|m4a|aac/.test(m) ? 'm4a' : /ogg/.test(m) ? 'ogg' : 'webm');
+  const recDate = t => new Date(t).toLocaleString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  function recMime() {
+    for (const m of ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg']) if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
+    return '';
+  }
+  async function recStart() {
+    if (!window.MediaRecorder || !navigator.mediaDevices) { toast('Dieser Browser kann nicht aufnehmen.'); return; }
+    // Musik: ohne Rauschunterdrückung und automatische Lautstärke, sonst klingt das Klavier gepresst
+    try { REC.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
+    catch (e) { toast('Kein Zugriff aufs Mikrofon. Erlaube ihn in den Einstellungen des Browsers.'); return; }
+    const mime = recMime();
+    try { REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : undefined); }
+    catch (e) { REC.mr = new MediaRecorder(REC.stream); }
+    REC.chunks = []; REC.pid = V.id; REC.t0 = Date.now();
+    REC.mr.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+    REC.mr.onstop = recSave;
+    REC.mr.start(1000);
+    clearInterval(REC.timer);
+    REC.timer = setInterval(() => { recUi(); if ((Date.now() - REC.t0) / 1000 >= REC_MAX) { recStop(); toast('Nach 10 Minuten automatisch beendet.'); } }, 500);
+    $('v-recs').hidden = true;
+    recUi();
+  }
+  function recStop() {
+    clearInterval(REC.timer);
+    if (REC.mr && REC.mr.state !== 'inactive') REC.mr.stop();
+    if (REC.stream) REC.stream.getTracks().forEach(t => t.stop());
+    REC.stream = null;
+  }
+  async function recSave() {
+    const mr = REC.mr, dur = (Date.now() - REC.t0) / 1000, chunks = REC.chunks;
+    REC.mr = null; REC.chunks = []; recUi();
+    if (dur < 2 || !chunks.length) { renderRecs(); return; }
+    const type = (mr && mr.mimeType) || chunks[0].type || 'audio/webm';
+    const blob = new Blob(chunks, { type });
+    const id = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    await idb.put('files', 'rec:' + id, blob);
+    lib.recs = lib.recs || {};
+    lib.recs[id] = { id, pid: REC.pid, t: REC.t0, dur: Math.round(dur), mime: type.split(';')[0], size: blob.size, updated: Date.now() };
+    saveLib(); renderRecs(); syncFiles();
+    toast(`Aufnahme gespeichert (${fmtDur(dur)}). Anhören über „Aufnehmen“ unten.`);
+  }
+  function recUi() {
+    const b = $('v-rec'), on = !!(REC.mr && REC.mr.state === 'recording');
+    b.classList.toggle('on', on);
+    $('v-rec-txt').classList.toggle('time', on);
+    $('v-rec-txt').textContent = on ? fmtDur((Date.now() - REC.t0) / 1000) : (recsOf(V.id).length ? `Aufnahmen (${recsOf(V.id).length})` : 'Aufnehmen');
+    b.setAttribute('aria-label', on ? 'Aufnahme beenden' : 'Aufnahmen');
+    $('v-recgo').textContent = on ? 'Aufnahme beenden' : 'Aufnahme starten';
+  }
+  function renderRecs() {
+    const list = recsOf(V.id);
+    $('v-reclist').innerHTML = list.length
+      ? list.map(r => `<div class="recrow" data-id="${r.id}"><div><b>${recDate(r.t)}</b><small>${fmtDur(r.dur)}${r.fileId ? ' · in Drive gesichert' : ''}</small></div><button type="button" class="btn small" data-a="play">Anhören</button><button type="button" class="btn small danger" data-a="del">Löschen</button></div>`).join('')
+      : '<p class="hint">Noch keine Aufnahmen zu diesem Stück.</p>';
+    recUi();
+  }
+  async function recBlob(r) {
+    let blob = await idb.get('files', 'rec:' + r.id).catch(() => null);
+    if (!blob && r.fileId) {
+      if (!NL.ready()) throw new Error('Diese Aufnahme liegt nur in Google Drive. Verbinde dich mit dem Internet und melde dich an.');
+      blob = await (await NL.api(`/drive/v3/files/${r.fileId}?alt=media`)).blob();
+      await idb.put('files', 'rec:' + r.id, blob);
+    }
+    return blob;
+  }
+  $('v-rec').addEventListener('click', e => {
+    e.currentTarget.blur();
+    if (REC.mr && REC.mr.state === 'recording') { recStop(); return; }   // während der Aufnahme: ein Tipp beendet sie
+    const p = $('v-recs'); p.hidden = !p.hidden;
+    $('v-rec').setAttribute('aria-expanded', String(!p.hidden));
+    if (!p.hidden) renderRecs();
+  });
+  $('v-recs-close').addEventListener('click', () => { $('v-recs').hidden = true; });
+  $('v-recgo').addEventListener('click', () => (REC.mr ? recStop() : recStart()));
+  $('v-reclist').addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'), row = e.target.closest('.recrow');
+    if (!b || !row) return;
+    const r = (lib.recs || {})[row.dataset.id];
+    if (!r) return;
+    if (b.dataset.a === 'play') {
+      row.querySelectorAll('audio').forEach(a => a.remove());
+      try {
+        const blob = await recBlob(r);
+        if (!blob) { toast('Die Aufnahme fehlt auf diesem Gerät.'); return; }
+        const a = document.createElement('audio');
+        a.controls = true; a.src = URL.createObjectURL(blob);
+        row.appendChild(a);
+        // Chrome-Aufnahmen nennen ihre Länge nicht: einmal ans Ende springen, dann ist sie bekannt und der Regler funktioniert
+        a.addEventListener('loadedmetadata', () => {
+          if (a.duration !== Infinity) { a.play().catch(() => {}); return; }
+          a.addEventListener('timeupdate', function fix() { a.removeEventListener('timeupdate', fix); a.currentTime = 0; a.play().catch(() => {}); });
+          a.currentTime = 1e101;
+        }, { once: true });
+      } catch (err) { toast(err.message); }
+    } else if (b.dataset.a === 'del') {
+      if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Sicher?'; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Löschen'; }, 3000); return; }
+      r.deleted = true; r.updated = Date.now();
+      idb.del('files', 'rec:' + r.id).catch(() => {});
+      saveLib(); renderRecs(); syncFiles();
+    }
+  });
 
   // ---------- Mitspielen (MIDI-Datei je Stück) ----------
   // Auf dem Gerät: Eintrag „mid:<id>“ im Speicher der Noten ({ rev, blob }); in Drive neben dem PDF.
@@ -1128,6 +1256,29 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
           p.midiName = midiName(p); touch(p); changed = true;
         }
       }
+      // Aufnahmen: neue hochladen, gelöschte (auch die gelöschter Stücke) in den Drive-Papierkorb
+      for (const r of Object.values(lib.recs || {})) {
+        const owner = lib.pieces[r.pid];
+        if (!r.deleted && (!owner || owner.deleted)) { r.deleted = true; r.updated = Date.now(); changed = true; }
+        if (r.deleted) {
+          await idb.del('files', 'rec:' + r.id).catch(() => {});
+          if (r.fileId && !r.trashed) {
+            await NL.api(`/drive/v3/files/${r.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }).catch(e => { if (e.code !== 404) throw e; });
+            r.trashed = true; r.updated = Date.now(); changed = true;
+          }
+          continue;
+        }
+        if (r.fileId) continue;
+        const blob = await idb.get('files', 'rec:' + r.id);
+        if (!blob) continue;
+        syncLine(`Lade Aufnahme hoch: „${owner.title}“ …`, 'upload');
+        const stamp = new Date(r.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/[,:]/g, m => (m === ':' ? '.' : ''));
+        const bd = 'nl' + Math.random().toString(36).slice(2);
+        const meta = { name: `${fileName(owner).replace(/\.pdf$/, '')} – Aufnahme ${stamp}.${recExt(r.mime)}`.replace(/[\\/:*?"<>|]/g, '-'), parents: [folder], mimeType: r.mime };
+        const body = new Blob([`--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${bd}\r\nContent-Type: ${r.mime}\r\n\r\n`, blob, `\r\n--${bd}--`]);
+        r.fileId = (await (await NL.api('/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + bd }, body })).json()).id;
+        r.updated = Date.now(); changed = true;
+      }
       if (changed) { saveLib(); renderGrid(); }
       // Fehlende MIDI-Dateien holen (klein; so geht Mitspielen auch offline)
       for (const p of pieces()) if (p.midi && p.midiId && !p.midiDirty) await fetchMidi(p).catch(() => {});
@@ -1177,7 +1328,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
       if (changed) saveLib();
     } finally { filesBusy = false; if (filesAgain) setTimeout(syncFiles, 0); }
   }
-  document.addEventListener('nl-synced', () => { lib = readLib(); lib.pieces = lib.pieces || {}; render(); syncFiles(); });
+  document.addEventListener('nl-synced', () => { lib = readLib(); lib.pieces = lib.pieces || {}; lib.recs = lib.recs || {}; render(); syncFiles(); if ($('viewer').open) recUi(); });
   document.addEventListener('nl-status', e => { if (e.detail.status === 'ok') syncFiles(); });
   window.addEventListener('online', () => setTimeout(syncFiles, 1500));
 
@@ -1200,12 +1351,13 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (A.editing) setEditing(false);
     A.data = null;
     V.cropEdit = false; V.activeSpot = null; V.back = null;
-    ['v-spotbar', 'v-backjump', 'v-spots', 'v-cropbar'].forEach(x => { $(x).hidden = true; });
+    ['v-spotbar', 'v-backjump', 'v-spots', 'v-cropbar', 'v-recs'].forEach(x => { $(x).hidden = true; });
     $('v-cropsvg').toggleAttribute('hidden', true);
     $('v-spots-btn').hidden = true;
     V.id = id; V.page = 1; V.half = false; V.zoom = VS.zoom || 1; V.cache.clear(); V.openedAt = Date.now();
     $('v-title').innerHTML = `${esc(p.title)}<small>${esc(p.composer || '')}</small>`;
     favBtn(p);
+    recUi();
     $('v-canvas').hidden = true; $('v-panel').hidden = true; $('viewer').classList.remove('immersive');
     const msg = $('v-msg');
     msg.textContent = 'Noten werden geladen …'; msg.hidden = false;
@@ -1421,6 +1573,8 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (V.cropEdit) endCrop(false);
     if (V.activeSpot) endSpot();
     showMetro(false, true);
+    if (REC.mr) recStop();
+    $('v-recs').hidden = true;
     if (A.editing) setEditing(false);
     saveAnnot();
     if (V.doc) { V.doc.destroy(); V.doc = null; }
@@ -2174,6 +2328,7 @@ dialog::backdrop { background: rgba(10, 12, 24, .55); }
     if (!g.moved && Date.now() - g.t < 500) {
       if (!$('v-panel').hidden) { $('v-panel').hidden = true; return; }
       if (!$('v-spots').hidden) { $('v-spots').hidden = true; return; }
+      if (!$('v-recs').hidden) { $('v-recs').hidden = true; return; }
       if (A.editing) return;           // beim Bearbeiten blättert Tippen nicht um
       const L = hitLink(e);
       if (L) { jumpLink(L); return; }
